@@ -1,0 +1,243 @@
+import 'package:ccr_booking/core/app_theme.dart';
+import 'package:ccr_booking/widgets/custom_loader.dart';
+import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class CustomSearch extends StatefulWidget {
+  final Function(Map<String, dynamic>) onClientSelected;
+
+  const CustomSearch({super.key, required this.onClientSelected});
+
+  @override
+  State<CustomSearch> createState() => _CustomSearchState();
+}
+
+class _CustomSearchState extends State<CustomSearch> {
+  final SupabaseClient supabase = Supabase.instance.client;
+
+  String? selectedClientName;
+  List<Map<String, dynamic>> allClients = [];
+  List<Map<String, dynamic>> filteredClients = [];
+  bool isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchClients();
+  }
+
+  Future<void> _fetchClients() async {
+    setState(() => isLoading = true);
+    try {
+      final data = await supabase.from('clients').select();
+      setState(() {
+        allClients = List<Map<String, dynamic>>.from(data);
+        filteredClients = allClients;
+      });
+    } catch (e) {
+      debugPrint("Error fetching clients: $e");
+    } finally {
+      setState(() => isLoading = false);
+    }
+  }
+
+  void _filterClients(String query) {
+    setState(() {
+      final searchLower = query.toLowerCase();
+      filteredClients = allClients.where((client) {
+        final name = client['name'].toString().toLowerCase();
+        final phone = client['phone'].toString().toLowerCase();
+        return name.contains(searchLower) || phone.contains(searchLower);
+      }).toList();
+    });
+  }
+
+  void _showSearchSheet() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.75,
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(25),
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+            child: Column(
+              children: [
+                // Handle bar
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white24 : Colors.grey[300],
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  "Select Client",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 15),
+                // Search Field
+                TextField(
+                  autofocus: true,
+                  textCapitalization: TextCapitalization.words,
+                  style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                  decoration: InputDecoration(
+                    hintText: "Search name or phone number...",
+                    hintStyle: TextStyle(
+                      color: isDark ? Colors.white38 : Colors.grey,
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.search,
+                      color: AppColors.primary,
+                    ),
+                    filled: true,
+                    fillColor: isDark
+                        ? Colors.white.withOpacity(0.05)
+                        : Colors.grey[100],
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  onChanged: (val) {
+                    _filterClients(val);
+                    setModalState(() {});
+                  },
+                ),
+                const SizedBox(height: 15),
+                // Results List
+                Expanded(
+                  child: isLoading
+                      ? const Center(child: CustomLoader())
+                      : filteredClients.isEmpty
+                      ? Center(
+                          child: Text(
+                            "No clients found",
+                            style: TextStyle(
+                              color: isDark ? Colors.white54 : Colors.grey,
+                            ),
+                          ),
+                        )
+                      : ListView.separated(
+                          physics: const BouncingScrollPhysics(),
+                          itemCount: filteredClients.length,
+                          separatorBuilder: (_, __) => Divider(
+                            height: 1,
+                            color: isDark ? Colors.white10 : Colors.grey[200],
+                          ),
+                          itemBuilder: (context, index) {
+                            final client = filteredClients[index];
+                            return ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 4,
+                              ),
+                              title: Text(
+                                client['name'],
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark ? Colors.white : Colors.black,
+                                ),
+                              ),
+                              subtitle: Text(
+                                client['phone'],
+                                style: TextStyle(
+                                  color: isDark
+                                      ? Colors.white54
+                                      : Colors.black54,
+                                ),
+                              ),
+                              trailing: const Icon(
+                                Icons.chevron_right,
+                                color: Colors.grey,
+                              ),
+                              onTap: () {
+                                setState(
+                                  () => selectedClientName = client['name'],
+                                );
+                                widget.onClientSelected(client);
+                                Navigator.pop(context);
+                              },
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Client",
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            color: isDark ? Colors.white : Colors.black,
+          ),
+        ),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: _showSearchSheet,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF2A2A2A) : Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isDark ? Colors.white10 : Colors.grey[300]!,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.person_search_rounded,
+                  color: selectedClientName == null
+                      ? Colors.grey
+                      : AppColors.primary,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    selectedClientName ?? "Tap to search client...",
+                    style: TextStyle(
+                      color: selectedClientName == null
+                          ? Colors.grey
+                          : (isDark ? Colors.white : Colors.black),
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+                const Icon(Icons.arrow_drop_down, color: Colors.grey),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}

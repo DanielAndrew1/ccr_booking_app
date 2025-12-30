@@ -1,0 +1,115 @@
+import 'package:ccr_booking/core/app_theme.dart';
+import 'package:ccr_booking/widgets/custom_appbar.dart';
+import 'package:ccr_booking/widgets/custom_button.dart';
+import 'package:ccr_booking/widgets/custom_textfield.dart';
+import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class AddClient extends StatefulWidget {
+  const AddClient({super.key});
+
+  @override
+  State<AddClient> createState() => _AddClientState();
+}
+
+class _AddClientState extends State<AddClient> {
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+
+  bool _loading = false;
+
+  Future<void> _saveClient() async {
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final phone = _phoneController.text.trim();
+
+    if (name.isEmpty || email.isEmpty || phone.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Please fill all fields')));
+      }
+      return;
+    }
+
+    setState(() => _loading = true);
+
+    try {
+      await Supabase.instance.client.from('clients').insert({
+        'name': name,
+        'email': email,
+        'phone': phone,
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Client saved successfully')),
+        );
+      }
+
+      _nameController.clear();
+      _emailController.clear();
+      _phoneController.clear();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error saving client: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Detect dark mode
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Scaffold(
+      // Toggle between light and dark background
+      backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
+      appBar: CustomAppBar(text: "Add a Client", showPfp: false),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: ListView(
+          physics: const BouncingScrollPhysics(),
+          children: [
+            const SizedBox(height: 10),
+            CustomTextfield(
+              textEditingController: _nameController,
+              keyboardType: TextInputType.name,
+              isObsecure: false,
+              textCapitalization: TextCapitalization.words,
+              labelText: 'Name',
+            ),
+            const SizedBox(height: 16),
+            CustomTextfield(
+              textEditingController: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              isObsecure: false,
+              textCapitalization: TextCapitalization.none,
+              labelText: 'Email',
+            ),
+            const SizedBox(height: 16),
+            CustomTextfield(
+              textEditingController: _phoneController,
+              keyboardType: TextInputType.phone,
+              isObsecure: false,
+              textCapitalization: TextCapitalization.none,
+              labelText: 'Phone Number',
+            ),
+            const SizedBox(height: 32),
+            CustomButton(
+              onPressed: _loading ? null : _saveClient,
+              text: _loading ? "Saving..." : "Save",
+              // Use primary color for the button to make it stand out
+              color: WidgetStateProperty.all(AppColors.primary),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
