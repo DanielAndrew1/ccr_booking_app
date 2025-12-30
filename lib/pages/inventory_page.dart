@@ -63,7 +63,6 @@ class _InventoryPageState extends State<InventoryPage>
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: StreamBuilder<List<Map<String, dynamic>>>(
-          // The key ensures that when the app resumes, the StreamBuilder is fully rebuilt
           key: _streamKey,
           stream: _productsStream,
           builder: (context, snapshot) {
@@ -72,7 +71,6 @@ class _InventoryPageState extends State<InventoryPage>
             }
 
             if (snapshot.hasError) {
-              // This captures the RealtimeSubscribeException
               return Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,

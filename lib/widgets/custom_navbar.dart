@@ -127,7 +127,7 @@ class _CustomNavbarState extends State<CustomNavbar> {
       ),
     ];
 
-    if (currentUser?.role == 'Admin') {
+    if (currentUser?.role == 'Admin' || currentUser?.role == 'Owner') {
       navItems.add(
         _NavItemData(
           icon: Icons.add_rounded,

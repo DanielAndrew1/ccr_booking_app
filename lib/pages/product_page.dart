@@ -62,7 +62,7 @@ class _ProductPageState extends State<ProductPage> {
           .single();
       if (!mounted) return;
       setState(() {
-        isAdmin = data['role']?.toString().toLowerCase() == 'admin';
+        isAdmin = data['role']?.toString().toLowerCase() == 'admin' || data['role']?.toString().toLowerCase() == 'owner';
       });
     } catch (e) {
       debugPrint("Admin Check Error: $e");
