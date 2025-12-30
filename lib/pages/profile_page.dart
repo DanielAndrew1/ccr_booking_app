@@ -75,7 +75,7 @@ class ProfilePage extends StatelessWidget {
                 const SizedBox(height: 80),
 
                 // --- PROFILE HEADER ---
-                const Center(child: CustomPfp(dimentions: 140, fontSize: 60)),
+                const Center(child: CustomPfp(dimentions: 140, fontSize: 65)),
                 const SizedBox(height: 20),
                 Text(
                   currentUser.name,
