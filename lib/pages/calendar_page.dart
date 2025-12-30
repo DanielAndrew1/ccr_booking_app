@@ -292,14 +292,12 @@ class CalendarPageState extends State<CalendarPage>
               margin: const EdgeInsets.symmetric(horizontal: 6),
               decoration: BoxDecoration(
                 color: isSelected
-                    ? isDark
-                          ? AppColors.primary
-                          : AppColors.secondary
+                    ? AppColors.primary
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(16),
                 border: isToday && !isSelected
                     ? Border.all(
-                        color: isDark ? AppColors.primary : AppColors.secondary,
+                        color: AppColors.primary,
                         width: 2,
                       )
                     : null,

@@ -92,7 +92,7 @@ class ProfilePage extends StatelessWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
+                    color: isDark ? AppColors.primary.withOpacity(0.1) : AppColors.secondary.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -100,7 +100,7 @@ class ProfilePage extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
+                      color: isDark ? AppColors.primary : AppColors.secondary,
                     ),
                   ),
                 ),
