@@ -27,10 +27,13 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
         automaticallyImplyLeading: false,
         shadowColor: AppColors.primary,
         leading: showPfp
-            ? CustomPfp(
-                dimentions: 60,
-                fontSize: 24,
-              )
+            ? Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: CustomPfp(
+                  dimentions: 60,
+                  fontSize: 24,
+                ),
+            )
             : IconButton(
                 onPressed: () => Navigator.pop(context),
                 icon: Icon(Icons.adaptive.arrow_back_rounded),

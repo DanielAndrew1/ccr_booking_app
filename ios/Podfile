@@ -40,5 +40,14 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+    
+    # Corrected loop to define 'build_config' so the script knows what to update
+    target.build_configurations.each do |build_config|
+      # This fixes the dSYM error for sqlite3arm64ios.framework
+      build_config.build_settings['DEBUG_INFORMATION_FORMAT'] = 'dwarf-with-dsym'
+      
+      # Optional but recommended to prevent other common archive issues
+      build_config.build_settings['ENABLE_BITCODE'] = 'NO'
+    end
   end
 end

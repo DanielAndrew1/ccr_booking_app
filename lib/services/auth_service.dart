@@ -1,9 +1,9 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../models/user_model.dart';
 
 class AuthService {
   final SupabaseClient _client = Supabase.instance.client;
 
-  // REGISTER
   Future<void> register({
     required String name,
     required String email,
@@ -15,53 +15,45 @@ class AuthService {
     );
 
     final user = response.user;
-    if (user == null) {
-      throw 'Registration failed';
-    }
+    if (user == null) throw 'Registration failed';
 
+    // CHANGED TO 'users'
     await _client.from('users').insert({
       'id': user.id,
       'name': name,
       'email': email,
+      'role': 'Warehouse',
     });
   }
 
-  // LOGIN
   Future<void> login({required String email, required String password}) async {
     await _client.auth.signInWithPassword(email: email, password: password);
   }
 
-  // LOGOUT
   Future<void> logout() async {
     await _client.auth.signOut();
   }
 
-  // GET HOME USERS DATA
   Future<HomeUsersData?> getHomeUsersData() async {
     final currentAuthUser = _client.auth.currentUser;
-
     if (currentAuthUser == null) return null;
 
+    // CHANGED TO 'users'
     final response = await _client.from('users').select();
+    final users = (response as List).map((u) => AppUser.fromJson(u)).toList();
 
-    final users = (response as List)
-        .map(
-          (u) => AppUser(name: u['name'], email: u['email'], role: u['role']),
-        )
-        .toList();
+    try {
+      final currentUser = users.firstWhere((u) => u.id == currentAuthUser.id);
+      final otherUsers = users
+          .where((u) => u.id != currentAuthUser.id)
+          .toList();
 
-    final currentUser = users.firstWhere(
-      (u) => u.email == currentAuthUser.email,
-    );
-
-    final otherUsers = users
-        .where((u) => u.email != currentAuthUser.email)
-        .toList();
-
-    return HomeUsersData(currentUser: currentUser, otherUsers: otherUsers);
+      return HomeUsersData(currentUser: currentUser, otherUsers: otherUsers);
+    } catch (e) {
+      return null;
+    }
   }
 
-  // ------------------ UPDATE USER ------------------
   Future<void> updateUser({
     required String name,
     required String email,
@@ -70,31 +62,20 @@ class AuthService {
     final currentUser = _client.auth.currentUser;
     if (currentUser == null) throw 'No logged in user';
 
-    // Update the database table
+    // CHANGED TO 'users'
     await _client
         .from('users')
         .update({'name': name, 'email': email})
         .eq('id', currentUser.id);
 
-    // Update auth email if changed
     if (email != currentUser.email) {
       await _client.auth.updateUser(UserAttributes(email: email));
     }
 
-    // Update password if provided
     if (password != null && password.isNotEmpty) {
       await _client.auth.updateUser(UserAttributes(password: password));
     }
   }
-}
-
-// MODELS
-class AppUser {
-  final String name;
-  final String email;
-  final String role;
-
-  AppUser({required this.name, required this.email, required this.role});
 }
 
 class HomeUsersData {

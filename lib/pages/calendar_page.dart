@@ -240,14 +240,14 @@ class CalendarPageState extends State<CalendarPage>
             width: circleSize,
             height: circleSize,
             decoration: BoxDecoration(
-              color: isDark ? AppColors.primary : AppColors.secondary,
+              color: AppColors.primary,
               shape: BoxShape.circle,
             ),
           ),
           Expanded(
             child: Container(
               height: 2,
-              color: isDark ? AppColors.primary : AppColors.secondary,
+              color: AppColors.primary,
             ),
           ),
         ],

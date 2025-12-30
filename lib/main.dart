@@ -177,7 +177,7 @@ class _SplashOverlayState extends State<SplashOverlay>
     // This prevents the animation from starting instantly and looking "glitchy"
     await Future.wait([
       userProvider.loadUser(),
-      Future.delayed(const Duration(milliseconds: 800)), 
+      Future.delayed(const Duration(milliseconds: 800)),
     ]);
 
     if (mounted) {

@@ -31,35 +31,32 @@ class CustomPfp extends StatelessWidget {
 
     final initials = _getInitials(currentUser.name);
 
-    return Padding(
-      padding: const EdgeInsets.only(left: 12),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () {
-          Navigator.of(context).pushReplacement(
-            PageRouteBuilder(
-              transitionDuration: Duration.zero,
-              reverseTransitionDuration: Duration.zero,
-              pageBuilder: (_, __, ___) => const CustomNavbar(initialIndex: 3),
-            ),
-          );
-        },
-        child: Container(
-          width: dimentions,
-          height: dimentions,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            // Logic: Use provided color, otherwise default to AppColors.primary
-            color: color ?? AppColors.primary,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        Navigator.of(context).pushReplacement(
+          PageRouteBuilder(
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+            pageBuilder: (_, __, ___) => const CustomNavbar(initialIndex: 3),
           ),
-          child: Text(
-            initials,
-            style: TextStyle(
-              fontSize: fontSize,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
+        );
+      },
+      child: Container(
+        width: dimentions,
+        height: dimentions,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          // Logic: Use provided color, otherwise default to AppColors.primary
+          color: color ?? AppColors.primary,
+        ),
+        child: Text(
+          initials,
+          style: TextStyle(
+            fontSize: fontSize,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
           ),
         ),
       ),

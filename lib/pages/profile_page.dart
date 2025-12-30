@@ -14,7 +14,6 @@ import '../widgets/custom_button.dart';
 import '../widgets/custom_loader.dart';
 import '../widgets/custom_pfp.dart';
 import '../widgets/custom_tile.dart';
-import 'users_page.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -71,6 +70,7 @@ class ProfilePage extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20.0),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 const SizedBox(height: 80),
 

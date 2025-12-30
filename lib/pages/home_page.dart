@@ -43,7 +43,10 @@ class HomePage extends StatelessWidget {
             shadowColor: AppColors.primary,
             centerTitle: false,
             // Style Match: We remove the manual padding/centering to match CustomAppBar's 'leading' behavior
-            leading: const CustomPfp(dimentions: 60, fontSize: 24),
+            leading: Padding(
+              padding: const EdgeInsets.only(left: 8.0),
+              child: const CustomPfp(dimentions: 60, fontSize: 24),
+            ),
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
