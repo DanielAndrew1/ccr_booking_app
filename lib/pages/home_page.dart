@@ -4,6 +4,7 @@ import 'package:ccr_booking/core/user_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../core/app_theme.dart';
 import '../pages/login_page.dart';
 import '../widgets/custom_pfp.dart';
@@ -18,8 +19,86 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final supabase = Supabase.instance.client;
+  final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
+  RealtimeChannel? _notificationChannel;
 
-  // 1. Warehouse Fetch
+  @override
+  void initState() {
+    super.initState();
+    _initNotifications();
+  }
+
+  // --- NOTIFICATION LOGIC ---
+
+  Future<void> _initNotifications() async {
+    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const ios = DarwinInitializationSettings();
+    await _localNotifications.initialize(
+      const InitializationSettings(android: android, iOS: ios),
+    );
+
+    // Start listening once user is confirmed
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _startRealtimeListener(),
+    );
+  }
+
+  void _startRealtimeListener() {
+    final user = supabase.auth.currentUser;
+    if (user == null) return;
+
+    _notificationChannel = supabase
+        .channel('booking-updates')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'bookings',
+          // Use a filter so users only get their own notifications
+          // filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'user_id', value: user.id),
+          callback: (payload) {
+            final newRecord = payload.newRecord;
+            final status =
+                newRecord['status']?.toString().toUpperCase() ?? 'UPDATED';
+
+            _showLocalNotification(
+              "Booking Update",
+              "A booking for ${newRecord['client_name']} is now $status",
+            );
+
+            // Refresh the UI automatically when data changes
+            if (mounted) setState(() {});
+          },
+        )
+        .subscribe();
+  }
+
+  Future<void> _showLocalNotification(String title, String body) async {
+    const details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        'ccr_id',
+        'Bookings',
+        importance: Importance.max,
+        priority: Priority.high,
+      ),
+      iOS: DarwinNotificationDetails(),
+    );
+    await _localNotifications.show(
+      DateTime.now().millisecond,
+      title,
+      body,
+      details,
+    );
+  }
+
+  @override
+  void dispose() {
+    supabase.removeChannel(_notificationChannel!);
+    super.dispose();
+  }
+
+  // --- DATABASE FETCHING LOGIC ---
+
   Future<List<Map<String, dynamic>>> _getUpcomingBookings() async {
     final response = await supabase
         .from('bookings')
@@ -29,7 +108,6 @@ class _HomePageState extends State<HomePage> {
     return List<Map<String, dynamic>>.from(response);
   }
 
-  // 2. Admin Fetch
   Future<List<Map<String, dynamic>>> _getCompletedBookings() async {
     final response = await supabase
         .from('bookings')
@@ -39,18 +117,15 @@ class _HomePageState extends State<HomePage> {
     return List<Map<String, dynamic>>.from(response);
   }
 
-  // 3. Owner Fetch (Cleanest Syntax for Counting)
   Future<Map<String, int>> _getOwnerStats() async {
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day).toIso8601String();
 
-    // Use .count(CountOption.exact) to get the count property in the response
     final bookingsRes = await supabase
         .from('bookings')
         .select('id')
         .gte('created_at', todayStart)
         .count(CountOption.exact);
-
     final clientsRes = await supabase
         .from('clients')
         .select('id')
@@ -76,43 +151,7 @@ class _HomePageState extends State<HomePage> {
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(80),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.only(
-            bottomRight: Radius.circular(60),
-          ),
-          child: AppBar(
-            backgroundColor: AppColors.secondary,
-            foregroundColor: AppColors.lightcolor,
-            toolbarHeight: 80,
-            centerTitle: false,
-            automaticallyImplyLeading: false,
-            title: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Hello, ${currentUser.name.split(' ').first}',
-                  style: AppFontStyle.subTitleMedium().copyWith(
-                    color: AppColors.lightcolor,
-                  ),
-                ),
-                Text(
-                  "Manage everything in a few clicks",
-                  style: AppFontStyle.textRegular().copyWith(
-                    color: AppColors.lightcolor.withOpacity(0.8),
-                    fontSize: 18,
-                  ),
-                ),
-              ],
-            ),
-            leading: const Padding(
-              padding: EdgeInsets.only(left: 12.0),
-              child: CustomPfp(dimentions: 60, fontSize: 24),
-            ),
-          ),
-        ),
-      ),
+      appBar: _buildAppBar(currentUser),
       body: RefreshIndicator(
         onRefresh: () async => setState(() {}),
         color: AppColors.primary,
@@ -124,24 +163,62 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  PreferredSizeWidget _buildAppBar(dynamic currentUser) {
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(80),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.only(bottomRight: Radius.circular(60)),
+        child: AppBar(
+          backgroundColor: AppColors.secondary,
+          foregroundColor: AppColors.lightcolor,
+          toolbarHeight: 80,
+          centerTitle: false,
+          automaticallyImplyLeading: false,
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Hello, ${currentUser.name.split(' ').first}',
+                style: AppFontStyle.subTitleMedium().copyWith(
+                  color: AppColors.lightcolor,
+                ),
+              ),
+              Text(
+                "Manage everything in a few clicks",
+                style: AppFontStyle.textRegular().copyWith(
+                  color: AppColors.lightcolor.withOpacity(0.8),
+                  fontSize: 18,
+                ),
+              ),
+            ],
+          ),
+          leading: const Padding(
+            padding: EdgeInsets.only(left: 12.0),
+            child: CustomPfp(dimentions: 60, fontSize: 24),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildRoleDashboard(String role, bool isDark) {
-    if (role == 'Warehouse') {
+    if (role == 'Warehouse'){
       return _buildAsyncList(
         _getUpcomingBookings(),
         "Upcoming Bookings",
         isDark,
         Colors.blue,
       );
-    } else if (role == 'Admin') {
+    }
+    if (role == 'Admin'){
       return _buildAsyncList(
         _getCompletedBookings(),
         "Completed Bookings",
         isDark,
         Colors.green,
       );
-    } else if (role == 'Owner') {
-      return _buildOwnerStatsView(isDark);
     }
+    if (role == 'Owner') return _buildOwnerStatsView(isDark);
     return const Center(child: Text("Unknown Role"));
   }
 
@@ -161,11 +238,8 @@ class _HomePageState extends State<HomePage> {
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting)
                 return Center(child: CustomLoader());
-              if (snapshot.hasError)
-                return Center(child: Text("No bookings found."));
               if (!snapshot.hasData || snapshot.data!.isEmpty)
                 return const Center(child: Text("No data found."));
-
               return ListView.builder(
                 itemCount: snapshot.data!.length,
                 itemBuilder: (context, index) {
@@ -193,11 +267,7 @@ class _HomePageState extends State<HomePage> {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting)
           return Center(child: CustomLoader());
-        if (snapshot.hasError)
-          return Center(child: Text("Error loading stats"));
-
         final stats = snapshot.data ?? {'bookings': 0, 'clients': 0};
-
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

@@ -1,24 +1,26 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class NotificationService {
-  final notificationsPlugin = FlutterLocalNotificationsPlugin();
+  // Singleton pattern to use the same instance everywhere
+  static final NotificationService _instance = NotificationService._internal();
+  factory NotificationService() => _instance;
+  NotificationService._internal();
 
+  final notificationsPlugin = FlutterLocalNotificationsPlugin();
   bool _isInitialized = false;
 
-  bool get isInitialized => _isInitialized;
-
-  // Initialize
   Future<void> initNotification() async {
-    if (_isInitialized) return; // Prevent Re-Initailization
+    if (_isInitialized) return;
 
-    // Android init settings
+    // Android: Use the app icon (without extension) from android/app/src/main/res/drawable
     const initSettingsAndroid = AndroidInitializationSettings(
-      'assets/icon.png',
+      '@mipmap/ic_launcher',
     );
 
-    // IOS init settings
     const initSettingsIOS = DarwinInitializationSettings(
       requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
     );
 
     const initSettings = InitializationSettings(
@@ -26,32 +28,33 @@ class NotificationService {
       iOS: initSettingsIOS,
     );
 
-    // Initialize Plugin
     await notificationsPlugin.initialize(initSettings);
+    _isInitialized = true;
   }
 
-  // Notification Detail Setup
-  NotificationDetails notificationDetails() {
+  NotificationDetails _notificationDetails() {
     return const NotificationDetails(
       android: AndroidNotificationDetails(
-        "channelId",
-        "channelName",
-        channelDescription: "channelName",
+        "ccr_bookings_channel",
+        "Booking Updates",
+        channelDescription: "Notifications for new and updated bookings",
         importance: Importance.max,
         priority: Priority.high,
+        playSound: true,
       ),
-      iOS: DarwinNotificationDetails(),
+      iOS: DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      ),
     );
   }
 
-  // Show Notification
   Future<void> showNotification({
     int id = 0,
     String? title,
     String? body,
   }) async {
-    return notificationsPlugin.show(id, title, body, NotificationDetails());
+    await notificationsPlugin.show(id, title, body, _notificationDetails());
   }
-
-  // On Notification Tap
 }

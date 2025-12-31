@@ -10,31 +10,25 @@ import 'package:ccr_booking/pages/register_page.dart';
 import 'package:ccr_booking/services/notification_service.dart';
 import 'package:ccr_booking/widgets/custom_navbar.dart';
 import 'package:flutter/material.dart';
-import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:connectivity_plus/connectivity_plus.dart'; // New Import
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize OneSignal
-  OneSignal.Debug.setLogLevel(OSLogLevel.verbose);
-  OneSignal.initialize("20f7abe2-84af-409a-9195-cd36847dc0fa");
-  OneSignal.Notifications.requestPermission(true);
+  final notificationService = NotificationService();
+  await notificationService.initNotification();
 
-  // Initialize local notifications service
-  NotificationService().initNotification();
-
-  // Initialize sqflite for desktop
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
 
-  // Initialize Supabase
   await Supabase.initialize(
     url: 'https://jjodrxidqzcreqzteyqa.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impqb2RyeGlkcXpjcmVxenRleXFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NzE2NDQsImV4cCI6MjA4MjE0NzY0NH0.692jVmgqONLClX3zwdOLzgb1ag61e_bnFs-YXwOT9FA',
+    anonKey:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impqb2RyeGlkcXpjcmVxenRleXFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NzE2NDQsImV4cCI6MjA4MjE0NzY0NH0.692jVmgqONLClX3zwdOLzgb1ag61e_bnFs-YXwOT9FA',
+    realtimeClientOptions: const RealtimeClientOptions(eventsPerSecond: 10),
   );
 
   runApp(
@@ -56,20 +50,20 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  // Global key to show the top banner across all screens
   final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey =
       GlobalKey<ScaffoldMessengerState>();
   late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
   bool _isBannerShowing = false;
 
+  // Realtime Channel reference
+  RealtimeChannel? _realtimeChannel;
+
   @override
   void initState() {
     super.initState();
 
-    // Check connectivity on startup
     _initConnectivity();
 
-    // Listen for connectivity changes
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
       List<ConnectivityResult> result,
     ) {
@@ -83,13 +77,65 @@ class _MyAppState extends State<MyApp> {
         final sessionUser = event.session?.user;
         if (sessionUser != null) {
           userProvider.refreshUser();
-          OneSignal.login(sessionUser.id);
+          // Start listening to DB changes when user is logged in
+          _setupSupabaseListener();
         } else {
           userProvider.clearUser();
-          OneSignal.logout();
+          // Stop listening when user logs out
+          _stopSupabaseListener();
         }
       });
     });
+  }
+
+  /// ============================
+  /// SUPABASE REALTIME LISTENER
+  /// ============================
+  void _setupSupabaseListener() {
+    final supabase = Supabase.instance.client;
+
+    // Ensure we don't create multiple channels
+    if (_realtimeChannel != null) return;
+
+    _realtimeChannel = supabase
+        .channel('public:bookings')
+        .onPostgresChanges(
+          event: PostgresChangeEvent
+              .all, // Listen for Inserts, Updates, and Deletes
+          schema: 'public',
+          table: 'bookings',
+          callback: (payload) {
+            final newRecord = payload.newRecord;
+            final eventType = payload.eventType.name.toUpperCase();
+
+            // Logic to determine notification content
+            String title = "Booking $eventType";
+            String body =
+                "Changes detected in booking for ${newRecord['client_name'] ?? 'Unknown Client'}";
+
+            if (payload.eventType == PostgresChangeEvent.insert) {
+              title = "New Booking Created! 📅";
+            } else if (payload.eventType == PostgresChangeEvent.update) {
+              title = "Booking Updated 🔄";
+              body = "Booking status is now: ${newRecord['status']}";
+            }
+
+            // Trigger Local Notification
+            NotificationService().showNotification(
+              id: DateTime.now().millisecond,
+              title: title,
+              body: body,
+            );
+          },
+        )
+        .subscribe();
+  }
+
+  void _stopSupabaseListener() {
+    if (_realtimeChannel != null) {
+      Supabase.instance.client.removeChannel(_realtimeChannel!);
+      _realtimeChannel = null;
+    }
   }
 
   Future<void> _initConnectivity() async {
@@ -121,9 +167,7 @@ class _MyAppState extends State<MyApp> {
           'Please connect to a network connection and try again',
           textAlign: TextAlign.center,
         ),
-        actions: [
-          const SizedBox.shrink(), // Required parameter, but we want it clean
-        ],
+        actions: [const SizedBox.shrink()],
       ),
     );
   }
@@ -137,6 +181,7 @@ class _MyAppState extends State<MyApp> {
   @override
   void dispose() {
     _connectivitySubscription.cancel();
+    _stopSupabaseListener();
     super.dispose();
   }
 
@@ -145,8 +190,7 @@ class _MyAppState extends State<MyApp> {
     final themeProvider = Provider.of<ThemeProvider>(context);
 
     return MaterialApp(
-      scaffoldMessengerKey:
-          _scaffoldMessengerKey, // Essential for global banners
+      scaffoldMessengerKey: _scaffoldMessengerKey,
       debugShowCheckedModeBanner: false,
       themeMode: themeProvider.themeMode,
       theme: MyThemes.lightTheme,
@@ -161,9 +205,6 @@ class _MyAppState extends State<MyApp> {
   }
 }
 
-/// ============================
-/// STACK HANDLER
-/// ============================
 class MainStackHandler extends StatefulWidget {
   const MainStackHandler({super.key});
 
@@ -192,9 +233,6 @@ class _MainStackHandlerState extends State<MainStackHandler> {
   }
 }
 
-/// ============================
-/// ANIMATED SPLASH OVERLAY
-/// ============================
 class SplashOverlay extends StatefulWidget {
   final VoidCallback onAnimationComplete;
   const SplashOverlay({super.key, required this.onAnimationComplete});
@@ -291,7 +329,6 @@ class _SplashOverlayState extends State<SplashOverlay>
                       "assets/logo.png",
                       width: 400,
                       color: _isDataReady ? null : Colors.transparent,
-                      colorBlendMode: _isDataReady ? null : BlendMode.dst,
                     ),
                   ),
                 ),
