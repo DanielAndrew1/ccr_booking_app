@@ -29,16 +29,12 @@ class _HomePageState extends State<HomePage> {
     _initNotifications();
   }
 
-  // --- NOTIFICATION LOGIC ---
-
   Future<void> _initNotifications() async {
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const ios = DarwinInitializationSettings();
     await _localNotifications.initialize(
       const InitializationSettings(android: android, iOS: ios),
     );
-
-    // Start listening once user is confirmed
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _startRealtimeListener(),
     );
@@ -54,19 +50,12 @@ class _HomePageState extends State<HomePage> {
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'bookings',
-          // Use a filter so users only get their own notifications
-          // filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'user_id', value: user.id),
           callback: (payload) {
             final newRecord = payload.newRecord;
-            final status =
-                newRecord['status']?.toString().toUpperCase() ?? 'UPDATED';
-
             _showLocalNotification(
               "Booking Update",
-              "A booking for ${newRecord['client_name']} is now $status",
+              "Update for Client ID: ${newRecord['client_id']} - Status: ${newRecord['status']}",
             );
-
-            // Refresh the UI automatically when data changes
             if (mounted) setState(() {});
           },
         )
@@ -93,45 +82,43 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
-    supabase.removeChannel(_notificationChannel!);
+    if (_notificationChannel != null)
+      supabase.removeChannel(_notificationChannel!);
     super.dispose();
   }
 
-  // --- DATABASE FETCHING LOGIC ---
-
   Future<List<Map<String, dynamic>>> _getUpcomingBookings() async {
-    final response = await supabase
+    final res = await supabase
         .from('bookings')
         .select()
         .eq('status', 'upcoming')
         .order('created_at', ascending: false);
-    return List<Map<String, dynamic>>.from(response);
+    return List<Map<String, dynamic>>.from(res);
   }
 
-  Future<List<Map<String, dynamic>>> _getCompletedBookings() async {
-    final response = await supabase
+  Future<List<Map<String, dynamic>>> _getReturningBookings() async {
+    final res = await supabase
         .from('bookings')
         .select()
-        .eq('status', 'completed')
+        .eq('status', 'returning')
         .order('created_at', ascending: false);
-    return List<Map<String, dynamic>>.from(response);
+    return List<Map<String, dynamic>>.from(res);
   }
 
   Future<Map<String, int>> _getOwnerStats() async {
-    final now = DateTime.now();
-    final todayStart = DateTime(now.year, now.month, now.day).toIso8601String();
-
-    final bookingsRes = await supabase
+    final today = DateTime(
+      DateTime.now().year,
+      DateTime.now().month,
+      DateTime.now().day,
+    ).toIso8601String();
+    final bks = await supabase
         .from('bookings')
-        .select('id')
-        .gte('created_at', todayStart)
-        .count(CountOption.exact);
-    final clientsRes = await supabase
+        .select('id', const FetchOptions(count: CountOption.exact))
+        .gte('created_at', today);
+    final cls = await supabase
         .from('clients')
-        .select('id')
-        .count(CountOption.exact);
-
-    return {'bookings': bookingsRes.count, 'clients': clientsRes.count};
+        .select('id', const FetchOptions(count: CountOption.exact));
+    return {'bookings': bks.count, 'clients': cls.count};
   }
 
   @override
@@ -153,7 +140,10 @@ class _HomePageState extends State<HomePage> {
       backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
       appBar: _buildAppBar(currentUser),
       body: RefreshIndicator(
-        onRefresh: () async => setState(() {}),
+        onRefresh: () async {
+          await userProvider.refreshUser();
+          setState(() {});
+        },
         color: AppColors.primary,
         child: Padding(
           padding: const EdgeInsets.all(20.0),
@@ -172,8 +162,10 @@ class _HomePageState extends State<HomePage> {
           backgroundColor: AppColors.secondary,
           foregroundColor: AppColors.lightcolor,
           toolbarHeight: 80,
-          centerTitle: false,
-          automaticallyImplyLeading: false,
+          leading: const Padding(
+            padding: EdgeInsets.only(left: 12.0),
+            child: CustomPfp(dimentions: 60, fontSize: 24),
+          ),
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -187,14 +179,10 @@ class _HomePageState extends State<HomePage> {
                 "Manage everything in a few clicks",
                 style: AppFontStyle.textRegular().copyWith(
                   color: AppColors.lightcolor.withOpacity(0.8),
-                  fontSize: 18,
+                  fontSize: 16,
                 ),
               ),
             ],
-          ),
-          leading: const Padding(
-            padding: EdgeInsets.only(left: 12.0),
-            child: CustomPfp(dimentions: 60, fontSize: 24),
           ),
         ),
       ),
@@ -202,20 +190,28 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildRoleDashboard(String role, bool isDark) {
-    if (role == 'Warehouse'){
-      return _buildAsyncList(
-        _getUpcomingBookings(),
-        "Upcoming Bookings",
-        isDark,
-        Colors.blue,
-      );
-    }
-    if (role == 'Admin'){
-      return _buildAsyncList(
-        _getCompletedBookings(),
-        "Completed Bookings",
-        isDark,
-        Colors.green,
+    if (role == 'Warehouse' || role == 'Admin') {
+      return SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          children: [
+            _buildAsyncList(
+              _getUpcomingBookings(),
+              "Upcoming Bookings",
+              isDark,
+              Colors.blue,
+              shrinkWrap: true,
+            ),
+            const SizedBox(height: 30),
+            _buildAsyncList(
+              _getReturningBookings(),
+              "Returning Bookings",
+              isDark,
+              Colors.orange,
+              shrinkWrap: true,
+            ),
+          ],
+        ),
       );
     }
     if (role == 'Owner') return _buildOwnerStatsView(isDark);
@@ -226,36 +222,42 @@ class _HomePageState extends State<HomePage> {
     Future<List<Map<String, dynamic>>> future,
     String title,
     bool isDark,
-    Color statusColor,
-  ) {
+    Color color, {
+    bool shrinkWrap = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _sectionTitle(title, isDark),
-        Expanded(
-          child: FutureBuilder<List<Map<String, dynamic>>>(
-            future: future,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting)
-                return Center(child: CustomLoader());
-              if (!snapshot.hasData || snapshot.data!.isEmpty)
-                return const Center(child: Text("No data found."));
-              return ListView.builder(
-                itemCount: snapshot.data!.length,
-                itemBuilder: (context, index) {
-                  final data = snapshot.data![index];
-                  return _buildBookingCard(
-                    title: data['client_name'] ?? "Unknown Client",
-                    subtitle:
-                        "Ref: ${data['id'].toString().toUpperCase().substring(0, 8)}",
-                    status: data['status'].toString().toUpperCase(),
-                    statusColor: statusColor,
-                    isDark: isDark,
-                  );
-                },
+        FutureBuilder<List<Map<String, dynamic>>>(
+          future: future,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting)
+              return Center(child: CustomLoader());
+            if (!snapshot.hasData || snapshot.data!.isEmpty)
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Text("No bookings found."),
+                ),
               );
-            },
-          ),
+            return ListView.builder(
+              shrinkWrap: shrinkWrap,
+              physics: shrinkWrap ? const NeverScrollableScrollPhysics() : null,
+              itemCount: snapshot.data!.length,
+              itemBuilder: (context, index) {
+                final data = snapshot.data![index];
+                return _buildBookingCard(
+                  title: "Client ID: ${data['client_id']}",
+                  subtitle:
+                      "Ref: ${data['id'].toString().toUpperCase().substring(0, 8)}",
+                  status: data['status'].toString().toUpperCase(),
+                  statusColor: color,
+                  isDark: isDark,
+                );
+              },
+            );
+          },
         ),
       ],
     );
@@ -298,19 +300,17 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _sectionTitle(String title, bool isDark) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 15),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-          color: isDark ? Colors.white : Colors.black,
-        ),
+  Widget _sectionTitle(String title, bool isDark) => Padding(
+    padding: const EdgeInsets.only(bottom: 15),
+    child: Text(
+      title,
+      style: TextStyle(
+        fontSize: 20,
+        fontWeight: FontWeight.bold,
+        color: isDark ? Colors.white : Colors.black,
       ),
-    );
-  }
+    ),
+  );
 
   Widget _buildBookingCard({
     required String title,
@@ -324,9 +324,6 @@ class _HomePageState extends State<HomePage> {
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF2C2C2C) : Colors.white,
         borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10),
-        ],
       ),
       child: ListTile(
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -363,9 +360,6 @@ class _HomePageState extends State<HomePage> {
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF2C2C2C) : Colors.white,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10),
-          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
