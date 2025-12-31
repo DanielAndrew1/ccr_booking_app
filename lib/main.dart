@@ -9,6 +9,7 @@ import 'package:ccr_booking/pages/register_page.dart';
 import 'package:ccr_booking/services/notification_service.dart';
 import 'package:ccr_booking/widgets/custom_navbar.dart';
 import 'package:flutter/material.dart';
+import 'package:onesignal_flutter/onesignal_flutter.dart'; // 1. Added OneSignal Import
 import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -16,7 +17,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Notifications
+  // 2. Initialize OneSignal (Version 5.x)
+  // REPLACE '20f7abe2-84af-409a-9195-cd36847dc0fa' with your actual OneSignal App ID
+  OneSignal.Debug.setLogLevel(OSLogLevel.verbose);
+  OneSignal.initialize("20f7abe2-84af-409a-9195-cd36847dc0fa");
+
+  // Requesting permission immediately on app launch
+  OneSignal.Notifications.requestPermission(true);
+
+  // Initialize local notifications service
   NotificationService().initNotification();
 
   // Initialize sqflite for desktop
@@ -26,8 +35,7 @@ void main() async {
   // Initialize Supabase
   await Supabase.initialize(
     url: 'https://jjodrxidqzcreqzteyqa.supabase.co',
-    anonKey:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impqb2RyeGlkcXpjcmVxenRleXFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NzE2NDQsImV4cCI6MjA4MjE0NzY0NH0.692jVmgqONLClX3zwdOLzgb1ag61e_bnFs-YXwOT9FA',
+    anonKey: 'YOUR_SUPABASE_ANON_KEY', // Use your existing key here
   );
 
   runApp(
@@ -55,12 +63,20 @@ class _MyAppState extends State<MyApp> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
 
+      // 3. Listen for Auth changes to link/unlink OneSignal
       Supabase.instance.client.auth.onAuthStateChange.listen((event) {
         final sessionUser = event.session?.user;
         if (sessionUser != null) {
           userProvider.refreshUser();
+
+          // LINK: This tells OneSignal that this device belongs to this Supabase UUID
+          // This enables sending manual notifications by "External ID" in the dashboard
+          OneSignal.login(sessionUser.id);
         } else {
           userProvider.clearUser();
+
+          // UNLINK: Clear the identity when the user logs out
+          OneSignal.logout();
         }
       });
     });
@@ -133,8 +149,7 @@ class _SplashOverlayState extends State<SplashOverlay>
   late Animation<double> _cropAnimation;
   late Animation<double> _scaleAnimation;
   late Animation<double> _opacityAnimation;
-  
-  // Track if the background data check is done
+
   bool _isDataReady = false;
 
   @override
@@ -173,8 +188,6 @@ class _SplashOverlayState extends State<SplashOverlay>
   Future<void> _startSequence() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
 
-    // 1. Wait for Auth determination AND a minimum static delay (e.g., 500ms)
-    // This prevents the animation from starting instantly and looking "glitchy"
     await Future.wait([
       userProvider.loadUser(),
       Future.delayed(const Duration(milliseconds: 800)),
@@ -186,9 +199,7 @@ class _SplashOverlayState extends State<SplashOverlay>
       });
     }
 
-    // 2. Now start the visual animation
     await _controller.forward();
-
     widget.onAnimationComplete();
   }
 
@@ -217,10 +228,8 @@ class _SplashOverlayState extends State<SplashOverlay>
                     alignment: Alignment.centerLeft,
                     widthFactor: _cropAnimation.value,
                     child: Image.asset(
-                      "assets/logo.png", 
+                      "assets/logo.png",
                       width: 400,
-                      // Hide the logo until data is ready to avoid flashing 
-                      // before we know where the user is going
                       color: _isDataReady ? null : Colors.transparent,
                       colorBlendMode: _isDataReady ? null : BlendMode.dst,
                     ),
