@@ -167,7 +167,7 @@ class _UsersPageState extends State<UsersPage> {
         color: isDark ? const Color(0xFF2C2C2C) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: isCurrentUser
-            ? Border.all(color: AppColors.primary.withOpacity(0.5), width: 1)
+            ? Border.all(color: isDark ? AppColors.primary.withOpacity(0.5) : AppColors.secondary.withOpacity(0.5), width: 1)
             : null,
         boxShadow: [
           BoxShadow(
@@ -216,13 +216,13 @@ class _UsersPageState extends State<UsersPage> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
+                        color: isDark ? AppColors.primary.withOpacity(0.1) : AppColors.secondary.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Text(
+                      child: Text(
                         "Me",
                         style: TextStyle(
-                          color: AppColors.primary,
+                          color: isDark ? AppColors.primary : AppColors.secondary,
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                         ),
@@ -283,7 +283,7 @@ class _UsersPageState extends State<UsersPage> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.primary),
+                      border: Border.all(color:  AppColors.primary),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Center(

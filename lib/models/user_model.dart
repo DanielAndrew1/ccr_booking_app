@@ -24,3 +24,23 @@ class AppUser {
     return {'id': id, 'name': name, 'email': email, 'role': role};
   }
 }
+
+class AppClient {
+  final String id;
+  final String name;
+  final String? email;
+
+  AppClient({required this.id, required this.name, this.email});
+
+  factory AppClient.fromJson(Map<String, dynamic> json) {
+    return AppClient(
+      id: json['id'].toString(),
+      name: json['name'] ?? 'No Name',
+      email: json['email'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {'id': id, 'name': name, 'email': email};
+  }
+}
