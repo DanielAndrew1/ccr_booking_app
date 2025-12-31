@@ -1,13 +1,14 @@
 // ignore_for_file: deprecated_member_use
 import 'dart:async';
 import 'package:ccr_booking/core/app_theme.dart';
+import 'package:ccr_booking/main.dart';
 import 'package:ccr_booking/widgets/custom_appbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'home_page.dart'; // Import to use NoInternetWidget
+import 'home_page.dart' hide NoInternetWidget; // Import to use NoInternetWidget
 
 class CalendarPage extends StatefulWidget {
   const CalendarPage({super.key});

@@ -3,9 +3,10 @@
 import 'dart:async';
 import 'package:ccr_booking/core/theme.dart';
 import 'package:ccr_booking/core/user_provider.dart';
+import 'package:ccr_booking/main.dart';
 import 'package:ccr_booking/pages/clients_page.dart';
 import 'package:ccr_booking/pages/users_page.dart';
-import 'package:ccr_booking/pages/home_page.dart'; // To access NoInternetWidget
+import 'package:ccr_booking/pages/home_page.dart' hide NoInternetWidget; // To access NoInternetWidget
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -113,8 +114,8 @@ class _ProfilePageState extends State<ProfilePage> {
           children: [
             // --- Internet Error Banner ---
             if (!_hasConnection)
-              const Padding(
-                padding: EdgeInsets.only(top: 50.0),
+              Padding(
+                padding: const EdgeInsets.only(top: 50.0),
                 child: NoInternetWidget(),
               ),
 
