@@ -5,11 +5,12 @@ import 'package:ccr_booking/core/theme.dart';
 import 'package:ccr_booking/core/user_provider.dart';
 import 'package:ccr_booking/pages/clients_page.dart';
 import 'package:ccr_booking/pages/users_page.dart';
+import 'package:ccr_booking/pages/home_page.dart'; // To access NoInternetWidget
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 import '../core/app_theme.dart';
 import '../pages/edit_info_page.dart';
 import '../pages/login_page.dart';
@@ -17,7 +18,6 @@ import '../widgets/custom_button.dart';
 import '../widgets/custom_loader.dart';
 import '../widgets/custom_pfp.dart';
 import '../widgets/custom_tile.dart';
-import 'home_page.dart'; // To access NoInternetWidget
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -27,6 +27,7 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+  // Connectivity Variables
   late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
   bool _hasConnection = true;
 
@@ -34,9 +35,12 @@ class _ProfilePageState extends State<ProfilePage> {
   void initState() {
     super.initState();
     _initConnectivity();
-    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
-      _checkStatus,
-    );
+
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
+      List<ConnectivityResult> result,
+    ) {
+      _checkStatus(result);
+    });
   }
 
   Future<void> _initConnectivity() async {
@@ -56,6 +60,7 @@ class _ProfilePageState extends State<ProfilePage> {
     super.dispose();
   }
 
+  /// Handles the logout process by clearing user data and redirecting to login
   Future<void> _logout(BuildContext context) async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     userProvider.clearUser();
@@ -65,6 +70,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  /// Navigates to the Edit Profile page and refreshes user data upon return
   Future<void> _editProfile(BuildContext context) async {
     final updated = await Navigator.push(
       context,
@@ -75,8 +81,10 @@ class _ProfilePageState extends State<ProfilePage> {
     );
 
     if (updated == true) {
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
-      await userProvider.refreshUser();
+      if (mounted) {
+        final userProvider = Provider.of<UserProvider>(context, listen: false);
+        await userProvider.refreshUser();
+      }
     }
   }
 
@@ -86,6 +94,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final currentUser = userProvider.currentUser;
 
+    // Show a loader if user data isn't available yet
     if (currentUser == null) {
       return const Scaffold(body: Center(child: CustomLoader()));
     }
@@ -102,11 +111,11 @@ class _ProfilePageState extends State<ProfilePage> {
         backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
         body: Column(
           children: [
-            // Adds the internet error banner at the very top if connection is lost
+            // --- Internet Error Banner ---
             if (!_hasConnection)
-              Padding(
-                padding: const EdgeInsets.only(top: 50.0),
-                child: const NoInternetWidget(),
+              const Padding(
+                padding: EdgeInsets.only(top: 50.0),
+                child: NoInternetWidget(),
               ),
 
             Expanded(
@@ -126,95 +135,94 @@ class _ProfilePageState extends State<ProfilePage> {
                       const SizedBox(height: 20),
                       Text(
                         currentUser.name,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 26,
                           fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.black,
                         ),
                       ),
-                      const SizedBox(height: 5),
-                      Text(
-                        currentUser.role,
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: isDark ? Colors.white70 : Colors.black54,
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? AppColors.primary.withOpacity(0.1)
+                              : AppColors.secondary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          currentUser.role,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: isDark
+                                ? AppColors.primary
+                                : AppColors.secondary,
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 40),
+
+                      const SizedBox(height: 30),
+                      const Divider(thickness: 0.5),
+                      const SizedBox(height: 20),
 
                       // --- SETTINGS SECTION ---
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          "Settings",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : Colors.black,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 15),
+
+                      // Dark Mode Toggle
                       CustomTile(
                         title: "Dark Mode",
-                        icon: Icons.dark_mode,
+                        icon: Icons.dark_mode_rounded,
                         trailing: CupertinoSwitch(
                           value: isDark,
-                          onChanged: (v) => themeProvider.toggleTheme(v),
+                          activeTrackColor: AppColors.primary,
+                          onChanged: (value) {
+                            themeProvider.toggleTheme(value);
+                          },
                         ),
                       ),
-                      const SizedBox(height: 30),
 
-                      // --- ACCOUNT SECTION ---
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          "Account",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : Colors.black,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 15),
+                      const SizedBox(height: 12),
+
+                      // Edit Personal Info
                       CustomTile(
-                        title: "Edit Profile",
-                        icon: Icons.person_outline,
+                        icon: Icons.person_outline_rounded,
+                        title: 'Edit Personal Info',
                         onTap: () => _editProfile(context),
                       ),
 
-                      // Show Users Management only for Admin or Owner
-                      if (currentUser.role == 'Admin' || currentUser.role == 'Owner')
+                      const SizedBox(height: 12),
+
+                      // --- OWNER ONLY: USER MANAGEMENT ---
+                      if (currentUser.role == 'Owner') ...[
                         CustomTile(
-                          title: "Users",
-                          icon: Icons.group_outlined,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const UsersPage(),
-                            ),
-                          ),
+                          icon: Icons.manage_accounts_rounded,
+                          title: 'User Management',
+                          route: const UsersPage(),
                         ),
+                        const SizedBox(height: 12),
                         CustomTile(
-                          title: "Clients",
-                          icon: Icons.people_rounded,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const ClientsPage(),
-                            ),
-                          ),
+                          icon: Icons.manage_accounts_rounded,
+                          title: 'Client Management',
+                          route: const ClientsPage(),
                         ),
+                        const SizedBox(height: 12),
+                      ],
 
                       const SizedBox(height: 40),
 
                       // --- LOGOUT BUTTON ---
                       CustomButton(
-                        text: "Logout",
-                        color: WidgetStateProperty.all(AppColors.primary),
                         onPressed: () => _logout(context),
+                        icon: Icons.logout_rounded,
+                        text: "Logout",
+                        color: WidgetStateProperty.all(Colors.red),
                       ),
-                      const SizedBox(height: 40),
+
+                      // Space for the floating Navbar
+                      const SizedBox(height: 120),
                     ],
                   ),
                 ),

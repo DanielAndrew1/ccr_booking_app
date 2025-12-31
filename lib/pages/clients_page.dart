@@ -1,4 +1,5 @@
 // ignore_for_file: deprecated_member_use
+
 import 'dart:async';
 import 'package:ccr_booking/core/app_theme.dart';
 import 'package:ccr_booking/widgets/custom_appbar.dart';
@@ -73,7 +74,7 @@ class _ClientsPageState extends State<ClientsPage> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("Delete Client"),
+        title: const Text("Confirm Delete"),
         content: Text(
           "Are you sure you want to remove $clientName from your records?",
         ),
@@ -86,7 +87,7 @@ class _ClientsPageState extends State<ClientsPage> {
             onPressed: () async {
               await supabase.from('clients').delete().eq('id', clientId);
               Navigator.pop(context);
-              _fetchClients(); // Refresh list
+              _fetchClients();
             },
             child: const Text("Delete", style: TextStyle(color: Colors.red)),
           ),
@@ -107,32 +108,35 @@ class _ClientsPageState extends State<ClientsPage> {
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
-      appBar: const CustomAppBar(text: 'Clients', showPfp: false),
+      appBar: const CustomAppBar(text: 'Manage Clients', showPfp: false),
       body: Column(
         children: [
           if (!_hasConnection) const NoInternetWidget(),
           Expanded(
-            child: _isLoading
-                ? const Center(child: CustomLoader())
-                : RefreshIndicator(
-                    onRefresh: _fetchClients,
-                    color: AppColors.primary,
-                    child: _clients.isEmpty
-                        ? const Center(child: Text("No clients found"))
-                        : ListView.builder(
-                            padding: const EdgeInsets.all(16),
-                            itemCount: _clients.length,
-                            itemBuilder: (context, index) {
-                              final client = _clients[index];
-                              return _buildClientCard(
-                                client: client,
-                                isDark: isDark,
-                                index: index,
-                                isExpanded: _expandedIndex == index,
-                              );
-                            },
-                          ),
-                  ),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 500),
+              child: _isLoading
+                  ? Center(child: CustomLoader())
+                  : RefreshIndicator(
+                      onRefresh: _fetchClients,
+                      color: AppColors.primary,
+                      child: _clients.isEmpty
+                          ? const Center(child: Text("No clients found"))
+                          : ListView.builder(
+                              padding: const EdgeInsets.all(16),
+                              itemCount: _clients.length,
+                              itemBuilder: (context, index) {
+                                final client = _clients[index];
+                                return _buildClientCard(
+                                  client: client,
+                                  isDark: isDark,
+                                  index: index,
+                                  isExpanded: _expandedIndex == index,
+                                );
+                              },
+                            ),
+                    ),
+            ),
           ),
         ],
       ),
@@ -147,6 +151,7 @@ class _ClientsPageState extends State<ClientsPage> {
   }) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF2C2C2C) : Colors.white,
@@ -159,53 +164,62 @@ class _ClientsPageState extends State<ClientsPage> {
           ),
         ],
       ),
-      child: Column(
-        children: [
-          ListTile(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 20,
-              vertical: 8,
-            ),
-            leading: CircleAvatar(
-              backgroundColor: isDark
-                  ? AppColors.primary.withOpacity(0.2)
-                  : AppColors.secondary.withOpacity(0.2),
-              child: Text(
-                _getInitials(client['name'] ?? ""),
-                style: TextStyle(
-                  color: isDark ? AppColors.primary : AppColors.secondary,
-                  fontWeight: FontWeight.bold,
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+        ),
+        child: Column(
+          children: [
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 8,
+              ),
+              leading: CircleAvatar(
+                backgroundColor: isDark
+                    ? AppColors.primary.withOpacity(0.2)
+                    : AppColors.secondary.withOpacity(0.2),
+                child: Text(
+                  _getInitials(client['name'] ?? ""),
+                  style: TextStyle(
+                    color: isDark ? AppColors.primary : AppColors.secondary,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-            ),
-            title: Text(
-              client['name'] ?? "Unknown",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.black,
+              title: Text(
+                client['name'] ?? "Unknown",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black,
+                ),
               ),
+              subtitle: Text(client['email'] ?? "No email provided"),
+              trailing: AnimatedRotation(
+                duration: const Duration(milliseconds: 300),
+                turns: isExpanded ? 0.5 : 0,
+                child: const Icon(
+                  Icons.keyboard_arrow_down,
+                  color: Colors.grey,
+                ),
+              ),
+              onTap: () {
+                HapticFeedback.selectionClick();
+                setState(() {
+                  _expandedIndex = isExpanded ? null : index;
+                });
+              },
             ),
-            subtitle: Text(client['email'] ?? "No email provided"),
-            trailing: AnimatedRotation(
+            AnimatedSize(
               duration: const Duration(milliseconds: 300),
-              turns: isExpanded ? 0.5 : 0,
-              child: const Icon(Icons.keyboard_arrow_down, color: Colors.grey),
+              curve: Curves.easeInOut,
+              child: isExpanded
+                  ? _buildActionButtons(client, isDark)
+                  : const SizedBox(width: double.infinity, height: 0),
             ),
-            onTap: () {
-              HapticFeedback.selectionClick();
-              setState(() {
-                _expandedIndex = isExpanded ? null : index;
-              });
-            },
-          ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            child: isExpanded
-                ? _buildActionButtons(client, isDark)
-                : const SizedBox(width: double.infinity, height: 0),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -219,34 +233,38 @@ class _ClientsPageState extends State<ClientsPage> {
           const SizedBox(height: 10),
           Row(
             children: [
-              // Edit Button
+              // Edit Info Button (Styled like "Change Role" from UsersPage)
               Expanded(
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.secondary,
-                    foregroundColor: Colors.white,
+                child: GestureDetector(
+                  onTap: () {
+                    HapticFeedback.mediumImpact();
+                    // Logic to navigate to Edit Client page
+                  },
+                  child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppColors.primary),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                  ),
-                  onPressed: () {
-                    // Logic to navigate to Edit Client page
-                    debugPrint("Edit Client: ${client['id']}");
-                  },
-                  icon: const Icon(Icons.edit_note_rounded, size: 20),
-                  label: const Text(
-                    "Edit Info",
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    child: const Center(
+                      child: Text(
+                        "Edit Info",
+                        style: TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
               const SizedBox(width: 12),
-              // Delete Button
+              // Delete Button (Styled like "Remove User" from UsersPage)
               Expanded(
                 child: OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.red,
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
                     side: const BorderSide(color: Colors.red),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
@@ -257,9 +275,9 @@ class _ClientsPageState extends State<ClientsPage> {
                     client['id'].toString(),
                     client['name'] ?? "",
                   ),
-                  icon: const Icon(Icons.delete_sweep_outlined, size: 20),
+                  icon: const Icon(Icons.person_remove_outlined, size: 18),
                   label: const Text(
-                    "Delete",
+                    "Remove Client",
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
