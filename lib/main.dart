@@ -22,7 +22,7 @@ void main() async {
   final notificationService = NotificationService();
   await notificationService.initNotification();
 
-if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   }
@@ -54,15 +54,16 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
-  bool _hasConnection = true;
 
-  // Realtime Channel reference
+  // Overlay references for floating the pill
+  OverlayEntry? _networkOverlayEntry;
+  bool _isShowingError = false;
+
   RealtimeChannel? _realtimeChannel;
 
   @override
   void initState() {
     super.initState();
-
     _initConnectivity();
 
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
@@ -78,38 +79,29 @@ class _MyAppState extends State<MyApp> {
         final sessionUser = event.session?.user;
         if (sessionUser != null) {
           userProvider.refreshUser();
-          // Start listening to DB changes when user is logged in
           _setupSupabaseListener();
         } else {
           userProvider.clearUser();
-          // Stop listening when user logs out
           _stopSupabaseListener();
         }
       });
     });
   }
 
-  /// ============================
-  /// SUPABASE REALTIME LISTENER
-  /// ============================
   void _setupSupabaseListener() {
     final supabase = Supabase.instance.client;
-
-    // Ensure we don't create multiple channels
     if (_realtimeChannel != null) return;
 
     _realtimeChannel = supabase
         .channel('public:bookings')
         .onPostgresChanges(
-          event: PostgresChangeEvent
-              .all, // Listen for Inserts, Updates, and Deletes
+          event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'bookings',
           callback: (payload) {
             final newRecord = payload.newRecord;
             final eventType = payload.eventType.name.toUpperCase();
 
-            // Logic to determine notification content
             String title = "Booking $eventType";
             String body =
                 "Changes detected in booking for ${newRecord['client_name'] ?? 'Unknown Client'}";
@@ -121,7 +113,6 @@ class _MyAppState extends State<MyApp> {
               body = "Booking status is now: ${newRecord['status']}";
             }
 
-            // Trigger Local Notification
             NotificationService().showNotification(
               id: DateTime.now().millisecond,
               title: title,
@@ -145,15 +136,47 @@ class _MyAppState extends State<MyApp> {
   }
 
   void _checkStatus(List<ConnectivityResult> result) {
-    setState(() {
-      _hasConnection = !result.contains(ConnectivityResult.none);
-    });
+    if (result.contains(ConnectivityResult.none)) {
+      _showNoInternetOverlay();
+    } else {
+      _hideNoInternetOverlay();
+    }
+  }
+
+  // Logic to show the floating Overlay
+  void _showNoInternetOverlay() {
+    if (_isShowingError) return;
+    _isShowingError = true;
+
+    _networkOverlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        // Places it at the top, over the app bar area
+        top: MediaQuery.of(context).padding.top + 10,
+        left: 15,
+        right: 15,
+        child: const Material(
+          color: Colors.transparent,
+          child: NoInternetWidget(),
+        ),
+      ),
+    );
+
+    // Insert into the global overlay stack
+    Overlay.of(context).insert(_networkOverlayEntry!);
+  }
+
+  void _hideNoInternetOverlay() {
+    if (!_isShowingError) return;
+    _isShowingError = false;
+    _networkOverlayEntry?.remove();
+    _networkOverlayEntry = null;
   }
 
   @override
   void dispose() {
     _connectivitySubscription.cancel();
     _stopSupabaseListener();
+    _hideNoInternetOverlay();
     super.dispose();
   }
 
@@ -166,7 +189,7 @@ class _MyAppState extends State<MyApp> {
       themeMode: themeProvider.themeMode,
       theme: MyThemes.lightTheme,
       darkTheme: MyThemes.darkTheme,
-      home: MainStackHandler(hasConnection: _hasConnection),
+      home: const MainStackHandler(),
       routes: {
         '/login': (_) => const LoginPage(),
         '/register': (_) => const RegisterPage(),
@@ -177,8 +200,7 @@ class _MyAppState extends State<MyApp> {
 }
 
 class MainStackHandler extends StatefulWidget {
-  final bool hasConnection;
-  const MainStackHandler({super.key, required this.hasConnection});
+  const MainStackHandler({super.key});
 
   @override
   State<MainStackHandler> createState() => _MainStackHandlerState();
@@ -189,17 +211,10 @@ class _MainStackHandlerState extends State<MainStackHandler> {
 
   @override
   Widget build(BuildContext context) {
+    // Removed NoInternetWidget from here because it's now handled by the Overlay
     return Stack(
       children: [
-        Column(
-          children: [
-            // No Internet Connection Widget at the top
-            if (!widget.hasConnection && _isSplashFinished)
-              const NoInternetWidget(),
-            // Main content
-            Expanded(child: const RootPage()),
-          ],
-        ),
+        const RootPage(),
         if (!_isSplashFinished)
           SplashOverlay(
             onAnimationComplete: () {
@@ -321,29 +336,30 @@ class _SplashOverlayState extends State<SplashOverlay>
   }
 }
 
-// Custom No Internet Widget
+// Custom No Internet Widget - Design matches your screenshot
 class NoInternetWidget extends StatelessWidget {
   const NoInternetWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFF3B3B), // Bright red color
-        borderRadius: BorderRadius.circular(30),
+        color: const Color(0xFFFF3B3B),
+        borderRadius: BorderRadius.circular(
+          50,
+        ), // Fully rounded like the screenshot
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.15),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Alert Icon
           Container(
             width: 32,
             height: 32,
@@ -363,7 +379,6 @@ class NoInternetWidget extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 16),
-          // Text Message
           const Expanded(
             child: Text(
               'No internet connection - Please check your network',
@@ -375,7 +390,6 @@ class NoInternetWidget extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          // WiFi Icon
           const Icon(Icons.wifi_off_rounded, color: Colors.white, size: 28),
         ],
       ),
