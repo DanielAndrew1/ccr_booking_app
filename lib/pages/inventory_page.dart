@@ -12,21 +12,8 @@ class InventoryPage extends StatefulWidget {
   State<InventoryPage> createState() => _InventoryPageState();
 }
 
-class _InventoryPageState extends State<InventoryPage>
-    with WidgetsBindingObserver {
+class _InventoryPageState extends State<InventoryPage> {
   Key _streamKey = UniqueKey();
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed)
-      setState(() => _streamKey = UniqueKey());
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,22 +34,23 @@ class _InventoryPageState extends State<InventoryPage>
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting)
               return Center(child: CustomLoader());
-            if (snapshot.hasError)
-              return const Center(child: Text("Error loading inventory."));
-            final products = snapshot.data ?? [];
+            if (!snapshot.hasData || snapshot.data!.isEmpty)
+              return const Center(child: Text("No products found."));
+
+            final products = snapshot.data!;
             return ListView.builder(
               padding: const EdgeInsets.all(16),
               physics: const AlwaysScrollableScrollPhysics(),
               itemCount: products.length,
               itemBuilder: (context, index) {
-                final p = products[index];
+                final product = products[index];
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.only(bottom: 12.0),
                   child: CustomProductTile(
-                    title: p['name'],
-                    price: (p['price'] as num).toDouble(),
-                    imageUrl: p['image_url'],
-                    route: ProductPage(productId: p['id'].toString()),
+                    title: product['name'] ?? 'Unnamed',
+                    price: (product['price'] as num).toDouble(),
+                    imageUrl: product['image_url'],
+                    route: ProductPage(productId: product['id'].toString()),
                   ),
                 );
               },
@@ -71,11 +59,5 @@ class _InventoryPageState extends State<InventoryPage>
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
   }
 }
