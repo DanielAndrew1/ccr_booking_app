@@ -50,10 +50,8 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey =
-      GlobalKey<ScaffoldMessengerState>();
   late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
-  bool _isBannerShowing = false;
+  bool _hasConnection = true;
 
   // Realtime Channel reference
   RealtimeChannel? _realtimeChannel;
@@ -144,38 +142,9 @@ class _MyAppState extends State<MyApp> {
   }
 
   void _checkStatus(List<ConnectivityResult> result) {
-    if (result.contains(ConnectivityResult.none)) {
-      _showNoInternetBanner();
-    } else {
-      _hideNoInternetBanner();
-    }
-  }
-
-  void _showNoInternetBanner() {
-    if (_isBannerShowing) return;
-    _isBannerShowing = true;
-
-    _scaffoldMessengerKey.currentState?.showMaterialBanner(
-      MaterialBanner(
-        elevation: 0,
-        backgroundColor: Colors.redAccent,
-        contentTextStyle: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-        ),
-        content: const Text(
-          'Please connect to a network connection and try again',
-          textAlign: TextAlign.center,
-        ),
-        actions: [const SizedBox.shrink()],
-      ),
-    );
-  }
-
-  void _hideNoInternetBanner() {
-    if (!_isBannerShowing) return;
-    _isBannerShowing = false;
-    _scaffoldMessengerKey.currentState?.clearMaterialBanners();
+    setState(() {
+      _hasConnection = !result.contains(ConnectivityResult.none);
+    });
   }
 
   @override
@@ -190,12 +159,11 @@ class _MyAppState extends State<MyApp> {
     final themeProvider = Provider.of<ThemeProvider>(context);
 
     return MaterialApp(
-      scaffoldMessengerKey: _scaffoldMessengerKey,
       debugShowCheckedModeBanner: false,
       themeMode: themeProvider.themeMode,
       theme: MyThemes.lightTheme,
       darkTheme: MyThemes.darkTheme,
-      home: const MainStackHandler(),
+      home: MainStackHandler(hasConnection: _hasConnection),
       routes: {
         '/login': (_) => const LoginPage(),
         '/register': (_) => const RegisterPage(),
@@ -206,7 +174,8 @@ class _MyAppState extends State<MyApp> {
 }
 
 class MainStackHandler extends StatefulWidget {
-  const MainStackHandler({super.key});
+  final bool hasConnection;
+  const MainStackHandler({super.key, required this.hasConnection});
 
   @override
   State<MainStackHandler> createState() => _MainStackHandlerState();
@@ -219,7 +188,15 @@ class _MainStackHandlerState extends State<MainStackHandler> {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        const RootPage(),
+        Column(
+          children: [
+            // No Internet Connection Widget at the top
+            if (!widget.hasConnection && _isSplashFinished)
+              const NoInternetWidget(),
+            // Main content
+            Expanded(child: const RootPage()),
+          ],
+        ),
         if (!_isSplashFinished)
           SplashOverlay(
             onAnimationComplete: () {
@@ -337,6 +314,68 @@ class _SplashOverlayState extends State<SplashOverlay>
           ),
         );
       },
+    );
+  }
+}
+
+// Custom No Internet Widget
+class NoInternetWidget extends StatelessWidget {
+  const NoInternetWidget({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFF3B3B), // Bright red color
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Alert Icon
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2.5),
+            ),
+            child: const Center(
+              child: Text(
+                '!',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          // Text Message
+          const Expanded(
+            child: Text(
+              'No internet connection - Please check your network',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // WiFi Icon
+          const Icon(Icons.wifi_off_rounded, color: Colors.white, size: 28),
+        ],
+      ),
     );
   }
 }

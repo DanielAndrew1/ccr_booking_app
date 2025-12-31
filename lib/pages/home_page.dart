@@ -1,11 +1,13 @@
 // ignore_for_file: deprecated_member_use
 
+import 'dart:async';
 import 'package:ccr_booking/core/user_provider.dart';
 import 'package:ccr_booking/pages/add/add_booking.dart';
+import 'package:ccr_booking/services/notification_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../core/app_theme.dart';
 import '../widgets/custom_pfp.dart';
 import '../widgets/custom_loader.dart';
@@ -19,102 +21,252 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final supabase = Supabase.instance.client;
-  final FlutterLocalNotificationsPlugin _localNotifications =
-      FlutterLocalNotificationsPlugin();
+  final notificationService = NotificationService();
   RealtimeChannel? _notificationChannel;
+  bool _isNotificationSending = false;
+
+  // Connectivity
+  late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
+  bool _hasConnection = true;
 
   @override
   void initState() {
     super.initState();
-    _initNotifications();
+    _initConnectivity();
+    _initializeNotifications();
+
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
+      List<ConnectivityResult> result,
+    ) {
+      _checkStatus(result);
+    });
   }
 
-  Future<void> _initNotifications() async {
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const ios = DarwinInitializationSettings();
-    await _localNotifications.initialize(
-      const InitializationSettings(android: android, iOS: ios),
-    );
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _startRealtimeListener(),
-    );
+  Future<void> _initConnectivity() async {
+    final result = await Connectivity().checkConnectivity();
+    _checkStatus(result);
+  }
+
+  void _checkStatus(List<ConnectivityResult> result) {
+    setState(() {
+      _hasConnection = !result.contains(ConnectivityResult.none);
+    });
+  }
+
+  Future<void> _initializeNotifications() async {
+    try {
+      await notificationService.initNotification();
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _startRealtimeListener(),
+      );
+    } catch (e) {
+      print('❌ Error initializing notifications: $e');
+    }
   }
 
   void _startRealtimeListener() {
     final user = supabase.auth.currentUser;
     if (user == null) return;
 
-    _notificationChannel = supabase
-        .channel('booking-updates')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'bookings',
-          callback: (payload) {
-            if (mounted) setState(() {});
-          },
-        )
-        .subscribe();
-  }
+    try {
+      _notificationChannel = supabase
+          .channel('booking-updates')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'bookings',
+            callback: (payload) async {
+              // Handle real-time updates
+              if (mounted) setState(() {});
 
-  // Old Notification logic restored for the test button
-  Future<void> _showLocalNotification(String title, String body) async {
-    const details = NotificationDetails(
-      android: AndroidNotificationDetails(
-        'ccr_id',
-        'Bookings',
-        importance: Importance.max,
-        priority: Priority.high,
-      ),
-      iOS: DarwinNotificationDetails(),
-    );
-    await _localNotifications.show(
-      DateTime.now().millisecond,
-      title,
-      body,
-      details,
-    );
+              // Show notification based on event type
+              final newRecord = payload.newRecord;
+              final oldRecord = payload.oldRecord;
+
+              if (payload.eventType == PostgresChangeEvent.insert) {
+                // New booking created
+                await notificationService.showBookingCreatedNotification(
+                  clientName: newRecord['client_name'] ?? 'Unknown Client',
+                  bookingId: newRecord['id']?.toString(),
+                );
+              } else if (payload.eventType == PostgresChangeEvent.update) {
+                // Booking updated
+                final oldStatus = oldRecord?['status']?.toString() ?? '';
+                final newStatus = newRecord['status']?.toString() ?? '';
+
+                if (oldStatus != newStatus) {
+                  // Status changed
+                  await notificationService.showBookingStatusNotification(
+                    clientName: newRecord['client_name'] ?? 'Unknown Client',
+                    oldStatus: oldStatus,
+                    newStatus: newStatus,
+                    bookingId: newRecord['id']?.toString(),
+                  );
+                } else {
+                  // Other update
+                  await notificationService.showBookingUpdatedNotification(
+                    clientName: newRecord['client_name'] ?? 'Unknown Client',
+                    status: newRecord['status']?.toString() ?? 'Unknown',
+                    bookingId: newRecord['id']?.toString(),
+                  );
+                }
+              }
+            },
+          )
+          .subscribe();
+
+      print('✅ Realtime listener started');
+    } catch (e) {
+      print('❌ Error starting realtime listener: $e');
+    }
   }
 
   @override
   void dispose() {
-    if (_notificationChannel != null)
+    if (_notificationChannel != null) {
       supabase.removeChannel(_notificationChannel!);
+    }
+    _connectivitySubscription.cancel();
     super.dispose();
   }
 
+  /// Test notification with improved feedback
+  Future<void> _showTestNotification() async {
+    if (_isNotificationSending) return;
+
+    setState(() => _isNotificationSending = true);
+
+    try {
+      // Send the notification
+      final success = await notificationService.showNotification(
+        title: '✅ Test Successful',
+        body: 'Your notification system is working perfectly!',
+        payload: 'test_notification',
+      );
+
+      if (mounted) {
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.white),
+                  SizedBox(width: 12),
+                  Text('Notification sent successfully!'),
+                ],
+              ),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 2),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.error_outline, color: Colors.white),
+                  SizedBox(width: 12),
+                  Expanded(child: Text('Failed to send notification')),
+                ],
+              ),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('❌ Error sending test notification: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white),
+                const SizedBox(width: 12),
+                Expanded(child: Text('Error: $e')),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isNotificationSending = false);
+      }
+    }
+  }
+
   Future<List<Map<String, dynamic>>> _getUpcomingBookings() async {
-    final response = await supabase
-        .from('bookings')
-        .select()
-        .eq('status', 'upcoming')
-        .order('created_at', ascending: false);
-    return List<Map<String, dynamic>>.from(response);
+    try {
+      final response = await supabase
+          .from('bookings')
+          .select()
+          .eq('status', 'upcoming')
+          .order('created_at', ascending: false);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      print('❌ Error fetching upcoming bookings: $e');
+      return [];
+    }
   }
 
   Future<List<Map<String, dynamic>>> _getReturningBookings() async {
-    final response = await supabase
-        .from('bookings')
-        .select()
-        .eq('status', 'returning')
-        .order('created_at', ascending: false);
-    return List<Map<String, dynamic>>.from(response);
+    try {
+      final response = await supabase
+          .from('bookings')
+          .select()
+          .eq('status', 'returning')
+          .order('created_at', ascending: false);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      print('❌ Error fetching returning bookings: $e');
+      return [];
+    }
   }
 
   Future<Map<String, int>> _getOwnerStats() async {
-    final now = DateTime.now();
-    final todayStart = DateTime(now.year, now.month, now.day).toIso8601String();
+    try {
+      final now = DateTime.now();
+      final todayStart = DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).toIso8601String();
 
-    final bookingsData = await supabase
-        .from('bookings')
-        .select('id')
-        .gte('created_at', todayStart);
-    final clientsData = await supabase.from('clients').select('id');
+      // Get today's bookings
+      final bookingsData = await supabase
+          .from('bookings')
+          .select('id')
+          .gte('created_at', todayStart);
 
-    return {
-      'bookings': (bookingsData as List).length,
-      'clients': (clientsData as List).length,
-    };
+      // Get total clients
+      final clientsData = await supabase.from('clients').select('id');
+
+      // Get total employees (users)
+      final employeesData = await supabase.from('users').select('id');
+
+      return {
+        'bookings': (bookingsData as List).length,
+        'clients': (clientsData as List).length,
+        'employees': (employeesData as List).length,
+      };
+    } catch (e) {
+      print('❌ Error fetching owner stats: $e');
+      return {'bookings': 0, 'clients': 0, 'employees': 0};
+    }
   }
 
   @override
@@ -123,22 +275,35 @@ class _HomePageState extends State<HomePage> {
     final currentUser = userProvider.currentUser;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    if (currentUser == null)
+    if (currentUser == null) {
       return const Scaffold(body: Center(child: CustomLoader()));
+    }
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
-      appBar: _buildAppBar(currentUser),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          await userProvider.refreshUser();
-          if (mounted) setState(() {});
-        },
-        color: AppColors.primary,
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: _buildRoleDashboard(currentUser.role, isDark),
-        ),
+      body: Column(
+        children: [
+          // AppBar
+          _buildAppBar(currentUser),
+
+          // No Internet Widget at the top
+          if (!_hasConnection) const NoInternetWidget(),
+
+          // Main Content
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () async {
+                await userProvider.refreshUser();
+                if (mounted) setState(() {});
+              },
+              color: AppColors.primary,
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: _buildRoleDashboard(currentUser.role, isDark),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -207,32 +372,35 @@ class _HomePageState extends State<HomePage> {
           ],
 
           // --- ACTION BUTTONS ---
-          _buildActionButton(
-            title: "Create New Booking",
-            subtitle: "Start a fresh equipment rental",
-            icon: Icons.add_circle_outline,
-            color: AppColors.primary,
-            isDark: isDark,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const AddBooking()),
-              );
-            },
-          ),
-          const SizedBox(height: 15),
+          // Create New Booking button (Admin and Owner only)
+          if (role == 'Admin' || role == 'Owner') ...[
+            _buildActionButton(
+              title: "Create New Booking",
+              subtitle: "Start a fresh equipment rental",
+              icon: Icons.add_circle_outline,
+              color: AppColors.primary,
+              isDark: isDark,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const AddBooking()),
+                );
+              },
+            ),
+            const SizedBox(height: 15),
+          ],
+
+          // Test Notification button (All roles)
           _buildActionButton(
             title: "Test Notification",
             subtitle: "Send a local test alert",
-            icon: Icons.notifications_active_outlined,
+            icon: _isNotificationSending
+                ? Icons.hourglass_empty
+                : Icons.notifications_active_outlined,
             color: AppColors.secondary,
             isDark: isDark,
-            onTap: () {
-              _showLocalNotification(
-                "Test Successful",
-                "This is your test notification from the old model.",
-              );
-            },
+            isLoading: _isNotificationSending,
+            onTap: _isNotificationSending ? () {} : _showTestNotification,
           ),
           const SizedBox(height: 40),
         ],
@@ -253,15 +421,38 @@ class _HomePageState extends State<HomePage> {
         FutureBuilder<List<Map<String, dynamic>>>(
           future: future,
           builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting)
-              return Center(child: CustomLoader());
-            if (!snapshot.hasData || snapshot.data!.isEmpty)
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CustomLoader());
+            }
+            if (snapshot.hasError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        size: 48,
+                        color: Colors.red,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Error loading bookings',
+                        style: TextStyle(color: Colors.red.shade700),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+            if (!snapshot.hasData || snapshot.data!.isEmpty) {
               return const Center(
                 child: Padding(
                   padding: EdgeInsets.all(20),
                   child: Text("No bookings found."),
                 ),
               );
+            }
             return ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -287,25 +478,42 @@ class _HomePageState extends State<HomePage> {
     return FutureBuilder<Map<String, int>>(
       future: _getOwnerStats(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting)
-          return Center(child: CustomLoader());
-        final stats = snapshot.data ?? {'bookings': 0, 'clients': 0};
-        return Row(
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CustomLoader());
+        }
+        final stats =
+            snapshot.data ?? {'bookings': 0, 'clients': 0, 'employees': 0};
+        return Column(
           children: [
-            _buildStatCard(
-              "Total Clients",
-              "${stats['clients']}",
-              Icons.people,
-              AppColors.primary,
-              isDark,
+            // First Row - Clients and Employees
+            Row(
+              children: [
+                _buildStatCard(
+                  "Total Clients",
+                  "${stats['clients']}",
+                  Icons.people,
+                  AppColors.primary,
+                  isDark,
+                ),
+                const SizedBox(width: 15),
+                _buildStatCard(
+                  "Total Employees",
+                  "${stats['employees']}",
+                  Icons.badge,
+                  Colors.purple,
+                  isDark,
+                ),
+              ],
             ),
-            const SizedBox(width: 15),
+            const SizedBox(height: 15),
+            // Second Row - Today's Bookings (Full Width)
             _buildStatCard(
               "Today's Bookings",
               "${stats['bookings']}",
               Icons.calendar_today,
               AppColors.secondary,
               isDark,
+              isFullWidth: true,
             ),
           ],
         );
@@ -320,42 +528,56 @@ class _HomePageState extends State<HomePage> {
     required Color color,
     required bool isDark,
     required VoidCallback onTap,
+    bool isLoading = false,
   }) {
     return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF2C2C2C) : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withOpacity(0.5), width: 1),
-        ),
-        child: Row(
-          children: [
-            CircleAvatar(
-              backgroundColor: color.withOpacity(0.1),
-              child: Icon(icon, color: color),
-            ),
-            const SizedBox(width: 15),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
+      onTap: isLoading ? null : onTap,
+      child: Opacity(
+        opacity: isLoading ? 0.6 : 1.0,
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF2C2C2C) : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: color.withOpacity(0.5), width: 1),
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: color.withOpacity(0.1),
+                child: isLoading
+                    ? SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(color),
+                        ),
+                      )
+                    : Icon(icon, color: color),
+              ),
+              const SizedBox(width: 15),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                  ],
                 ),
-                Text(
-                  subtitle,
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
-                ),
-              ],
-            ),
-            const Spacer(),
-            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-          ],
+              ),
+              const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+            ],
+          ),
         ),
       ),
     );
@@ -399,8 +621,9 @@ class _HomePageState extends State<HomePage> {
     String value,
     IconData icon,
     Color color,
-    bool isDark,
-  ) {
+    bool isDark, {
+    bool isFullWidth = false,
+  }) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(20),
@@ -410,14 +633,85 @@ class _HomePageState extends State<HomePage> {
         ),
         child: Column(
           children: [
-            Icon(icon, color: color),
+            Icon(icon, color: color, size: 32),
+            const SizedBox(height: 8),
             Text(
               value,
               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
-            Text(label),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+              ),
+            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// Custom No Internet Widget
+class NoInternetWidget extends StatelessWidget {
+  const NoInternetWidget({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFF3B3B), // Bright red color
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Alert Icon
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2.5),
+            ),
+            child: const Center(
+              child: Text(
+                '!',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          // Text Message
+          const Expanded(
+            child: Text(
+              'No internet connection - Please check your network',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // WiFi Icon
+          const Icon(Icons.wifi_off_rounded, color: Colors.white, size: 28),
+        ],
       ),
     );
   }
