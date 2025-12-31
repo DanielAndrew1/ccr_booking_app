@@ -1,5 +1,6 @@
 // ignore_for_file: deprecated_member_use
 
+import 'dart:async';
 import 'package:ccr_booking/core/app_theme.dart';
 import 'package:ccr_booking/core/root.dart';
 import 'package:ccr_booking/core/theme.dart';
@@ -9,20 +10,18 @@ import 'package:ccr_booking/pages/register_page.dart';
 import 'package:ccr_booking/services/notification_service.dart';
 import 'package:ccr_booking/widgets/custom_navbar.dart';
 import 'package:flutter/material.dart';
-import 'package:onesignal_flutter/onesignal_flutter.dart'; // 1. Added OneSignal Import
+import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:connectivity_plus/connectivity_plus.dart'; // New Import
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 2. Initialize OneSignal (Version 5.x)
-  // REPLACE '20f7abe2-84af-409a-9195-cd36847dc0fa' with your actual OneSignal App ID
+  // Initialize OneSignal
   OneSignal.Debug.setLogLevel(OSLogLevel.verbose);
   OneSignal.initialize("20f7abe2-84af-409a-9195-cd36847dc0fa");
-
-  // Requesting permission immediately on app launch
   OneSignal.Notifications.requestPermission(true);
 
   // Initialize local notifications service
@@ -35,7 +34,7 @@ void main() async {
   // Initialize Supabase
   await Supabase.initialize(
     url: 'https://jjodrxidqzcreqzteyqa.supabase.co',
-    anonKey: 'YOUR_SUPABASE_ANON_KEY', // Use your existing key here
+    anonKey: 'YOUR_SUPABASE_ANON_KEY',
   );
 
   runApp(
@@ -57,29 +56,88 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  // Global key to show the top banner across all screens
+  final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey =
+      GlobalKey<ScaffoldMessengerState>();
+  late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
+  bool _isBannerShowing = false;
+
   @override
   void initState() {
     super.initState();
+
+    // Check connectivity on startup
+    _initConnectivity();
+
+    // Listen for connectivity changes
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
+      List<ConnectivityResult> result,
+    ) {
+      _checkStatus(result);
+    });
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
 
-      // 3. Listen for Auth changes to link/unlink OneSignal
       Supabase.instance.client.auth.onAuthStateChange.listen((event) {
         final sessionUser = event.session?.user;
         if (sessionUser != null) {
           userProvider.refreshUser();
-
-          // LINK: This tells OneSignal that this device belongs to this Supabase UUID
-          // This enables sending manual notifications by "External ID" in the dashboard
           OneSignal.login(sessionUser.id);
         } else {
           userProvider.clearUser();
-
-          // UNLINK: Clear the identity when the user logs out
           OneSignal.logout();
         }
       });
     });
+  }
+
+  Future<void> _initConnectivity() async {
+    final result = await Connectivity().checkConnectivity();
+    _checkStatus(result);
+  }
+
+  void _checkStatus(List<ConnectivityResult> result) {
+    if (result.contains(ConnectivityResult.none)) {
+      _showNoInternetBanner();
+    } else {
+      _hideNoInternetBanner();
+    }
+  }
+
+  void _showNoInternetBanner() {
+    if (_isBannerShowing) return;
+    _isBannerShowing = true;
+
+    _scaffoldMessengerKey.currentState?.showMaterialBanner(
+      MaterialBanner(
+        elevation: 0,
+        backgroundColor: Colors.redAccent,
+        contentTextStyle: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+        ),
+        content: const Text(
+          'Please connect to a network connection and try again',
+          textAlign: TextAlign.center,
+        ),
+        actions: [
+          const SizedBox.shrink(), // Required parameter, but we want it clean
+        ],
+      ),
+    );
+  }
+
+  void _hideNoInternetBanner() {
+    if (!_isBannerShowing) return;
+    _isBannerShowing = false;
+    _scaffoldMessengerKey.currentState?.clearMaterialBanners();
+  }
+
+  @override
+  void dispose() {
+    _connectivitySubscription.cancel();
+    super.dispose();
   }
 
   @override
@@ -87,6 +145,8 @@ class _MyAppState extends State<MyApp> {
     final themeProvider = Provider.of<ThemeProvider>(context);
 
     return MaterialApp(
+      scaffoldMessengerKey:
+          _scaffoldMessengerKey, // Essential for global banners
       debugShowCheckedModeBanner: false,
       themeMode: themeProvider.themeMode,
       theme: MyThemes.lightTheme,
