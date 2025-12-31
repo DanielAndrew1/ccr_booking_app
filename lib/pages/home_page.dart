@@ -209,7 +209,7 @@ class _HomePageState extends State<HomePage> {
             _buildActionButton(
               title: "Get a Notification",
               subtitle: "Test the noticication service",
-              icon: Icons.add_circle_outline,
+              icon: Icons.notifications_on_rounded,
               color: AppColors.secondary,
               isDark: isDark,
               onTap: () {

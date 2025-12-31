@@ -4,21 +4,25 @@ class NotificationService {
   final notificationsPlugin = FlutterLocalNotificationsPlugin();
 
   bool _isInitialized = false;
-
   bool get isInitialized => _isInitialized;
 
   // Initialize
   Future<void> initNotification() async {
-    if (_isInitialized) return; // Prevent Re-Initailization
+    if (_isInitialized) return;
 
-    // Android init settings
+    // 1. Android init settings
+    // IMPORTANT: Android does not use 'assets/icon.png'.
+    // It looks for a drawable resource in android/app/src/main/res/drawable/
+    // Use '@mipmap/ic_launcher' for the default app icon.
     const initSettingsAndroid = AndroidInitializationSettings(
-      'assets/icon.png',
+      '@mipmap/ic_launcher',
     );
 
-    // IOS init settings
+    // 2. IOS init settings
     const initSettingsIOS = DarwinInitializationSettings(
       requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
     );
 
     const initSettings = InitializationSettings(
@@ -27,31 +31,51 @@ class NotificationService {
     );
 
     // Initialize Plugin
-    await notificationsPlugin.initialize(initSettings);
+    await notificationsPlugin.initialize(
+      initSettings,
+      onDidReceiveNotificationResponse: (details) {
+        // Handle notification tap logic here
+      },
+    );
+
+    _isInitialized = true;
   }
 
-  // Notification Detail Setup
-  NotificationDetails notificationDetails() {
+  // 3. Notification Detail Setup
+  NotificationDetails _notificationDetails() {
     return const NotificationDetails(
       android: AndroidNotificationDetails(
-        "channelId",
-        "channelName",
-        channelDescription: "channelName",
+        "ccr_booking_channel", // Unique ID
+        "CCR Bookings", // User visible name
+        channelDescription: "Notifications for equipment rental updates",
         importance: Importance.max,
         priority: Priority.high,
+        ticker: 'ticker',
+        // This ensures it pops up like Instagram/Snapchat
+        fullScreenIntent: true,
       ),
-      iOS: DarwinNotificationDetails(),
+      iOS: DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      ),
     );
   }
 
-  // Show Notification
+  // 4. Show Notification
   Future<void> showNotification({
     int id = 0,
     String? title,
     String? body,
+    String? payload,
   }) async {
-    return notificationsPlugin.show(id, title, body, NotificationDetails());
+    // FIXED: Pass the _notificationDetails() method here instead of an empty object
+    return notificationsPlugin.show(
+      id,
+      title,
+      body,
+      _notificationDetails(),
+      payload: payload,
+    );
   }
-
-  // On Notification Tap
 }
