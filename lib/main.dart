@@ -1,6 +1,7 @@
 // ignore_for_file: deprecated_member_use
 
 import 'dart:async';
+import 'dart:io';
 import 'package:ccr_booking/core/app_theme.dart';
 import 'package:ccr_booking/core/root.dart';
 import 'package:ccr_booking/core/theme.dart';
@@ -21,8 +22,10 @@ void main() async {
   final notificationService = NotificationService();
   await notificationService.initNotification();
 
-  sqfliteFfiInit();
-  databaseFactory = databaseFactoryFfi;
+if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
 
   await Supabase.initialize(
     url: 'https://jjodrxidqzcreqzteyqa.supabase.co',
