@@ -1,5 +1,4 @@
 // ignore_for_file: deprecated_member_use
-
 import 'dart:async';
 import 'package:ccr_booking/core/user_provider.dart';
 import 'package:ccr_booking/pages/add/add_booking.dart';
@@ -14,15 +13,14 @@ import '../widgets/custom_loader.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
-
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
   final supabase = Supabase.instance.client;
+  final NotificationService _notificationService = NotificationService();
 
-  // Connectivity
   late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
   bool _hasConnection = true;
 
@@ -30,9 +28,10 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _initConnectivity();
+    _notificationService.initNotification(); // Ensure init
 
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
-      List<ConnectivityResult> result,
+      result,
     ) {
       _checkStatus(result);
     });
@@ -103,9 +102,8 @@ class _HomePageState extends State<HomePage> {
     final currentUser = userProvider.currentUser;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    if (currentUser == null) {
+    if (currentUser == null)
       return const Scaffold(body: Center(child: CustomLoader()));
-    }
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
@@ -208,13 +206,14 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 20),
             _buildActionButton(
               title: "Get a Notification",
-              subtitle: "Test the noticication service",
+              subtitle: "Test the notification service",
               icon: Icons.notifications_on_rounded,
               color: AppColors.secondary,
               isDark: isDark,
               onTap: () {
-                NotificationService().showNotification(
-                  title: "CCR Booking App",
+                _notificationService.showNotification(
+                  id: DateTime.now().millisecond,
+                  title: "CCR Booking",
                   body: "Testing the notification service",
                 );
               },
@@ -230,9 +229,8 @@ class _HomePageState extends State<HomePage> {
     return FutureBuilder<Map<String, int>>(
       future: _getOwnerStats(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting)
           return const Center(child: CustomLoader());
-        }
         final stats =
             snapshot.data ?? {'bookings': 0, 'clients': 0, 'employees': 0};
         return Column(
@@ -334,17 +332,15 @@ class _HomePageState extends State<HomePage> {
         FutureBuilder<List<Map<String, dynamic>>>(
           future: future,
           builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
+            if (snapshot.connectionState == ConnectionState.waiting)
               return const Center(child: CustomLoader());
-            }
-            if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            if (!snapshot.hasData || snapshot.data!.isEmpty)
               return const Center(
                 child: Padding(
                   padding: EdgeInsets.all(20),
                   child: Text("No bookings found."),
                 ),
               );
-            }
             return ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -428,7 +424,6 @@ class _HomePageState extends State<HomePage> {
 
 class NoInternetWidget extends StatelessWidget {
   const NoInternetWidget({super.key});
-
   @override
   Widget build(BuildContext context) {
     return Container(

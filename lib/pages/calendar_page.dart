@@ -1,5 +1,4 @@
 // ignore_for_file: deprecated_member_use
-
 import 'dart:async';
 import 'package:ccr_booking/core/app_theme.dart';
 import 'package:ccr_booking/widgets/custom_appbar.dart';
@@ -7,10 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'home_page.dart'; // To access NoInternetWidget
 
 class CalendarPage extends StatefulWidget {
   const CalendarPage({super.key});
-
   @override
   State<CalendarPage> createState() => CalendarPageState();
 }
@@ -26,58 +26,47 @@ class CalendarPageState extends State<CalendarPage>
   DateTime _selectedDate = DateTime.now().toLocal();
   bool _isLoading = false;
 
+  // Connectivity
+  late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
+  bool _hasConnection = true;
+
   final double hourHeight = 60.0;
-  final double lineHeight = 1.0;
-  final double topPadding = 20.0;
   final double labelWidth = 75.0;
   final double circleSize = 10.0;
-
-  // Reduced bottomSpacing to 0 to prevent scrolling under the last line
-  final double bottomSpacing = 0.0;
   final double gridLineTopOffset = 10.0;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _initConnectivity();
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
+      _checkStatus,
+    );
 
     _ticker = createTicker((elapsed) {
       if (mounted) setState(() {});
     })..start();
-
     _fetchBookings();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _handleInitialSnap();
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _handleInitialSnap());
   }
 
-  void resetToToday() {
-    final now = DateTime.now().toLocal();
-    setState(() => _selectedDate = now);
+  Future<void> _initConnectivity() async {
+    final result = await Connectivity().checkConnectivity();
+    _checkStatus(result);
+  }
 
-    if (_pageController.hasClients) {
-      _pageController.jumpToPage(7);
-    }
-    _scrollDayBarToCenter(7);
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _snapToCurrentTime();
-    });
+  void _checkStatus(List<ConnectivityResult> result) {
+    setState(() => _hasConnection = !result.contains(ConnectivityResult.none));
   }
 
   Future<void> _fetchBookings() async {
     setState(() => _isLoading = true);
-    try {
-      await Future.delayed(const Duration(milliseconds: 100));
-      if (mounted) setState(() => _isLoading = false);
-    } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
-    }
+    await Future.delayed(const Duration(milliseconds: 100));
+    if (mounted) setState(() => _isLoading = false);
   }
 
   void _handleInitialSnap() {
-    if (!mounted) return;
     Future.delayed(const Duration(milliseconds: 300), () {
       _snapToCurrentTime();
       _scrollDayBarToCenter(7);
@@ -86,21 +75,18 @@ class CalendarPageState extends State<CalendarPage>
 
   void _snapToCurrentTime() {
     if (!_todayScrollController.hasClients) return;
-
     final now = DateTime.now().toLocal();
     final double indicatorY =
         (now.hour * hourHeight) +
         (now.minute * (hourHeight / 60.0)) +
         gridLineTopOffset;
-
     final double viewportHeight =
         _todayScrollController.position.viewportDimension;
-    final double targetScroll =
-        (indicatorY + topPadding) - (viewportHeight / 2);
-    final double maxScroll = _todayScrollController.position.maxScrollExtent;
-
     _todayScrollController.animateTo(
-      targetScroll.clamp(0.0, maxScroll),
+      ((indicatorY + 20.0) - (viewportHeight / 2)).clamp(
+        0.0,
+        _todayScrollController.position.maxScrollExtent,
+      ),
       duration: const Duration(milliseconds: 1200),
       curve: Curves.fastLinearToSlowEaseIn,
     );
@@ -115,6 +101,7 @@ class CalendarPageState extends State<CalendarPage>
       appBar: CustomAppBar(text: 'Calendar', showPfp: true),
       body: Column(
         children: [
+          if (!_hasConnection) const NoInternetWidget(),
           _buildDaySelector(isDark),
           Expanded(
             child: _isLoading
@@ -123,11 +110,11 @@ class CalendarPageState extends State<CalendarPage>
                     controller: _pageController,
                     onPageChanged: (index) {
                       HapticFeedback.lightImpact();
-                      setState(() {
-                        _selectedDate = DateTime.now().toLocal().add(
+                      setState(
+                        () => _selectedDate = DateTime.now().toLocal().add(
                           Duration(days: index - 7),
-                        );
-                      });
+                        ),
+                      );
                       _scrollDayBarToCenter(index);
                     },
                     itemCount: 22,
@@ -135,23 +122,17 @@ class CalendarPageState extends State<CalendarPage>
                       final pageDate = DateTime.now().toLocal().add(
                         Duration(days: pageIndex - 7),
                       );
-
                       final isToday = isSameDay(
                         pageDate,
                         DateTime.now().toLocal(),
                       );
-
                       return SingleChildScrollView(
-                        // ClampingScrollPhysics stops the user from scrolling past the boundaries
                         physics: const ClampingScrollPhysics(),
                         controller: isToday
                             ? _todayScrollController
                             : ScrollController(),
                         child: Padding(
-                          padding: EdgeInsets.only(
-                            top: topPadding,
-                            bottom: bottomSpacing,
-                          ),
+                          padding: const EdgeInsets.only(top: 20.0),
                           child: Stack(
                             clipBehavior: Clip.none,
                             children: [
@@ -194,7 +175,7 @@ class CalendarPageState extends State<CalendarPage>
                 Expanded(
                   child: Container(
                     margin: EdgeInsets.only(top: gridLineTopOffset),
-                    height: lineHeight,
+                    height: 1.0,
                     color: isDark
                         ? Colors.white10
                         : Colors.grey.withOpacity(0.3),
@@ -203,33 +184,30 @@ class CalendarPageState extends State<CalendarPage>
               ],
             ),
           ),
-        // The "Line after 11 PM" without a label
         Row(
           children: [
             SizedBox(width: labelWidth + 15),
             Expanded(
               child: Container(
                 margin: EdgeInsets.only(top: gridLineTopOffset),
-                height: lineHeight,
+                height: 1.0,
                 color: isDark ? Colors.white10 : Colors.grey.withOpacity(0.3),
               ),
             ),
           ],
         ),
-        SizedBox(height: 115,)
+        const SizedBox(height: 115),
       ],
     );
   }
 
   Widget _buildTimeIndicator() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final now = DateTime.now().toLocal();
     final double positionY =
         (now.hour * hourHeight) +
         (now.minute * (hourHeight / 60.0)) +
         (now.second * (hourHeight / 3600.0)) +
         gridLineTopOffset;
-
     return Positioned(
       left: labelWidth + 15 - (circleSize / 2),
       top: positionY - (circleSize / 2),
@@ -244,12 +222,7 @@ class CalendarPageState extends State<CalendarPage>
               shape: BoxShape.circle,
             ),
           ),
-          Expanded(
-            child: Container(
-              height: 2,
-              color: AppColors.primary,
-            ),
-          ),
+          Expanded(child: Container(height: 2, color: AppColors.primary)),
         ],
       ),
     );
@@ -291,15 +264,10 @@ class CalendarPageState extends State<CalendarPage>
               width: 65,
               margin: const EdgeInsets.symmetric(horizontal: 6),
               decoration: BoxDecoration(
-                color: isSelected
-                    ? AppColors.primary
-                    : Colors.transparent,
+                color: isSelected ? AppColors.primary : Colors.transparent,
                 borderRadius: BorderRadius.circular(16),
                 border: isToday && !isSelected
-                    ? Border.all(
-                        color: AppColors.primary,
-                        width: 2,
-                      )
+                    ? Border.all(color: AppColors.primary, width: 2)
                     : null,
               ),
               child: Column(
@@ -335,13 +303,12 @@ class CalendarPageState extends State<CalendarPage>
   void _scrollDayBarToCenter(int index) {
     if (index >= 0 && index < _dayKeys.length) {
       final context = _dayKeys[index].currentContext;
-      if (context != null) {
+      if (context != null)
         Scrollable.ensureVisible(
           context,
           alignment: 0.5,
           duration: const Duration(milliseconds: 500),
         );
-      }
     }
   }
 
@@ -357,6 +324,7 @@ class CalendarPageState extends State<CalendarPage>
   @override
   void dispose() {
     _ticker?.dispose();
+    _connectivitySubscription.cancel();
     _todayScrollController.dispose();
     _dayScrollController.dispose();
     _pageController.dispose();
