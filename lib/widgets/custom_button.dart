@@ -52,7 +52,7 @@ class _CustomButtonState extends State<CustomButton> {
 
     return SizedBox(
       width: double.infinity,
-      height: 40,
+      height: 45,
       child: ElevatedButton(
         onPressed: _loading ? null : _handlePress,
         style: ButtonStyle(

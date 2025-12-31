@@ -152,7 +152,7 @@ class ProfilePage extends StatelessWidget {
                   onPressed: () => _logout(context),
                   icon: Icons.logout_rounded,
                   text: "Logout",
-                  color: WidgetStateProperty.all(Colors.redAccent),
+                  color: WidgetStateProperty.all(Colors.red),
                 ),
 
                 // Space for the floating Navbar

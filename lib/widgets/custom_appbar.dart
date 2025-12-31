@@ -28,7 +28,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
         shadowColor: AppColors.primary,
         leading: showPfp
             ? Padding(
-              padding: const EdgeInsets.only(left: 8),
+              padding: const EdgeInsets.only(left: 12),
               child: CustomPfp(
                   dimentions: 60,
                   fontSize: 24,
