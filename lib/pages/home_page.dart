@@ -1,6 +1,7 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:ccr_booking/core/user_provider.dart';
+import 'package:ccr_booking/pages/add/add_booking.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -56,6 +57,25 @@ class _HomePageState extends State<HomePage> {
         .subscribe();
   }
 
+  // Old Notification logic restored for the test button
+  Future<void> _showLocalNotification(String title, String body) async {
+    const details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        'ccr_id',
+        'Bookings',
+        importance: Importance.max,
+        priority: Priority.high,
+      ),
+      iOS: DarwinNotificationDetails(),
+    );
+    await _localNotifications.show(
+      DateTime.now().millisecond,
+      title,
+      body,
+      details,
+    );
+  }
+
   @override
   void dispose() {
     if (_notificationChannel != null)
@@ -85,7 +105,6 @@ class _HomePageState extends State<HomePage> {
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day).toIso8601String();
 
-    // Fixed manual count logic to avoid SDK version errors
     final bookingsData = await supabase
         .from('bookings')
         .select('id')
@@ -163,11 +182,11 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildRoleDashboard(String role, bool isDark) {
-    if (role == 'Warehouse' || role == 'Admin') {
-      return SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: Column(
-          children: [
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: Column(
+        children: [
+          if (role == 'Warehouse' || role == 'Admin') ...[
             _buildAsyncList(
               _getUpcomingBookings(),
               "Upcoming Bookings",
@@ -181,11 +200,44 @@ class _HomePageState extends State<HomePage> {
               isDark,
               Colors.orange,
             ),
+            const SizedBox(height: 30),
+          ] else if (role == 'Owner') ...[
+            _buildOwnerStatsView(isDark),
+            const SizedBox(height: 30),
           ],
-        ),
-      );
-    }
-    return _buildOwnerStatsView(isDark);
+
+          // --- ACTION BUTTONS ---
+          _buildActionButton(
+            title: "Create New Booking",
+            subtitle: "Start a fresh equipment rental",
+            icon: Icons.add_circle_outline,
+            color: AppColors.primary,
+            isDark: isDark,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AddBooking()),
+              );
+            },
+          ),
+          const SizedBox(height: 15),
+          _buildActionButton(
+            title: "Test Notification",
+            subtitle: "Send a local test alert",
+            icon: Icons.notifications_active_outlined,
+            color: AppColors.secondary,
+            isDark: isDark,
+            onTap: () {
+              _showLocalNotification(
+                "Test Successful",
+                "This is your test notification from the old model.",
+              );
+            },
+          ),
+          const SizedBox(height: 40),
+        ],
+      ),
+    );
   }
 
   Widget _buildAsyncList(
@@ -258,6 +310,54 @@ class _HomePageState extends State<HomePage> {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildActionButton({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF2C2C2C) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withOpacity(0.5), width: 1),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: color.withOpacity(0.1),
+              child: Icon(icon, color: color),
+            ),
+            const SizedBox(width: 15),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+              ],
+            ),
+            const Spacer(),
+            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+          ],
+        ),
+      ),
     );
   }
 
