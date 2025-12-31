@@ -7,10 +7,11 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'home_page.dart'; // To access NoInternetWidget
+import 'home_page.dart'; // Import to use NoInternetWidget
 
 class CalendarPage extends StatefulWidget {
   const CalendarPage({super.key});
+
   @override
   State<CalendarPage> createState() => CalendarPageState();
 }
@@ -39,6 +40,7 @@ class CalendarPageState extends State<CalendarPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
     _initConnectivity();
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
       _checkStatus,
@@ -47,17 +49,43 @@ class CalendarPageState extends State<CalendarPage>
     _ticker = createTicker((elapsed) {
       if (mounted) setState(() {});
     })..start();
+
     _fetchBookings();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _handleInitialSnap());
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _handleInitialSnap();
+    });
   }
 
+  // --- Connectivity Logic ---
   Future<void> _initConnectivity() async {
     final result = await Connectivity().checkConnectivity();
     _checkStatus(result);
   }
 
   void _checkStatus(List<ConnectivityResult> result) {
-    setState(() => _hasConnection = !result.contains(ConnectivityResult.none));
+    setState(() {
+      _hasConnection = !result.contains(ConnectivityResult.none);
+    });
+  }
+
+  // --- Public Method (Called by Navbar) ---
+  void resetToToday() {
+    final now = DateTime.now().toLocal();
+    setState(() => _selectedDate = now);
+
+    if (_pageController.hasClients) {
+      _pageController.animateToPage(
+        7,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+    }
+    _scrollDayBarToCenter(7);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _snapToCurrentTime();
+    });
   }
 
   Future<void> _fetchBookings() async {
@@ -67,6 +95,7 @@ class CalendarPageState extends State<CalendarPage>
   }
 
   void _handleInitialSnap() {
+    if (!mounted) return;
     Future.delayed(const Duration(milliseconds: 300), () {
       _snapToCurrentTime();
       _scrollDayBarToCenter(7);
@@ -75,18 +104,19 @@ class CalendarPageState extends State<CalendarPage>
 
   void _snapToCurrentTime() {
     if (!_todayScrollController.hasClients) return;
+
     final now = DateTime.now().toLocal();
     final double indicatorY =
         (now.hour * hourHeight) +
         (now.minute * (hourHeight / 60.0)) +
         gridLineTopOffset;
+
     final double viewportHeight =
         _todayScrollController.position.viewportDimension;
+    final double targetScroll = (indicatorY + 20.0) - (viewportHeight / 2);
+
     _todayScrollController.animateTo(
-      ((indicatorY + 20.0) - (viewportHeight / 2)).clamp(
-        0.0,
-        _todayScrollController.position.maxScrollExtent,
-      ),
+      targetScroll.clamp(0.0, _todayScrollController.position.maxScrollExtent),
       duration: const Duration(milliseconds: 1200),
       curve: Curves.fastLinearToSlowEaseIn,
     );
@@ -110,11 +140,11 @@ class CalendarPageState extends State<CalendarPage>
                     controller: _pageController,
                     onPageChanged: (index) {
                       HapticFeedback.lightImpact();
-                      setState(
-                        () => _selectedDate = DateTime.now().toLocal().add(
+                      setState(() {
+                        _selectedDate = DateTime.now().toLocal().add(
                           Duration(days: index - 7),
-                        ),
-                      );
+                        );
+                      });
                       _scrollDayBarToCenter(index);
                     },
                     itemCount: 22,
@@ -126,6 +156,7 @@ class CalendarPageState extends State<CalendarPage>
                         pageDate,
                         DateTime.now().toLocal(),
                       );
+
                       return SingleChildScrollView(
                         physics: const ClampingScrollPhysics(),
                         controller: isToday
@@ -208,6 +239,7 @@ class CalendarPageState extends State<CalendarPage>
         (now.minute * (hourHeight / 60.0)) +
         (now.second * (hourHeight / 3600.0)) +
         gridLineTopOffset;
+
     return Positioned(
       left: labelWidth + 15 - (circleSize / 2),
       top: positionY - (circleSize / 2),
@@ -303,12 +335,13 @@ class CalendarPageState extends State<CalendarPage>
   void _scrollDayBarToCenter(int index) {
     if (index >= 0 && index < _dayKeys.length) {
       final context = _dayKeys[index].currentContext;
-      if (context != null)
+      if (context != null) {
         Scrollable.ensureVisible(
           context,
           alignment: 0.5,
           duration: const Duration(milliseconds: 500),
         );
+      }
     }
   }
 
