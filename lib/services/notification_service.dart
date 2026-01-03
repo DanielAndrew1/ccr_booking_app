@@ -1,24 +1,20 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class NotificationService {
+  static final NotificationService _instance = NotificationService._internal();
+  factory NotificationService() => _instance;
+  NotificationService._internal();
+
   final notificationsPlugin = FlutterLocalNotificationsPlugin();
-
   bool _isInitialized = false;
-  bool get isInitialized => _isInitialized;
 
-  // Initialize
   Future<void> initNotification() async {
     if (_isInitialized) return;
 
-    // 1. Android init settings
-    // IMPORTANT: Android does not use 'assets/icon.png'.
-    // It looks for a drawable resource in android/app/src/main/res/drawable/
-    // Use '@mipmap/ic_launcher' for the default app icon.
     const initSettingsAndroid = AndroidInitializationSettings(
       '@mipmap/ic_launcher',
     );
 
-    // 2. IOS init settings
     const initSettingsIOS = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -30,52 +26,39 @@ class NotificationService {
       iOS: initSettingsIOS,
     );
 
-    // Initialize Plugin
-    await notificationsPlugin.initialize(
-      initSettings,
-      onDidReceiveNotificationResponse: (details) {
-        // Handle notification tap logic here
-      },
-    );
-
+    await notificationsPlugin.initialize(initSettings);
     _isInitialized = true;
   }
 
-  // 3. Notification Detail Setup
-  NotificationDetails _notificationDetails() {
+  // FORCE EVERYTHING ON FOR IOS
+  NotificationDetails _getPlatformDetails() {
     return const NotificationDetails(
       android: AndroidNotificationDetails(
-        "ccr_booking_channel", // Unique ID
-        "CCR Bookings", // User visible name
-        channelDescription: "Notifications for equipment rental updates",
+        "ccr_id",
+        "CCR",
         importance: Importance.max,
         priority: Priority.high,
-        ticker: 'ticker',
-        // This ensures it pops up like Instagram/Snapchat
-        fullScreenIntent: true,
       ),
       iOS: DarwinNotificationDetails(
-        presentAlert: true,
-        presentBadge: true,
-        presentSound: true,
+        presentAlert: true, // Show banner when app is open
+        presentBadge: true, // Update icon badge
+        presentSound: true, // Play sound
+        presentBanner: true, // Specific for iOS 14+
+        presentList: true, // Show in notification center
       ),
     );
   }
 
-  // 4. Show Notification
   Future<void> showNotification({
     int id = 0,
     String? title,
     String? body,
-    String? payload,
   }) async {
-    // FIXED: Pass the _notificationDetails() method here instead of an empty object
-    return notificationsPlugin.show(
+    await notificationsPlugin.show(
       id,
       title,
       body,
-      _notificationDetails(),
-      payload: payload,
+      _getPlatformDetails(), // Using the helper method
     );
   }
 }

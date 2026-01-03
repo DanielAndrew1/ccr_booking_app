@@ -1,5 +1,5 @@
 class AppUser {
-  final String id;
+  final String id; // UUID String
   final String name;
   final String email;
   String role;
@@ -13,7 +13,7 @@ class AppUser {
 
   factory AppUser.fromJson(Map<String, dynamic> json) {
     return AppUser(
-      id: json['id'] ?? '',
+      id: json['id'] as String? ?? '',
       name: json['name'] ?? 'No Name',
       email: json['email'] ?? '',
       role: json['role'] ?? 'Warehouse',
@@ -26,7 +26,7 @@ class AppUser {
 }
 
 class AppClient {
-  final String id;
+  final String id; // UUID String
   final String name;
   final String? email;
 
@@ -34,7 +34,7 @@ class AppClient {
 
   factory AppClient.fromJson(Map<String, dynamic> json) {
     return AppClient(
-      id: json['id'].toString(),
+      id: json['id'] as String, // Direct cast for UUID
       name: json['name'] ?? 'No Name',
       email: json['email'],
     );

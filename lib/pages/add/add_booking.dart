@@ -23,9 +23,9 @@ class _AddBookingState extends State<AddBooking> {
   TimeOfDay? returnTime;
   List<Map<String, dynamic>?> selectedProducts = [null];
 
-  // --- SAVE TO SUPABASE ---
+  // --- SAVE TO SUPABASE WITH AVAILABILITY CHECK ---
   Future<void> _saveBooking() async {
-    // Check if the form is complete
+    // 1. Basic Validation
     bool isProductsEmpty = !selectedProducts.any((p) => p != null);
 
     if (selectedClient == null ||
@@ -34,19 +34,37 @@ class _AddBookingState extends State<AddBooking> {
         returnDate == null ||
         returnTime == null ||
         isProductsEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            "Please fill in all details and select at least one product",
-            style: TextStyle(color: Colors.white),
-          ),
-          backgroundColor: AppColors.primary,
-          behavior: SnackBarBehavior.floating,
-        ),
+      _showSnackBar(
+        "Please fill in all details and select products",
+        AppColors.primary,
       );
       return;
     }
 
+    // 2. Prepare Timestamps
+    final DateTime fullPickup = DateTime(
+      pickupDate!.year,
+      pickupDate!.month,
+      pickupDate!.day,
+      pickupTime!.hour,
+      pickupTime!.minute,
+    );
+
+    final DateTime fullReturn = DateTime(
+      returnDate!.year,
+      returnDate!.month,
+      returnDate!.day,
+      returnTime!.hour,
+      returnTime!.minute,
+    );
+
+    // 3. Validation: Return must be after Pickup
+    if (fullReturn.isBefore(fullPickup)) {
+      _showSnackBar("Return date must be after pickup date", Colors.red);
+      return;
+    }
+
+    // Show Loading
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -54,60 +72,119 @@ class _AddBookingState extends State<AddBooking> {
     );
 
     try {
-      final DateTime fullPickup = DateTime(
-        pickupDate!.year,
-        pickupDate!.month,
-        pickupDate!.day,
-        pickupTime!.hour,
-        pickupTime!.minute,
-      );
-
-      final DateTime fullReturn = DateTime(
-        returnDate!.year,
-        returnDate!.month,
-        returnDate!.day,
-        returnTime!.hour,
-        returnTime!.minute,
-      );
-
-      final List<String> productIds = selectedProducts
-          .where((p) => p != null && p['id'] != null)
-          .map((p) => p!['id'].toString())
+      // Filter valid selections
+      final validSelection = selectedProducts
+          .where((p) => p != null)
+          .cast<Map<String, dynamic>>()
           .toList();
 
-      final int clientId = int.parse(selectedClient!['id'].toString());
+      final List<String> productIds = validSelection
+          .map((p) => p['id'].toString())
+          .toList();
 
+      final List<String> productNames = validSelection
+          .map((p) => p['name'].toString())
+          .toList();
+
+      // --- STEP 1: AVAILABILITY CHECK ---
+      final existingBookings = await supabase
+          .from('bookings')
+          .select('product_ids, client_name')
+          .filter('pickup_datetime', 'lt', fullReturn.toIso8601String())
+          .filter('return_datetime', 'gt', fullPickup.toIso8601String())
+          .overlaps('product_ids', productIds);
+
+      if ((existingBookings as List).isNotEmpty) {
+        if (!mounted) return;
+        Navigator.pop(context); // Close loader
+
+        List<String> conflicts = [];
+        for (var booking in existingBookings) {
+          final clientName = booking['client_name'] ?? "Another Client";
+          List<String> bookedProductIds = List<String>.from(
+            booking['product_ids'],
+          );
+
+          for (var myProduct in validSelection) {
+            if (bookedProductIds.contains(myProduct['id'].toString())) {
+              conflicts.add("${myProduct['name']} - $clientName");
+            }
+          }
+        }
+
+        _showConflictAlert(conflicts.toSet().toList());
+        return;
+      }
+
+      // --- STEP 2: PROCEED WITH BOOKING ---
+      // We use the new columns: client_id (UUID string), client_name, product_ids (Array), product_names (Array)
       await supabase.from('bookings').insert({
-        'client_id': clientId,
+        'client_id': selectedClient!['id'],
+        'client_name': selectedClient!['name'],
+        'product_ids': productIds,
+        'product_names': productNames,
         'pickup_datetime': fullPickup.toIso8601String(),
         'return_datetime': fullReturn.toIso8601String(),
-        'products': productIds,
-        'status': 'pending',
+        'status': 'upcoming',
       });
 
       if (!mounted) return;
       Navigator.pop(context); // Close loader
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Booking Saved Successfully!"),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-
+      _showSnackBar("Booking Saved Successfully!", Colors.green);
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Error: ${e.toString()}"),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      _showSnackBar("Error: ${e.toString()}", Colors.red);
     }
+  }
+
+  // --- HELPERS ---
+  void _showSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _showConflictAlert(List<String> conflicts) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Availability Conflict"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "The following items are already booked for this time range:",
+            ),
+            const SizedBox(height: 15),
+            ...conflicts.map(
+              (c) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Text(
+                  "• $c",
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Back"),
+          ),
+        ],
+      ),
+    );
   }
 
   // --- DATE & TIME PICKERS ---
@@ -116,7 +193,6 @@ class _AddBookingState extends State<AddBooking> {
     required bool isDate,
   }) async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-
     if (isDate) {
       DateTime? picked = await showDatePicker(
         context: context,
@@ -139,14 +215,8 @@ class _AddBookingState extends State<AddBooking> {
           child: child!,
         ),
       );
-      if (picked != null) {
-        setState(() {
-          if (isPickup)
-            pickupDate = picked;
-          else
-            returnDate = picked;
-        });
-      }
+      if (picked != null)
+        setState(() => isPickup ? pickupDate = picked : returnDate = picked);
     } else {
       TimeOfDay? picked = await showTimePicker(
         context: context,
@@ -163,14 +233,8 @@ class _AddBookingState extends State<AddBooking> {
           child: child!,
         ),
       );
-      if (picked != null) {
-        setState(() {
-          if (isPickup)
-            pickupTime = picked;
-          else
-            returnTime = picked;
-        });
-      }
+      if (picked != null)
+        setState(() => isPickup ? pickupTime = picked : returnTime = picked);
     }
   }
 
@@ -207,26 +271,15 @@ class _AddBookingState extends State<AddBooking> {
                 ),
               ),
               const SizedBox(height: 20),
-              Text(
+              const Text(
                 "Select Product",
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.black,
-                ),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 15),
               TextField(
-                style: TextStyle(color: isDark ? Colors.white : Colors.black),
                 decoration: InputDecoration(
                   hintText: "Search...",
-                  hintStyle: TextStyle(
-                    color: isDark ? Colors.white38 : Colors.grey,
-                  ),
-                  prefixIcon: Icon(
-                    Icons.search,
-                    color: isDark ? Colors.white54 : Colors.grey,
-                  ),
+                  prefixIcon: const Icon(Icons.search),
                   filled: true,
                   fillColor: isDark
                       ? Colors.white.withOpacity(0.05)
@@ -256,16 +309,7 @@ class _AddBookingState extends State<AddBooking> {
                   itemBuilder: (context, i) => ListTile(
                     title: Text(
                       allProducts[i]['name'],
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.white : Colors.black,
-                      ),
-                    ),
-                    subtitle: Text(
-                      "${allProducts[i]['price']} EGP",
-                      style: TextStyle(
-                        color: isDark ? Colors.white54 : Colors.black54,
-                      ),
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                     onTap: () {
                       setState(() => selectedProducts[index] = allProducts[i]);
@@ -299,13 +343,9 @@ class _AddBookingState extends State<AddBooking> {
                   setState(() => selectedClient = client),
             ),
             const SizedBox(height: 25),
-            Text(
+            const Text(
               "Products",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: isDark ? Colors.white : Colors.black,
-              ),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             const SizedBox(height: 10),
             ListView.builder(
@@ -352,13 +392,6 @@ class _AddBookingState extends State<AddBooking> {
                                   child: Text(
                                     selectedProducts[index]?['name'] ??
                                         "Select Product",
-                                    style: TextStyle(
-                                      color: selectedProducts[index] == null
-                                          ? Colors.grey
-                                          : (isDark
-                                                ? Colors.white
-                                                : Colors.black),
-                                    ),
                                   ),
                                 ),
                               ],
@@ -403,13 +436,9 @@ class _AddBookingState extends State<AddBooking> {
               },
             ),
             const SizedBox(height: 20),
-            Text(
+            const Text(
               "Pickup Details",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: isDark ? Colors.white : Colors.black,
-              ),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             const SizedBox(height: 10),
             Row(
@@ -418,7 +447,7 @@ class _AddBookingState extends State<AddBooking> {
                   child: _PickerTile(
                     icon: Icons.calendar_today,
                     label: pickupDate == null
-                        ? "Pickup Date"
+                        ? "Date"
                         : DateFormat('MMM dd, yyyy').format(pickupDate!),
                     onTap: () => _pickDateTime(isPickup: true, isDate: true),
                     isDark: isDark,
@@ -429,7 +458,7 @@ class _AddBookingState extends State<AddBooking> {
                   child: _PickerTile(
                     icon: Icons.access_time,
                     label: pickupTime == null
-                        ? "Pickup Time"
+                        ? "Time"
                         : pickupTime!.format(context),
                     onTap: () => _pickDateTime(isPickup: true, isDate: false),
                     isDark: isDark,
@@ -438,13 +467,9 @@ class _AddBookingState extends State<AddBooking> {
               ],
             ),
             const SizedBox(height: 20),
-            Text(
+            const Text(
               "Return Details",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: isDark ? Colors.white : Colors.black,
-              ),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             const SizedBox(height: 10),
             Row(
@@ -453,7 +478,7 @@ class _AddBookingState extends State<AddBooking> {
                   child: _PickerTile(
                     icon: Icons.event_available,
                     label: returnDate == null
-                        ? "Return Date"
+                        ? "Date"
                         : DateFormat('MMM dd, yyyy').format(returnDate!),
                     onTap: () => _pickDateTime(isPickup: false, isDate: true),
                     isDark: isDark,
@@ -464,7 +489,7 @@ class _AddBookingState extends State<AddBooking> {
                   child: _PickerTile(
                     icon: Icons.history,
                     label: returnTime == null
-                        ? "Return Time"
+                        ? "Time"
                         : returnTime!.format(context),
                     onTap: () => _pickDateTime(isPickup: false, isDate: false),
                     isDark: isDark,
@@ -477,11 +502,9 @@ class _AddBookingState extends State<AddBooking> {
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
-                // Button is always clickable
                 onPressed: _saveBooking,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
-                  elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -508,7 +531,6 @@ class _PickerTile extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   final bool isDark;
-
   const _PickerTile({
     required this.icon,
     required this.label,
@@ -534,10 +556,7 @@ class _PickerTile extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: TextStyle(
-                fontSize: 13,
-                color: isDark ? Colors.white : Colors.black,
-              ),
+              style: const TextStyle(fontSize: 13),
               overflow: TextOverflow.ellipsis,
             ),
           ),

@@ -19,8 +19,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final notificationService = NotificationService();
-  await notificationService.initNotification();
+  NotificationService().initNotification();
 
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
     sqfliteFfiInit();
@@ -31,7 +30,6 @@ void main() async {
     url: 'https://jjodrxidqzcreqzteyqa.supabase.co',
     anonKey:
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impqb2RyeGlkcXpjcmVxenRleXFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NzE2NDQsImV4cCI6MjA4MjE0NzY0NH0.692jVmgqONLClX3zwdOLzgb1ag61e_bnFs-YXwOT9FA',
-    realtimeClientOptions: const RealtimeClientOptions(eventsPerSecond: 10),
   );
 
   runApp(
