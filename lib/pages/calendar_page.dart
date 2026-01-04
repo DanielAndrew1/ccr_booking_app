@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:ccr_booking/core/app_theme.dart';
 import 'package:ccr_booking/main.dart';
 import 'package:ccr_booking/widgets/custom_appbar.dart';
+import 'package:ccr_booking/widgets/custom_internet_notification.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
@@ -132,7 +133,7 @@ class CalendarPageState extends State<CalendarPage>
       appBar: CustomAppBar(text: 'Calendar', showPfp: true),
       body: Column(
         children: [
-          if (!_hasConnection) const NoInternetWidget(),
+          if (!_hasConnection) NoInternetWidget(),
           _buildDaySelector(isDark),
           Expanded(
             child: _isLoading

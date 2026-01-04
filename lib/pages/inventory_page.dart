@@ -5,6 +5,7 @@ import 'package:ccr_booking/core/app_theme.dart';
 import 'package:ccr_booking/pages/product_page.dart';
 import 'package:ccr_booking/widgets/custom_appbar.dart';
 import 'package:ccr_booking/widgets/custom_bg_svg.dart';
+import 'package:ccr_booking/widgets/custom_internet_notification.dart';
 import 'package:ccr_booking/widgets/custom_loader.dart';
 import 'package:ccr_booking/widgets/custom_product_tile.dart';
 import 'package:flutter/cupertino.dart';

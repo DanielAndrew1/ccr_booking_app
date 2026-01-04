@@ -8,6 +8,7 @@ import 'package:ccr_booking/pages/clients_page.dart';
 import 'package:ccr_booking/pages/users_page.dart';
 import 'package:ccr_booking/pages/home_page.dart' hide NoInternetWidget;
 import 'package:ccr_booking/widgets/custom_bg_svg.dart';
+import 'package:ccr_booking/widgets/custom_internet_notification.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
