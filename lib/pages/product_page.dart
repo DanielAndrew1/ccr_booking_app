@@ -1,8 +1,10 @@
+// ignore_for_file: deprecated_member_use
 import 'dart:typed_data';
 import 'package:ccr_booking/core/app_theme.dart';
 import 'package:ccr_booking/widgets/custom_appbar.dart';
 import 'package:ccr_booking/widgets/custom_button.dart';
 import 'package:ccr_booking/widgets/custom_loader.dart';
+import 'package:ccr_booking/widgets/custom_bg_svg.dart'; // Added SVG import
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -62,7 +64,9 @@ class _ProductPageState extends State<ProductPage> {
           .single();
       if (!mounted) return;
       setState(() {
-        isAdmin = data['role']?.toString().toLowerCase() == 'admin' || data['role']?.toString().toLowerCase() == 'owner';
+        isAdmin =
+            data['role']?.toString().toLowerCase() == 'admin' ||
+            data['role']?.toString().toLowerCase() == 'owner';
       });
     } catch (e) {
       debugPrint("Admin Check Error: $e");
@@ -334,6 +338,8 @@ class _ProductPageState extends State<ProductPage> {
                                           ).showSnackBar(
                                             const SnackBar(
                                               content: Text('Product updated!'),
+                                              behavior:
+                                                  SnackBarBehavior.floating,
                                             ),
                                           );
                                         }
@@ -347,6 +353,8 @@ class _ProductPageState extends State<ProductPage> {
                                           ).showSnackBar(
                                             SnackBar(
                                               content: Text('Error: $e'),
+                                              behavior:
+                                                  SnackBarBehavior.floating,
                                             ),
                                           );
                                         }
@@ -457,110 +465,135 @@ class _ProductPageState extends State<ProductPage> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Scaffold(
-      backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
-      appBar: CustomAppBar(text: name ?? 'Product', showPfp: false),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: isLoading
-            ? const Center(child: CustomLoader())
-            : error != null
-            ? Center(
-                child: Text(error!, style: const TextStyle(color: Colors.red)),
-              )
-            : SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: double.infinity,
-                      height: 250,
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? Colors.white.withOpacity(0.05)
-                            : AppColors.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: (imageUrl != null && imageUrl!.isNotEmpty)
-                            ? Image.network(
-                                imageUrl!,
-                                fit: BoxFit.cover,
-                                errorBuilder: (c, e, s) =>
-                                    const Icon(Icons.broken_image, size: 50),
-                              )
-                            : const Icon(
-                                Icons.image,
-                                size: 50,
-                                color: AppColors.primary,
-                              ),
-                      ),
+    return Container(
+      color: isDark ? AppColors.darkbg : AppColors.lightcolor,
+      child: Stack(
+        children: [
+          const CustomBgSvg(),
+          Scaffold(
+            backgroundColor: Colors.transparent,
+            appBar: CustomAppBar(text: name ?? 'Product', showPfp: false),
+            body: isLoading
+                ? const Center(child: CustomLoader())
+                : error != null
+                ? Center(
+                    child: Text(
+                      error!,
+                      style: const TextStyle(color: Colors.red),
                     ),
-                    const SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  )
+                : SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 10,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Text(
-                            name ?? '',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : Colors.black,
+                        Container(
+                          width: double.infinity,
+                          height: 250,
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? Colors.white.withOpacity(0.05)
+                                : AppColors.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: (imageUrl != null && imageUrl!.isNotEmpty)
+                                ? Image.network(
+                                    imageUrl!,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (c, e, s) => const Icon(
+                                      Icons.broken_image,
+                                      size: 50,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.image,
+                                    size: 50,
+                                    color: AppColors.primary,
+                                  ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                name ?? '',
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? Colors.white : Colors.black,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              '${price ?? 0} EGP/Day',
+                              style: const TextStyle(
+                                fontSize: 20,
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (isAdmin)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              'Total Quantity: $quantity',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: isDark
+                                    ? Colors.white70
+                                    : Colors.grey[700],
+                              ),
                             ),
                           ),
-                        ),
+                        const SizedBox(height: 15),
                         Text(
-                          '${price ?? 0} EGP/Day',
-                          style: const TextStyle(
-                            fontSize: 20,
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (isAdmin)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          'Total Quantity: $quantity',
+                          description ?? '',
                           style: TextStyle(
                             fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white70 : Colors.grey[700],
+                            color: isDark ? Colors.white70 : Colors.black54,
+                            height: 1.5,
                           ),
                         ),
-                      ),
-                    const SizedBox(height: 15),
-                    Text(
-                      description ?? '',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: isDark ? Colors.white70 : Colors.black54,
-                      ),
+                        const SizedBox(height: 40),
+                        if (isAdmin) ...[
+                          CustomButton(
+                            text: 'Edit Product',
+                            icon: Icons.edit,
+                            color: WidgetStateProperty.all(AppColors.primary),
+                            onPressed: _editProduct,
+                          ),
+                          const SizedBox(height: 12),
+                          CustomButton(
+                            text: 'Delete Product',
+                            icon: Icons.delete,
+                            color: WidgetStateProperty.all(Colors.red),
+                            onPressed: _confirmDelete,
+                          ),
+                        ],
+                        const SizedBox(height: 30),
+                      ],
                     ),
-                    const SizedBox(height: 40),
-                    if (isAdmin) ...[
-                      CustomButton(
-                        text: 'Edit Product',
-                        icon: Icons.edit,
-                        color: WidgetStateProperty.all(AppColors.primary),
-                        onPressed: _editProduct,
-                      ),
-                      const SizedBox(height: 12),
-                      CustomButton(
-                        text: 'Delete Product',
-                        icon: Icons.delete,
-                        color: WidgetStateProperty.all(Colors.red),
-                        onPressed: _confirmDelete,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+                  ),
+          ),
+        ],
       ),
     );
   }
