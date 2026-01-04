@@ -117,9 +117,9 @@ class _AddBookingState extends State<AddBooking> {
       }
 
       // --- STEP 2: PROCEED WITH BOOKING ---
-      // We use the new columns: client_id (UUID string), client_name, product_ids (Array), product_names (Array)
       await supabase.from('bookings').insert({
-        'client_id': selectedClient!['id'],
+        'client_id': selectedClient!['id']
+            .toString(), // Use .toString() for UUID safety
         'client_name': selectedClient!['name'],
         'product_ids': productIds,
         'product_names': productNames,
