@@ -13,7 +13,7 @@
           "value" : "dark"
         }
       ],
-      "filename" : "CCR Dark Icon.png",
+      "filename" : "App_Icon_Dark.png",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"
@@ -25,6 +25,7 @@
           "value" : "tinted"
         }
       ],
+      "filename" : "App_Icon_Mono.png",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"
