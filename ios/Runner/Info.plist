@@ -28,7 +28,7 @@
     <true/>
     
     <key>PermissionGroupNotification</key>
-    <string>Allow "CCR Booking" to send notifications</string>
+    <string>Allow "CCR Booking" to send notifications regarding equipment pickups and returns.</string>
     
     <key>UIApplicationSupportsIndirectInputEvents</key>
     <true/>
@@ -40,9 +40,10 @@
     </array>
     
     <key>NSLocationWhenInUseUsageDescription</key>
-    <string>This app requires access to your location to allow the calendar to function properly.</string>
+    <string>This app requires network connectivity status to sync booking data with the database.</string>
     <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-    <string>This app requires access to your location to allow the calendar to function properly.</string>
+    <string>This app requires network connectivity status to sync booking data with the database.</string>
+    
     <key>UILaunchStoryboardName</key>
     <string>LaunchScreen</string>
     <key>UIMainStoryboardFile</key>
