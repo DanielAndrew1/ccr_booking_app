@@ -1,6 +1,7 @@
 // ignore_for_file: deprecated_member_use
 import 'dart:async';
 import 'package:ccr_booking/core/user_provider.dart';
+import 'package:ccr_booking/main.dart';
 import 'package:ccr_booking/pages/add/add_booking.dart';
 import 'package:ccr_booking/services/notification_service.dart';
 import 'package:ccr_booking/widgets/custom_bg_svg.dart';
@@ -485,7 +486,7 @@ class _HomePageState extends State<HomePage>
                 removeTop: true,
                 child: _buildAppBar(currentUser),
               ),
-              if (!_hasConnection) _buildConnectionError(),
+              if (!_hasConnection) NoInternetWidget(),
               Expanded(
                 child: CustomScrollView(
                   physics: const BouncingScrollPhysics(
@@ -901,18 +902,6 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  Widget _buildConnectionError() {
-    return Container(
-      width: double.infinity,
-      color: Colors.red,
-      padding: const EdgeInsets.all(8),
-      child: const Text(
-        "No Internet Connection",
-        textAlign: TextAlign.center,
-        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
 }
 
 class SlidingNumber extends StatelessWidget {

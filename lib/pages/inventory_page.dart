@@ -78,8 +78,8 @@ class _InventoryPageState extends State<InventoryPage> {
                   ),
                   slivers: [
                     CupertinoSliverRefreshControl(
-                      refreshTriggerPullDistance: 50.0,
-                      refreshIndicatorExtent: 40.0,
+                      // refreshTriggerPullDistance: 50.0,
+                      // refreshIndicatorExtent: 40.0,
                       onRefresh: () async {
                         setState(() => _streamKey = UniqueKey());
                         await Future.delayed(const Duration(seconds: 2));

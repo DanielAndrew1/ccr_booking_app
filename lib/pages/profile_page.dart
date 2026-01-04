@@ -116,7 +116,7 @@ class _ProfilePageState extends State<ProfilePage> {
               children: [
                 if (!_hasConnection)
                   Padding(
-                    padding: const EdgeInsets.only(top: 50.0),
+                    padding: const EdgeInsets.only(top: 100.0),
                     child: NoInternetWidget(),
                   ),
 
