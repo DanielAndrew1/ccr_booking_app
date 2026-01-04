@@ -1,9 +1,12 @@
+// ignore_for_file: deprecated_member_use
+
 import 'dart:io';
 import 'package:ccr_booking/core/app_theme.dart';
 import 'package:ccr_booking/widgets/custom_appbar.dart';
 import 'package:ccr_booking/widgets/custom_button.dart';
 import 'package:ccr_booking/widgets/custom_loader.dart';
 import 'package:ccr_booking/widgets/custom_textfield.dart';
+import 'package:ccr_booking/widgets/custom_bg_svg.dart'; // Import your reusable widget
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -128,101 +131,110 @@ class _AddProductState extends State<AddProduct> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.darkbg : AppColors.lightbg,
-      appBar: CustomAppBar(text: "Add a Product", showPfp: false),
-      body: _isLoading
-          ? const Center(child: CustomLoader())
-          : Padding(
-              padding: const EdgeInsets.all(16),
-              child: ListView(
-                physics: const BouncingScrollPhysics(),
-                children: [
-                  // Image Picker UI
-                  GestureDetector(
-                    onTap: _pickImage,
-                    child: Container(
-                      height: 200,
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? Colors.white.withOpacity(0.05)
-                            : Colors.grey.shade200,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isDark ? Colors.white24 : Colors.grey.shade400,
+      backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
+      extendBodyBehindAppBar: true, // Required for CustomBgSvg alignment
+      appBar: const CustomAppBar(text: "Add a Product", showPfp: false),
+      body: Stack(
+        children: [
+          const CustomBgSvg(), // Decoration layer
+
+          _isLoading
+              ? const Center(child: CustomLoader())
+              : Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: ListView(
+                    physics: const BouncingScrollPhysics(),
+                    children: [
+                      // Image Picker UI
+                      GestureDetector(
+                        onTap: _pickImage,
+                        child: Container(
+                          height: 200,
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? Colors.white.withOpacity(0.05)
+                                : Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isDark
+                                  ? Colors.white24
+                                  : Colors.grey.shade400,
+                            ),
+                            image: _imageFile != null
+                                ? DecorationImage(
+                                    image: FileImage(_imageFile!),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
+                          ),
+                          child: _imageFile == null
+                              ? Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.add_a_photo,
+                                      size: 40,
+                                      color: isDark
+                                          ? Colors.white54
+                                          : Colors.grey,
+                                    ),
+                                    Text(
+                                      "Add Product Image",
+                                      style: TextStyle(
+                                        color: isDark
+                                            ? Colors.white54
+                                            : Colors.grey,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : null,
                         ),
-                        image: _imageFile != null
-                            ? DecorationImage(
-                                image: FileImage(_imageFile!),
-                                fit: BoxFit.cover,
-                              )
-                            : null,
                       ),
-                      child: _imageFile == null
-                          ? Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.add_a_photo,
-                                  size: 40,
-                                  color: isDark ? Colors.white54 : Colors.grey,
-                                ),
-                                Text(
-                                  "Add Product Image",
-                                  style: TextStyle(
-                                    color: isDark
-                                        ? Colors.white54
-                                        : Colors.grey,
-                                  ),
-                                ),
-                              ],
-                            )
-                          : null,
-                    ),
+                      const SizedBox(height: 24),
+                      _buildThemedTextField(
+                        controller: _nameController,
+                        label: 'Product Name',
+                        isDark: isDark,
+                        keyboardType: TextInputType.text,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildThemedTextField(
+                        controller: _priceController,
+                        label: 'Price',
+                        suffix: 'EGP / Day',
+                        isDark: isDark,
+                        keyboardType: TextInputType.number,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildThemedTextField(
+                        controller: _quantityController,
+                        label: 'Quantity',
+                        isDark: isDark,
+                        keyboardType: TextInputType.number,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildThemedTextField(
+                        controller: _descriptionController,
+                        label: 'Description',
+                        isDark: isDark,
+                        maxLines: 5,
+                        keyboardType: TextInputType.multiline,
+                      ),
+                      const SizedBox(height: 32),
+                      CustomButton(
+                        text: "Save Product",
+                        color: WidgetStateProperty.all(AppColors.primary),
+                        onPressed: _saveProduct,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 24),
-                  CustomTextfield(
-                    textEditingController: _nameController,
-                    keyboardType: TextInputType.text,
-                    isObsecure: false,
-                    textCapitalization: TextCapitalization.words,
-                    labelText: 'Product Name',
-                  ),
-                  const SizedBox(height: 16),
-                  _buildThemedTextField(
-                    controller: _priceController,
-                    label: 'Price',
-                    suffix: 'EGP / Day',
-                    isDark: isDark,
-                    keyboardType: TextInputType.number,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildThemedTextField(
-                    controller: _quantityController,
-                    label: 'Quantity',
-                    isDark: isDark,
-                    keyboardType: TextInputType.number,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildThemedTextField(
-                    controller: _descriptionController,
-                    label: 'Description',
-                    isDark: isDark,
-                    maxLines: 5,
-                    keyboardType: TextInputType.multiline,
-                  ),
-                  const SizedBox(height: 32),
-                  CustomButton(
-                    text: "Save Product",
-                    color: WidgetStateProperty.all(AppColors.primary),
-                    onPressed: _saveProduct,
-                  ),
-                ],
-              ),
-            ),
+                ),
+        ],
+      ),
     );
   }
 
-  // Helper method to keep textfields consistent and themed
   Widget _buildThemedTextField({
     required TextEditingController controller,
     required String label,

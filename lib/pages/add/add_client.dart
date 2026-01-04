@@ -2,6 +2,7 @@ import 'package:ccr_booking/core/app_theme.dart';
 import 'package:ccr_booking/widgets/custom_appbar.dart';
 import 'package:ccr_booking/widgets/custom_button.dart';
 import 'package:ccr_booking/widgets/custom_textfield.dart';
+import 'package:ccr_booking/widgets/custom_bg_svg.dart'; // Import the new widget
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -68,47 +69,55 @@ class _AddClientState extends State<AddClient> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      // Toggle between light and dark background
       backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
-      appBar: CustomAppBar(text: "Add a Client", showPfp: false),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: ListView(
-          physics: const BouncingScrollPhysics(),
-          children: [
-            const SizedBox(height: 10),
-            CustomTextfield(
-              textEditingController: _nameController,
-              keyboardType: TextInputType.name,
-              isObsecure: false,
-              textCapitalization: TextCapitalization.words,
-              labelText: 'Name',
+      // Extends body behind the appbar so the SVG coordinate system matches HomePage
+      extendBodyBehindAppBar: true,
+      appBar: const CustomAppBar(text: "Add a Client", showPfp: false),
+      body: Stack(
+        children: [
+          // The background decoration
+          const CustomBgSvg(),
+
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: ListView(
+              physics: const BouncingScrollPhysics(),
+              children: [
+                // Push content down below the AppBar
+
+                CustomTextfield(
+                  textEditingController: _nameController,
+                  keyboardType: TextInputType.name,
+                  isObsecure: false,
+                  textCapitalization: TextCapitalization.words,
+                  labelText: 'Name',
+                ),
+                const SizedBox(height: 16),
+                CustomTextfield(
+                  textEditingController: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  isObsecure: false,
+                  textCapitalization: TextCapitalization.none,
+                  labelText: 'Email',
+                ),
+                const SizedBox(height: 16),
+                CustomTextfield(
+                  textEditingController: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  isObsecure: false,
+                  textCapitalization: TextCapitalization.none,
+                  labelText: 'Phone Number',
+                ),
+                const SizedBox(height: 32),
+                CustomButton(
+                  onPressed: _loading ? null : _saveClient,
+                  text: _loading ? "Saving..." : "Save",
+                  color: WidgetStateProperty.all(AppColors.primary),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            CustomTextfield(
-              textEditingController: _emailController,
-              keyboardType: TextInputType.emailAddress,
-              isObsecure: false,
-              textCapitalization: TextCapitalization.none,
-              labelText: 'Email',
-            ),
-            const SizedBox(height: 16),
-            CustomTextfield(
-              textEditingController: _phoneController,
-              keyboardType: TextInputType.phone,
-              isObsecure: false,
-              textCapitalization: TextCapitalization.none,
-              labelText: 'Phone Number',
-            ),
-            const SizedBox(height: 32),
-            CustomButton(
-              onPressed: _loading ? null : _saveClient,
-              text: _loading ? "Saving..." : "Save",
-              // Use primary color for the button to make it stand out
-              color: WidgetStateProperty.all(AppColors.primary),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

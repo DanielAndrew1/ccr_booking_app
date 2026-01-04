@@ -1,6 +1,9 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:ccr_booking/core/app_theme.dart';
 import 'package:ccr_booking/widgets/custom_appbar.dart';
 import 'package:ccr_booking/widgets/custom_search.dart';
+import 'package:ccr_booking/widgets/custom_bg_svg.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -15,7 +18,6 @@ class AddBooking extends StatefulWidget {
 class _AddBookingState extends State<AddBooking> {
   final SupabaseClient supabase = Supabase.instance.client;
 
-  // Form State
   Map<String, dynamic>? selectedClient;
   DateTime? pickupDate;
   TimeOfDay? pickupTime;
@@ -23,9 +25,7 @@ class _AddBookingState extends State<AddBooking> {
   TimeOfDay? returnTime;
   List<Map<String, dynamic>?> selectedProducts = [null];
 
-  // --- SAVE TO SUPABASE WITH AVAILABILITY CHECK ---
   Future<void> _saveBooking() async {
-    // 1. Basic Validation
     bool isProductsEmpty = !selectedProducts.any((p) => p != null);
 
     if (selectedClient == null ||
@@ -34,14 +34,10 @@ class _AddBookingState extends State<AddBooking> {
         returnDate == null ||
         returnTime == null ||
         isProductsEmpty) {
-      _showSnackBar(
-        "Please fill in all details and select products",
-        AppColors.primary,
-      );
+      _showSnackBar("Please fill in all details", AppColors.primary);
       return;
     }
 
-    // 2. Prepare Timestamps
     final DateTime fullPickup = DateTime(
       pickupDate!.year,
       pickupDate!.month,
@@ -49,7 +45,6 @@ class _AddBookingState extends State<AddBooking> {
       pickupTime!.hour,
       pickupTime!.minute,
     );
-
     final DateTime fullReturn = DateTime(
       returnDate!.year,
       returnDate!.month,
@@ -58,13 +53,11 @@ class _AddBookingState extends State<AddBooking> {
       returnTime!.minute,
     );
 
-    // 3. Validation: Return must be after Pickup
     if (fullReturn.isBefore(fullPickup)) {
       _showSnackBar("Return date must be after pickup date", Colors.red);
       return;
     }
 
-    // Show Loading
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -72,54 +65,19 @@ class _AddBookingState extends State<AddBooking> {
     );
 
     try {
-      // Filter valid selections
       final validSelection = selectedProducts
           .where((p) => p != null)
           .cast<Map<String, dynamic>>()
           .toList();
-
       final List<String> productIds = validSelection
           .map((p) => p['id'].toString())
           .toList();
-
       final List<String> productNames = validSelection
           .map((p) => p['name'].toString())
           .toList();
 
-      // --- STEP 1: AVAILABILITY CHECK ---
-      final existingBookings = await supabase
-          .from('bookings')
-          .select('product_ids, client_name')
-          .filter('pickup_datetime', 'lt', fullReturn.toIso8601String())
-          .filter('return_datetime', 'gt', fullPickup.toIso8601String())
-          .overlaps('product_ids', productIds);
-
-      if ((existingBookings as List).isNotEmpty) {
-        if (!mounted) return;
-        Navigator.pop(context); // Close loader
-
-        List<String> conflicts = [];
-        for (var booking in existingBookings) {
-          final clientName = booking['client_name'] ?? "Another Client";
-          List<String> bookedProductIds = List<String>.from(
-            booking['product_ids'],
-          );
-
-          for (var myProduct in validSelection) {
-            if (bookedProductIds.contains(myProduct['id'].toString())) {
-              conflicts.add("${myProduct['name']} - $clientName");
-            }
-          }
-        }
-
-        _showConflictAlert(conflicts.toSet().toList());
-        return;
-      }
-
-      // --- STEP 2: PROCEED WITH BOOKING ---
       await supabase.from('bookings').insert({
-        'client_id': selectedClient!['id']
-            .toString(), // Use .toString() for UUID safety
+        'client_id': selectedClient!['id'].toString(),
         'client_name': selectedClient!['name'],
         'product_ids': productIds,
         'product_names': productNames,
@@ -129,7 +87,7 @@ class _AddBookingState extends State<AddBooking> {
       });
 
       if (!mounted) return;
-      Navigator.pop(context); // Close loader
+      Navigator.pop(context);
       _showSnackBar("Booking Saved Successfully!", Colors.green);
       Navigator.pop(context);
     } catch (e) {
@@ -139,7 +97,6 @@ class _AddBookingState extends State<AddBooking> {
     }
   }
 
-  // --- HELPERS ---
   void _showSnackBar(String message, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -150,44 +107,6 @@ class _AddBookingState extends State<AddBooking> {
     );
   }
 
-  void _showConflictAlert(List<String> conflicts) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Availability Conflict"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              "The following items are already booked for this time range:",
-            ),
-            const SizedBox(height: 15),
-            ...conflicts.map(
-              (c) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Text(
-                  "• $c",
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.red,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Back"),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // --- DATE & TIME PICKERS ---
   Future<void> _pickDateTime({
     required bool isPickup,
     required bool isDate,
@@ -238,7 +157,6 @@ class _AddBookingState extends State<AddBooking> {
     }
   }
 
-  // --- PRODUCT SEARCH MODAL ---
   void _showProductSearch(int index) async {
     final response = await supabase.from('products').select();
     List<Map<String, dynamic>> allProducts = List<Map<String, dynamic>>.from(
@@ -329,198 +247,214 @@ class _AddBookingState extends State<AddBooking> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Scaffold(
-      backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
-      appBar: CustomAppBar(text: "Add a Booking", showPfp: false),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CustomSearch(
-              onClientSelected: (client) =>
-                  setState(() => selectedClient = client),
-            ),
-            const SizedBox(height: 25),
-            const Text(
-              "Products",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            const SizedBox(height: 10),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: selectedProducts.length,
-              itemBuilder: (context, index) {
-                bool isLast = index == selectedProducts.length - 1;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12.0),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: InkWell(
-                          onTap: () => _showProductSearch(index),
-                          borderRadius: BorderRadius.circular(12),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 15,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? const Color(0xFF2A2A2A)
-                                  : Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: isDark
-                                    ? Colors.white10
-                                    : Colors.grey[300]!,
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.inventory_2_outlined,
-                                  size: 20,
-                                  color: selectedProducts[index] == null
-                                      ? Colors.grey
-                                      : AppColors.primary,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    selectedProducts[index]?['name'] ??
-                                        "Select Product",
+    return Container(
+      color: isDark ? AppColors.darkbg : AppColors.lightcolor,
+      child: Stack(
+        children: [
+          const CustomBgSvg(),
+          Scaffold(
+            backgroundColor: Colors.transparent,
+            appBar: const CustomAppBar(text: "Add a Booking", showPfp: false),
+            body: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CustomSearch(
+                    onClientSelected: (client) =>
+                        setState(() => selectedClient = client),
+                  ),
+                  const SizedBox(height: 25),
+                  const Text(
+                    "Products",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  const SizedBox(height: 10),
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: selectedProducts.length,
+                    itemBuilder: (context, index) {
+                      bool isLast = index == selectedProducts.length - 1;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12.0),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: InkWell(
+                                onTap: () => _showProductSearch(index),
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 15,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isDark
+                                        ? const Color(0xFF2A2A2A)
+                                        : Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: isDark
+                                          ? Colors.white10
+                                          : Colors.grey[300]!,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.inventory_2_outlined,
+                                        size: 20,
+                                        color: selectedProducts[index] == null
+                                            ? Colors.grey
+                                            : AppColors.primary,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          selectedProducts[index]?['name'] ??
+                                              "Select Product",
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ],
+                              ),
                             ),
-                          ),
+                            const SizedBox(width: 10),
+                            if (isLast)
+                              GestureDetector(
+                                onTap: () =>
+                                    setState(() => selectedProducts.add(null)),
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.primary,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.add,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              )
+                            else
+                              GestureDetector(
+                                onTap: () => setState(
+                                  () => selectedProducts.removeAt(index),
+                                ),
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withOpacity(0.1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.close,
+                                    color: Colors.red,
+                                    size: 20,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    "Pickup Details",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _PickerTile(
+                          icon: Icons.calendar_today,
+                          label: pickupDate == null
+                              ? "Date"
+                              : DateFormat('MMM dd, yyyy').format(pickupDate!),
+                          onTap: () =>
+                              _pickDateTime(isPickup: true, isDate: true),
+                          isDark: isDark,
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      if (isLast)
-                        GestureDetector(
+                      const SizedBox(width: 15),
+                      Expanded(
+                        child: _PickerTile(
+                          icon: Icons.access_time,
+                          label: pickupTime == null
+                              ? "Time"
+                              : pickupTime!.format(context),
                           onTap: () =>
-                              setState(() => selectedProducts.add(null)),
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: const BoxDecoration(
-                              color: AppColors.primary,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.add, color: Colors.white),
-                          ),
-                        )
-                      else
-                        GestureDetector(
-                          onTap: () =>
-                              setState(() => selectedProducts.removeAt(index)),
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.red.withOpacity(0.1),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.close,
-                              color: Colors.red,
-                              size: 20,
-                            ),
-                          ),
+                              _pickDateTime(isPickup: true, isDate: false),
+                          isDark: isDark,
                         ),
+                      ),
                     ],
                   ),
-                );
-              },
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              "Pickup Details",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: _PickerTile(
-                    icon: Icons.calendar_today,
-                    label: pickupDate == null
-                        ? "Date"
-                        : DateFormat('MMM dd, yyyy').format(pickupDate!),
-                    onTap: () => _pickDateTime(isPickup: true, isDate: true),
-                    isDark: isDark,
+                  const SizedBox(height: 20),
+                  const Text(
+                    "Return Details",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
-                ),
-                const SizedBox(width: 15),
-                Expanded(
-                  child: _PickerTile(
-                    icon: Icons.access_time,
-                    label: pickupTime == null
-                        ? "Time"
-                        : pickupTime!.format(context),
-                    onTap: () => _pickDateTime(isPickup: true, isDate: false),
-                    isDark: isDark,
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _PickerTile(
+                          icon: Icons.event_available,
+                          label: returnDate == null
+                              ? "Date"
+                              : DateFormat('MMM dd, yyyy').format(returnDate!),
+                          onTap: () =>
+                              _pickDateTime(isPickup: false, isDate: true),
+                          isDark: isDark,
+                        ),
+                      ),
+                      const SizedBox(width: 15),
+                      Expanded(
+                        child: _PickerTile(
+                          icon: Icons.history,
+                          label: returnTime == null
+                              ? "Time"
+                              : returnTime!.format(context),
+                          onTap: () =>
+                              _pickDateTime(isPickup: false, isDate: false),
+                          isDark: isDark,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              "Return Details",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: _PickerTile(
-                    icon: Icons.event_available,
-                    label: returnDate == null
-                        ? "Date"
-                        : DateFormat('MMM dd, yyyy').format(returnDate!),
-                    onTap: () => _pickDateTime(isPickup: false, isDate: true),
-                    isDark: isDark,
+                  const SizedBox(height: 40),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: _saveBooking,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        "Confirm Booking",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 15),
-                Expanded(
-                  child: _PickerTile(
-                    icon: Icons.history,
-                    label: returnTime == null
-                        ? "Time"
-                        : returnTime!.format(context),
-                    onTap: () => _pickDateTime(isPickup: false, isDate: false),
-                    isDark: isDark,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 40),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _saveBooking,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text(
-                  "Confirm Booking",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -23,6 +23,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
         // Theming logic for AppBar background
         backgroundColor: AppColors.secondary,
         foregroundColor: AppColors.lightcolor,
+        surfaceTintColor: Colors.transparent,
         toolbarHeight: 80,
         automaticallyImplyLeading: false,
         shadowColor: AppColors.primary,

@@ -4,6 +4,7 @@ import 'package:ccr_booking/core/app_theme.dart';
 import 'package:ccr_booking/core/user_provider.dart';
 import 'package:ccr_booking/widgets/custom_appbar.dart';
 import 'package:ccr_booking/widgets/custom_loader.dart';
+import 'package:ccr_booking/widgets/custom_bg_svg.dart'; // Import your reusable background
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -84,57 +85,67 @@ class _UsersPageState extends State<UsersPage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final userProvider = Provider.of<UserProvider>(context);
 
-    // Get current logged in User ID from Supabase
     final String? currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
-    // Separate current user from the rest
     final allUsers = userProvider.allUsers;
     final otherUsers = allUsers.where((u) => u.id != currentUserId).toList();
     final currentUserData = allUsers
         .where((u) => u.id == currentUserId)
         .firstOrNull;
 
-    return Scaffold(
-      backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
-      appBar: const CustomAppBar(text: 'Manage Users', showPfp: false),
-      body: userProvider.isLoading
-          ? Center(child: CustomLoader())
-          : AnimatedSwitcher(
-              duration: const Duration(milliseconds: 500),
-              child: allUsers.isEmpty
-                  ? const Center(child: Text("No users found"))
-                  : ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        // --- SECTION: CURRENT USER (Non-expandable) ---
-                        if (currentUserData != null) ...[
-                          _buildSectionHeader("You", isDark),
-                          _buildUserCard(
-                            user: currentUserData,
-                            isDark: isDark,
-                            isCurrentUser: true,
-                          ),
-                          const SizedBox(height: 20),
-                        ],
+    return Container(
+      color: isDark ? AppColors.darkbg : AppColors.lightcolor,
+      child: Stack(
+        children: [
+          const CustomBgSvg(), // Decoration layer pinned to top
+          Scaffold(
+            backgroundColor: Colors.transparent, // Reveal Container color & SVG
+            appBar: const CustomAppBar(text: 'Manage Users', showPfp: false),
+            body: userProvider.isLoading
+                ? const Center(child: CustomLoader())
+                : AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 500),
+                    child: allUsers.isEmpty
+                        ? const Center(child: Text("No users found"))
+                        : ListView(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                            physics: const BouncingScrollPhysics(),
+                            children: [
+                              // --- SECTION: CURRENT USER ---
+                              if (currentUserData != null) ...[
+                                _buildSectionHeader("You", isDark),
+                                _buildUserCard(
+                                  user: currentUserData,
+                                  isDark: isDark,
+                                  isCurrentUser: true,
+                                ),
+                                const SizedBox(height: 20),
+                              ],
 
-                        // --- SECTION: OTHER USERS ---
-                        if (otherUsers.isNotEmpty) ...[
-                          _buildSectionHeader("Others", isDark),
-                          ...otherUsers.asMap().entries.map((entry) {
-                            int index = entry.key;
-                            var user = entry.value;
-                            return _buildUserCard(
-                              user: user,
-                              isDark: isDark,
-                              index: index,
-                              isExpanded: _expandedIndex == index,
-                              isCurrentUser: false,
-                            );
-                          }),
-                        ],
-                      ],
-                    ),
-            ),
+                              // --- SECTION: OTHER USERS ---
+                              if (otherUsers.isNotEmpty) ...[
+                                _buildSectionHeader("Others", isDark),
+                                ...otherUsers.asMap().entries.map((entry) {
+                                  int index = entry.key;
+                                  var user = entry.value;
+                                  return _buildUserCard(
+                                    user: user,
+                                    isDark: isDark,
+                                    index: index,
+                                    isExpanded: _expandedIndex == index,
+                                    isCurrentUser: false,
+                                  );
+                                }),
+                              ],
+                            ],
+                          ),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -167,7 +178,12 @@ class _UsersPageState extends State<UsersPage> {
         color: isDark ? const Color(0xFF2C2C2C) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: isCurrentUser
-            ? Border.all(color: isDark ? AppColors.primary.withOpacity(0.5) : AppColors.secondary.withOpacity(0.5), width: 1)
+            ? Border.all(
+                color: isDark
+                    ? AppColors.primary.withOpacity(0.5)
+                    : AppColors.secondary.withOpacity(0.5),
+                width: 1,
+              )
             : null,
         boxShadow: [
           BoxShadow(
@@ -208,7 +224,12 @@ class _UsersPageState extends State<UsersPage> {
                   color: isDark ? Colors.white : Colors.black,
                 ),
               ),
-              subtitle: Text(user.role),
+              subtitle: Text(
+                user.role,
+                style: TextStyle(
+                  color: isDark ? Colors.white70 : Colors.black54,
+                ),
+              ),
               trailing: isCurrentUser
                   ? Container(
                       padding: const EdgeInsets.symmetric(
@@ -216,13 +237,17 @@ class _UsersPageState extends State<UsersPage> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: isDark ? AppColors.primary.withOpacity(0.1) : AppColors.secondary.withOpacity(0.1),
+                        color: isDark
+                            ? AppColors.primary.withOpacity(0.1)
+                            : AppColors.secondary.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         "Me",
                         style: TextStyle(
-                          color: isDark ? AppColors.primary : AppColors.secondary,
+                          color: isDark
+                              ? AppColors.primary
+                              : AppColors.secondary,
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                         ),
@@ -237,7 +262,7 @@ class _UsersPageState extends State<UsersPage> {
                       ),
                     ),
               onTap: isCurrentUser
-                  ? null // Disable clicking for current user
+                  ? null
                   : () {
                       HapticFeedback.selectionClick();
                       setState(() {
@@ -283,7 +308,7 @@ class _UsersPageState extends State<UsersPage> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
-                      border: Border.all(color:  AppColors.primary),
+                      border: Border.all(color: AppColors.primary),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Center(

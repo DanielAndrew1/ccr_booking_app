@@ -4,7 +4,8 @@ import 'package:ccr_booking/core/app_theme.dart';
 import 'package:ccr_booking/core/user_provider.dart';
 import 'package:ccr_booking/widgets/custom_appbar.dart';
 import 'package:ccr_booking/widgets/custom_loader.dart';
-import 'package:flutter/cupertino.dart'; // Added for CupertinoSliverRefreshControl
+import 'package:ccr_booking/widgets/custom_bg_svg.dart'; // Added SVG import
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -28,7 +29,6 @@ class _ClientsPageState extends State<ClientsPage> {
 
   void _fetchClients() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Assuming your UserProvider has a fetchClients method
       Provider.of<UserProvider>(context, listen: false).fetchAllClients();
     });
   }
@@ -57,7 +57,6 @@ class _ClientsPageState extends State<ClientsPage> {
           ),
           TextButton(
             onPressed: () {
-              // Update this to your provider's delete client method
               Provider.of<UserProvider>(
                 context,
                 listen: false,
@@ -75,71 +74,85 @@ class _ClientsPageState extends State<ClientsPage> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final userProvider = Provider.of<UserProvider>(context);
-    final clients =
-        userProvider.allClients; // Assuming this exists in your provider
+    final clients = userProvider.allClients;
 
-    return Scaffold(
-      backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
-      appBar: const CustomAppBar(text: 'Manage Clients', showPfp: false),
-      body: CustomScrollView(
-        key: _refreshKey,
-        physics: const BouncingScrollPhysics(
-          parent: AlwaysScrollableScrollPhysics(),
-        ),
-        slivers: [
-          // Cupertino Refresh Control with Custom Loader
-          CupertinoSliverRefreshControl(
-            refreshTriggerPullDistance: 200.0,
-            refreshIndicatorExtent: 100.0,
-            onRefresh: () async {
-              _fetchClients();
-              await Future.delayed(const Duration(seconds: 2));
-              if (mounted) {
-                setState(() {
-                  _refreshKey = UniqueKey();
-                });
-              }
-            },
-            builder:
-                (
-                  context,
-                  refreshState,
-                  pulledExtent,
-                  refreshTriggerPullDistance,
-                  refreshIndicatorExtent,
-                ) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      child: CustomLoader(size: 24),
-                    ),
-                  );
-                },
-          ),
-
-          // Content Area
-          userProvider.isLoading
-              ? const SliverFillRemaining(child: Center(child: CustomLoader()))
-              : clients.isEmpty
-              ? const SliverFillRemaining(
-                  child: Center(child: Text("No clients found")),
-                )
-              : SliverPadding(
-                  padding: const EdgeInsets.all(16),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate((context, index) {
-                      final client = clients[index];
-                      final bool isExpanded = _expandedIndex == index;
-
-                      return _buildClientCard(
-                        client: client,
-                        isDark: isDark,
-                        index: index,
-                        isExpanded: isExpanded,
-                      );
-                    }, childCount: clients.length),
-                  ),
+    return Container(
+      color: isDark ? AppColors.darkbg : AppColors.lightcolor,
+      child: Stack(
+        children: [
+          const CustomBgSvg(), // Pinned to the very top
+          Scaffold(
+            backgroundColor: Colors.transparent,
+            appBar: const CustomAppBar(text: 'Manage Clients', showPfp: false),
+            body: CustomScrollView(
+              key: _refreshKey,
+              physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
+              slivers: [
+                CupertinoSliverRefreshControl(
+                  refreshTriggerPullDistance: 150.0,
+                  refreshIndicatorExtent: 80.0,
+                  onRefresh: () async {
+                    _fetchClients();
+                    await Future.delayed(const Duration(seconds: 2));
+                    if (mounted) {
+                      setState(() {
+                        _refreshKey = UniqueKey();
+                      });
+                    }
+                  },
+                  builder:
+                      (
+                        context,
+                        refreshState,
+                        pulledExtent,
+                        triggerDistance,
+                        indicatorExtent,
+                      ) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            child: CustomLoader(size: 24),
+                          ),
+                        );
+                      },
                 ),
+
+                // Content Area
+                userProvider.isLoading
+                    ? const SliverFillRemaining(
+                        child: Center(child: CustomLoader()),
+                      )
+                    : clients.isEmpty
+                    ? const SliverFillRemaining(
+                        child: Center(child: Text("No clients found")),
+                      )
+                    : SliverPadding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                        sliver: SliverList(
+                          delegate: SliverChildBuilderDelegate((
+                            context,
+                            index,
+                          ) {
+                            final client = clients[index];
+                            final bool isExpanded = _expandedIndex == index;
+
+                            return _buildClientCard(
+                              client: client,
+                              isDark: isDark,
+                              index: index,
+                              isExpanded: isExpanded,
+                            );
+                          }, childCount: clients.length),
+                        ),
+                      ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -192,7 +205,10 @@ class _ClientsPageState extends State<ClientsPage> {
                 color: isDark ? Colors.white : Colors.black,
               ),
             ),
-            subtitle: Text(client.email ?? "No email provided"),
+            subtitle: Text(
+              client.email ?? "No email provided",
+              style: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
+            ),
             trailing: AnimatedRotation(
               duration: const Duration(milliseconds: 300),
               turns: isExpanded ? 0.5 : 0,
@@ -227,16 +243,17 @@ class _ClientsPageState extends State<ClientsPage> {
           Row(
             children: [
               Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: AppColors.primary),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: InkWell(
-                    onTap: () {
-                      // Navigate to client detail or edit page
-                    },
+                child: InkWell(
+                  onTap: () {
+                    // Navigate to client detail or edit page
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppColors.primary),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     child: const Center(
                       child: Text(
                         "View Profile",

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:ccr_booking/core/user_provider.dart';
 import 'package:ccr_booking/pages/add/add_booking.dart';
 import 'package:ccr_booking/services/notification_service.dart';
+import 'package:ccr_booking/widgets/custom_bg_svg.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -263,15 +264,7 @@ class _HomePageState extends State<HomePage>
       backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
       body: Stack(
         children: [
-          Positioned(
-            top: 80,
-            right: 0,
-            child: SvgPicture.asset(
-              'assets/bg-decoration.svg',
-              width: 200,
-              color: isDark ? AppColors.primary : AppColors.secondary,
-            ),
-          ),
+          CustomBgSvg(),
           Column(
             children: [
               _buildAppBar(currentUser),
@@ -326,6 +319,7 @@ class _HomePageState extends State<HomePage>
           backgroundColor: AppColors.secondary,
           foregroundColor: AppColors.lightcolor,
           toolbarHeight: 80,
+          surfaceTintColor: Colors.transparent,
           centerTitle: false,
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
