@@ -1,12 +1,12 @@
-import 'package:ccr_booking/core/app_theme.dart';
 import 'package:flutter/material.dart';
 
 class CustomTile extends StatelessWidget {
   final String title;
-  final Widget? route; // Made optional
+  final Widget? route;
   final IconData? icon;
-  final Widget? trailing; // Added to allow the Switch
-  final VoidCallback? onTap; // Added for custom actions
+  final bool overlayColor; // Changed to non-nullable bool
+  final Widget? trailing;
+  final VoidCallback? onTap;
 
   const CustomTile({
     super.key,
@@ -15,6 +15,7 @@ class CustomTile extends StatelessWidget {
     this.route,
     this.trailing,
     this.onTap,
+    this.overlayColor = true, // Set default to false
   });
 
   @override
@@ -25,6 +26,11 @@ class CustomTile extends StatelessWidget {
       children: [
         const SizedBox(height: 5),
         InkWell(
+          // Logic: If overlayColor is false, make it transparent (no splash).
+          // If true, we don't set it (null), letting it use the theme's default splash/highlight.
+          overlayColor: overlayColor
+              ? null // Uses default Material splash effect
+              : WidgetStateProperty.all(Colors.transparent),
           borderRadius: BorderRadius.circular(12),
           onTap:
               onTap ??
@@ -39,38 +45,31 @@ class CustomTile extends StatelessWidget {
           child: Container(
             height: 60,
             decoration: BoxDecoration(
-              // Dynamic background: Surface color changes based on theme
               color: isDark ? Colors.white.withOpacity(0.08) : Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: isDark ? Border.all(color: Colors.white10) : null,
-              boxShadow: isDark
-                  ? []
-                  : [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
             ),
-            child: ListTile(
-              leading: Icon(
-                icon,
-              ),
-              title: Text(
-                title,
-                style: TextStyle(
-                  color: isDark ? Colors.white : AppColors.darkbg,
-                  fontWeight: FontWeight.w500,
+            child: Center(
+              // Added Center to keep ListTile aligned
+              child: ListTile(
+                leading: Icon(
+                  icon,
+                  color: isDark ? Colors.white : const Color(0xFF2D2D2D),
                 ),
-              ),
-              trailing:
-                  trailing ??
-                  Icon(
-                    Icons.adaptive.arrow_forward_rounded,
-                    color: isDark ? Colors.white54 : AppColors.darkbg,
-                    size: 20,
+                title: Text(
+                  title,
+                  style: TextStyle(
+                    color: isDark ? Colors.white : const Color(0xFF2D2D2D),
+                    fontWeight: FontWeight.w500,
                   ),
+                ),
+                trailing:
+                    trailing ??
+                    Icon(
+                      Icons.adaptive.arrow_forward_rounded,
+                      color: isDark ? Colors.white54 : const Color(0xFF2D2D2D),
+                      size: 20,
+                    ),
+              ),
             ),
           ),
         ),

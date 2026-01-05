@@ -173,6 +173,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           // --- SETTINGS SECTION ---
                           CustomTile(
                             title: "Dark Mode",
+                            overlayColor: false,
                             icon: Icons.dark_mode_rounded,
                             trailing: CupertinoSwitch(
                               value: isDark,
