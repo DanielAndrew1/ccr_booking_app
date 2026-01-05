@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:ccr_booking/core/app_theme.dart';
 import 'package:ccr_booking/core/theme.dart';
 import 'package:flutter/material.dart';

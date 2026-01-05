@@ -1,5 +1,4 @@
-// ignore_for_file: deprecated_member_use
-import 'dart:typed_data';
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously
 import 'package:ccr_booking/core/app_theme.dart';
 import 'package:ccr_booking/widgets/custom_appbar.dart';
 import 'package:ccr_booking/widgets/custom_button.dart';
@@ -283,8 +282,9 @@ class _ProductPageState extends State<ProductPage> {
                               onPressed: isSaving
                                   ? null
                                   : () async {
-                                      if (context.mounted)
+                                      if (context.mounted) {
                                         setDialogState(() => isSaving = true);
+                                      }
                                       try {
                                         String? finalImageUrl = imageUrl;
 

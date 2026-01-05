@@ -1,4 +1,4 @@
-// ignore_for_file: deprecated_member_use
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously, unnecessary_underscores
 
 import 'package:ccr_booking/core/app_theme.dart';
 import 'package:ccr_booking/widgets/custom_appbar.dart';
@@ -134,8 +134,9 @@ class _AddBookingState extends State<AddBooking> {
           child: child!,
         ),
       );
-      if (picked != null)
+      if (picked != null) {
         setState(() => isPickup ? pickupDate = picked : returnDate = picked);
+      }
     } else {
       TimeOfDay? picked = await showTimePicker(
         context: context,
@@ -152,8 +153,9 @@ class _AddBookingState extends State<AddBooking> {
           child: child!,
         ),
       );
-      if (picked != null)
+      if (picked != null) {
         setState(() => isPickup ? pickupTime = picked : returnTime = picked);
+      }
     }
   }
 

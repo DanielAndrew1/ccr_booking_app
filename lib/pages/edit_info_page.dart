@@ -1,4 +1,4 @@
-// ignore_for_file: deprecated_member_use
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously
 import 'dart:async';
 import 'package:ccr_booking/core/user_provider.dart';
 import 'package:ccr_booking/widgets/custom_appbar.dart';

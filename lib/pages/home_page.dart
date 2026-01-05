@@ -1,4 +1,4 @@
-// ignore_for_file: deprecated_member_use
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously
 import 'dart:async';
 import 'package:ccr_booking/core/user_provider.dart';
 import 'package:ccr_booking/pages/add/add_booking.dart';
@@ -471,8 +471,9 @@ class _HomePageState extends State<HomePage>
     final currentUser = userProvider.currentUser;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    if (currentUser == null)
+    if (currentUser == null) {
       return const Scaffold(body: Center(child: CustomLoader()));
+    }
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
@@ -618,7 +619,7 @@ class _HomePageState extends State<HomePage>
           onTap: () => _notificationService.showNotification(
             id: 1,
             title: "CCR Booking",
-            body: "This is a testing notification",
+            body: "Eshta8al el notification",
           ),
         ),
         const SizedBox(height: 20),
@@ -759,15 +760,17 @@ class _HomePageState extends State<HomePage>
         FutureBuilder<List<Map<String, dynamic>>>(
           future: future,
           builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting)
+            if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CustomLoader());
-            if (!snapshot.hasData || snapshot.data!.isEmpty)
+            }
+            if (!snapshot.hasData || snapshot.data!.isEmpty) {
               return const Center(
                 child: Padding(
                   padding: EdgeInsets.all(20),
                   child: Text("No bookings for today."),
                 ),
               );
+            }
             return ListView.builder(
               padding: EdgeInsets.zero,
               shrinkWrap: true,
@@ -901,7 +904,6 @@ class _HomePageState extends State<HomePage>
       ),
     );
   }
-
 }
 
 class SlidingNumber extends StatelessWidget {
