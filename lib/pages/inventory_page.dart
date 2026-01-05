@@ -70,7 +70,7 @@ class _InventoryPageState extends State<InventoryPage> {
           // 3. Add SafeArea or Padding to the Column so content doesn't hide behind AppBar
           Column(
             children: [
-              const SizedBox(height: 160), // Height of AppBar + some spacing
+              const SizedBox(height: 140), // Height of AppBar + some spacing
               if (!_hasConnection) const NoInternetWidget(),
               Expanded(
                 child: CustomScrollView(
@@ -124,7 +124,7 @@ class _InventoryPageState extends State<InventoryPage> {
 
                         final products = snapshot.data!;
                         return SliverPadding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                           sliver: SliverList(
                             delegate: SliverChildBuilderDelegate((
                               context,

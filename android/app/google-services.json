@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "941979087552",
+    "project_id": "ccr-booking-app1",
+    "storage_bucket": "ccr-booking-app1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:941979087552:android:017b6b578f8637c39ff325",
+        "android_client_info": {
+          "package_name": "com.example.database"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCNvnkZcHhJ4t9Sd78Qvs5pwa7-4KC-oj8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
