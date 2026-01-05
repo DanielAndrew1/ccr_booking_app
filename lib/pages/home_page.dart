@@ -612,7 +612,7 @@ class _HomePageState extends State<HomePage>
         ],
         _buildActionButton(
           title: "Recieve a notification",
-          subtitle: "Test the notification system",
+          subtitle: "Test the notifications",
           icon: Icons.notifications_on_rounded,
           color: AppColors.secondary,
           isDark: isDark,
