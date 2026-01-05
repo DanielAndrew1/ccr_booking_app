@@ -4,6 +4,7 @@ import 'package:ccr_booking/widgets/custom_loader.dart';
 
 class CustomButton extends StatefulWidget {
   final Future<void> Function()? onPressed;
+  final double height; // Changed: Removed fixed value
   final String? text;
   final Widget? child;
   final IconData? icon;
@@ -12,6 +13,7 @@ class CustomButton extends StatefulWidget {
   const CustomButton({
     super.key,
     required this.onPressed,
+    this.height = 45, // Changed: Added to constructor with default
     this.text,
     this.child,
     this.icon,
@@ -43,7 +45,6 @@ class _CustomButtonState extends State<CustomButton> {
   Widget build(BuildContext context) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Logic: If widget.color is null, check isDark
     final WidgetStateProperty<Color> effectiveColor =
         widget.color ??
         WidgetStateProperty.all(
@@ -52,7 +53,7 @@ class _CustomButtonState extends State<CustomButton> {
 
     return SizedBox(
       width: double.infinity,
-      height: 45,
+      height: widget.height, // Changed: Uses the height from the widget
       child: ElevatedButton(
         onPressed: _loading ? null : _handlePress,
         style: ButtonStyle(

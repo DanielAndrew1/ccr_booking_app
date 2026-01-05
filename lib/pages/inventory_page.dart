@@ -12,8 +12,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:ccr_booking/main.dart';
 
 class InventoryPage extends StatefulWidget {
   const InventoryPage({super.key});

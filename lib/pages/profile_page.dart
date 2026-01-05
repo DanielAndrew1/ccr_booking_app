@@ -3,10 +3,8 @@
 import 'dart:async';
 import 'package:ccr_booking/core/theme.dart';
 import 'package:ccr_booking/core/user_provider.dart';
-import 'package:ccr_booking/main.dart';
 import 'package:ccr_booking/pages/clients_page.dart';
 import 'package:ccr_booking/pages/users_page.dart';
-import 'package:ccr_booking/pages/home_page.dart' hide NoInternetWidget;
 import 'package:ccr_booking/widgets/custom_bg_svg.dart';
 import 'package:ccr_booking/widgets/custom_internet_notification.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -14,7 +12,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_svg/flutter_svg.dart'; // Added for the decoration
 import '../core/app_theme.dart';
 import '../pages/edit_info_page.dart';
 import '../pages/login_page.dart';
@@ -208,15 +205,15 @@ class _ProfilePageState extends State<ProfilePage> {
                             const SizedBox(height: 12),
                           ],
 
-                          const SizedBox(height: 40),
+                          const SizedBox(height: 30),
 
                           CustomButton(
                             onPressed: () => _logout(context),
                             icon: Icons.logout_rounded,
+                            height: 50,
                             text: "Logout",
-                            color: WidgetStateProperty.all(Colors.red),
+                            color: WidgetStateProperty.all(const Color(0xFFFF1100)),
                           ),
-
                           const SizedBox(height: 120),
                         ],
                       ),
