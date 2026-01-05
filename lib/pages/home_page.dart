@@ -1,7 +1,6 @@
 // ignore_for_file: deprecated_member_use
 import 'dart:async';
 import 'package:ccr_booking/core/user_provider.dart';
-import 'package:ccr_booking/main.dart';
 import 'package:ccr_booking/pages/add/add_booking.dart';
 import 'package:ccr_booking/services/notification_service.dart';
 import 'package:ccr_booking/widgets/custom_bg_svg.dart';

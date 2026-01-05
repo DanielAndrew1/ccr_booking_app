@@ -5,7 +5,6 @@ import 'package:ccr_booking/core/app_theme.dart';
 import 'package:ccr_booking/widgets/custom_appbar.dart';
 import 'package:ccr_booking/widgets/custom_button.dart';
 import 'package:ccr_booking/widgets/custom_loader.dart';
-import 'package:ccr_booking/widgets/custom_textfield.dart';
 import 'package:ccr_booking/widgets/custom_bg_svg.dart'; // Import your reusable widget
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
