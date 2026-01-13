@@ -32,27 +32,34 @@ target 'Runner' do
   use_modular_headers!
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+  
   target 'RunnerTests' do
     inherit! :search_paths
   end
+end
+
+# OneSignal Extension Target
+target 'OneSignalNotificationServiceExtension' do
+  use_frameworks!
+  pod 'OneSignalXCFramework', '>= 5.0.0', '< 6.0'
 end
 
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
     
-    # Corrected loop to define 'build_config' so the script knows what to update
-    target.build_configurations.each do |build_config|
-      # This fixes the dSYM error for sqlite3arm64ios.framework
-      build_config.build_settings['DEBUG_INFORMATION_FORMAT'] = 'dwarf-with-dsym'
+    target.build_configurations.each do |config|
+      # 1. Provide your Team ID to ALL pod targets and bundles
+      config.build_settings['DEVELOPMENT_TEAM'] = '8TVX448JFQ'
       
-      # Optional but recommended to prevent other common archive issues
-      build_config.build_settings['ENABLE_BITCODE'] = 'NO'
+      # 2. Fix Architecture issues for Simulators
+      config.build_settings['EXPANDED_CODE_SIGN_IDENTITY'] = ""
+      config.build_settings['CODE_SIGNING_REQUIRED'] = "NO"
+      config.build_settings['CODE_SIGNING_ALLOWED'] = "YES"
+
+      # 3. Specifically fix the Privacy Manifest bundle signing error
+      # This ensures the nested bundles inherit the signing style
+      config.build_settings['CODE_SIGN_STYLE'] = 'Automatic'
     end
   end
-end
-
-target 'OneSignalNotificationServiceExtension' do
-  use_frameworks!
-  pod 'OneSignalXCFramework', '>= 5.0.0', '< 6.0'
 end

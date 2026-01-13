@@ -2,6 +2,17 @@
 
 import 'dart:async';
 import 'dart:io';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+
+// Internal Project Imports
+import 'firebase_options.dart';
 import 'package:ccr_booking/core/app_theme.dart';
 import 'package:ccr_booking/core/root.dart';
 import 'package:ccr_booking/core/theme.dart';
@@ -9,29 +20,47 @@ import 'package:ccr_booking/core/user_provider.dart';
 import 'package:ccr_booking/pages/login_page.dart';
 import 'package:ccr_booking/pages/register_page.dart';
 import 'package:ccr_booking/services/notification_service.dart';
+import 'package:ccr_booking/services/supbase_service.dart';
 import 'package:ccr_booking/widgets/custom_internet_notification.dart';
 import 'package:ccr_booking/widgets/custom_navbar.dart';
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
+
+/// 1. TOP LEVEL BACKGROUND HANDLER
+/// This runs in a separate isolate when a notification is received
+/// while the app is terminated or in the background.
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  print("Handling a background message: ${message.messageId}");
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  NotificationService().initNotification();
 
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   }
 
+  // Initialize Supabase
   await Supabase.initialize(
-    url: 'https://jjodrxidqzcreqzteyqa.supabase.co',
-    anonKey:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impqb2RyeGlkcXpjcmVxenRleXFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NzE2NDQsImV4cCI6MjA4MjE0NzY0NH0.692jVmgqONLClX3zwdOLzgb1ag61e_bnFs-YXwOT9FA',
+    url: SupbaseService.url,
+    anonKey: SupbaseService.annonKey,
   );
+
+  // Initialize Firebase
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+
+    // 2. REGISTER BACKGROUND HANDLER
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  } catch (e) {
+    debugPrint("Firebase init error: $e");
+  }
+
+  // Initialize notification service and setup foreground listeners
+  await NotificationService().initNotification();
 
   runApp(
     MultiProvider(
@@ -53,11 +82,8 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
-
-  // Overlay references for floating the pill
   OverlayEntry? _networkOverlayEntry;
   bool _isShowingError = false;
-
   RealtimeChannel? _realtimeChannel;
 
   @override
@@ -79,6 +105,8 @@ class _MyAppState extends State<MyApp> {
         if (sessionUser != null) {
           userProvider.refreshUser();
           _setupSupabaseListener();
+          // Force token refresh on login
+          NotificationService().getAndSaveToken();
         } else {
           userProvider.clearUser();
           _stopSupabaseListener();
@@ -87,6 +115,8 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
+  /// 3. SUPABASE REALTIME LISTENER
+  /// This handles local notifications when data changes in the DB
   void _setupSupabaseListener() {
     final supabase = Supabase.instance.client;
     if (_realtimeChannel != null) return;
@@ -113,7 +143,7 @@ class _MyAppState extends State<MyApp> {
             }
 
             NotificationService().showNotification(
-              id: DateTime.now().millisecond,
+              id: DateTime.now().millisecond % 100000,
               title: title,
               body: body,
             );
@@ -129,6 +159,7 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
+  // Connectivity and Overlay Logic...
   Future<void> _initConnectivity() async {
     final result = await Connectivity().checkConnectivity();
     _checkStatus(result);
@@ -142,14 +173,11 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
-  // Logic to show the floating Overlay
   void _showNoInternetOverlay() {
     if (_isShowingError) return;
     _isShowingError = true;
-
     _networkOverlayEntry = OverlayEntry(
       builder: (context) => Positioned(
-        // Places it at the top, over the app bar area
         top: MediaQuery.of(context).padding.top + 10,
         left: 15,
         right: 15,
@@ -159,8 +187,6 @@ class _MyAppState extends State<MyApp> {
         ),
       ),
     );
-
-    // Insert into the global overlay stack
     Overlay.of(context).insert(_networkOverlayEntry!);
   }
 
@@ -181,23 +207,40 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      themeMode: themeProvider.themeMode,
-      theme: MyThemes.lightTheme,
-      darkTheme: MyThemes.darkTheme,
       home: const MainStackHandler(),
       routes: {
         '/login': (_) => const LoginPage(),
         '/register': (_) => const RegisterPage(),
         '/home': (_) => const CustomNavbar(),
       },
+      themeMode: ThemeMode.system, // Automatically switches based on phone settings
+      theme: ThemeData(
+        brightness: Brightness.light,
+        appBarTheme: const AppBarTheme(
+          systemOverlayStyle: SystemUiOverlayStyle(
+            statusBarIconBrightness:
+                Brightness.dark, // Dark icons for light theme
+            statusBarBrightness: Brightness.light, // For iOS
+          ),
+        ),
+      ),
+      darkTheme: ThemeData(
+        brightness: Brightness.dark,
+        appBarTheme: const AppBarTheme(
+          systemOverlayStyle: SystemUiOverlayStyle(
+            statusBarIconBrightness:
+                Brightness.light, // White icons for dark theme
+            statusBarBrightness: Brightness.dark, // For iOS
+          ),
+        ),
+      ),
     );
   }
 }
 
+// SplashOverlay and MainStackHandler classes remain as they were...
 class MainStackHandler extends StatefulWidget {
   const MainStackHandler({super.key});
 
@@ -210,7 +253,6 @@ class _MainStackHandlerState extends State<MainStackHandler> {
 
   @override
   Widget build(BuildContext context) {
-    // Removed NoInternetWidget from here because it's now handled by the Overlay
     return Stack(
       children: [
         const RootPage(),
