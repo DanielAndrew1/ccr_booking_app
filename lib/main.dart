@@ -24,9 +24,7 @@ import 'package:ccr_booking/services/supbase_service.dart';
 import 'package:ccr_booking/widgets/custom_internet_notification.dart';
 import 'package:ccr_booking/widgets/custom_navbar.dart';
 
-/// 1. TOP LEVEL BACKGROUND HANDLER
-/// This runs in a separate isolate when a notification is received
-/// while the app is terminated or in the background.
+
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);

@@ -206,7 +206,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             const SizedBox(height: 12),
                           ],
 
-                          const SizedBox(height: 30),
+                          const SizedBox(height: 20),
 
                           CustomButton(
                             onPressed: () => _logout(context),
@@ -215,6 +215,9 @@ class _ProfilePageState extends State<ProfilePage> {
                             text: "Logout",
                             color: WidgetStateProperty.all(const Color(0xFFFF1100)),
                           ),
+
+                          SizedBox(height: 20,),
+                          Text("App Version ${AppVersion.version}"),
                           const SizedBox(height: 120),
                         ],
                       ),
