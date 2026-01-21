@@ -74,7 +74,3 @@ class AppFontStyle {
   static TextStyle descriptionBold([Color? color]) =>
       _style(_descriptionSize, _bold, color);
 }
-
-class AppVersion {
-  static const String version = "1.0.0";
-}
