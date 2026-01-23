@@ -1,11 +1,13 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously, unnecessary_underscores
 
 import 'package:ccr_booking/core/app_theme.dart';
+import 'package:ccr_booking/core/theme.dart';
 import 'package:ccr_booking/widgets/custom_appbar.dart';
 import 'package:ccr_booking/widgets/custom_search.dart';
 import 'package:ccr_booking/widgets/custom_bg_svg.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AddBooking extends StatefulWidget {
@@ -111,7 +113,8 @@ class _AddBookingState extends State<AddBooking> {
     required bool isPickup,
     required bool isDate,
   }) async {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
     if (isDate) {
       DateTime? picked = await showDatePicker(
         context: context,
@@ -164,8 +167,8 @@ class _AddBookingState extends State<AddBooking> {
     List<Map<String, dynamic>> allProducts = List<Map<String, dynamic>>.from(
       response,
     );
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
     if (!mounted) return;
 
     showModalBottomSheet(
@@ -247,7 +250,8 @@ class _AddBookingState extends State<AddBooking> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
 
     return Container(
       color: isDark ? AppColors.darkbg : AppColors.lightcolor,

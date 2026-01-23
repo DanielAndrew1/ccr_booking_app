@@ -1,10 +1,12 @@
 import 'dart:io' show Platform;
 
 import 'package:ccr_booking/core/app_theme.dart';
+import 'package:ccr_booking/core/theme.dart';
 import 'package:ccr_booking/widgets/custom_button.dart';
 import 'package:ccr_booking/widgets/custom_textfield.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -65,8 +67,9 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   Widget build(BuildContext context) {
     // Detect dark mode
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+    
     return Scaffold(
       // Toggle background color
       backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,

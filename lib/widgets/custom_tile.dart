@@ -1,6 +1,8 @@
 // ignore_for_file: deprecated_member_use
-
+import 'package:ccr_booking/core/app_theme.dart';
+import 'package:ccr_booking/core/theme.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class CustomTile extends StatelessWidget {
   final String title;
@@ -22,7 +24,8 @@ class CustomTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
 
     return Column(
       children: [
@@ -47,7 +50,7 @@ class CustomTile extends StatelessWidget {
           child: Container(
             height: 60,
             decoration: BoxDecoration(
-              color: isDark ? Colors.white.withOpacity(0.08) : Colors.white,
+              color: isDark ? Color(0xFF2D2D2D) : AppColors.lightbg,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Center(
@@ -55,12 +58,12 @@ class CustomTile extends StatelessWidget {
               child: ListTile(
                 leading: Icon(
                   icon,
-                  color: isDark ? Colors.white : const Color(0xFF2D2D2D),
+                  color: isDark ? Colors.white : Color(0xFF2D2D2D),
                 ),
                 title: Text(
-                  title,
+                title,
                   style: TextStyle(
-                    color: isDark ? Colors.white : const Color(0xFF2D2D2D),
+                    color: isDark ? Colors.white : Color(0xFF2D2D2D),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -68,7 +71,7 @@ class CustomTile extends StatelessWidget {
                     trailing ??
                     Icon(
                       Icons.adaptive.arrow_forward_rounded,
-                      color: isDark ? Colors.white54 : const Color(0xFF2D2D2D),
+                      color: isDark ? Colors.white54 : Color(0xFF2D2D2D),
                       size: 20,
                     ),
               ),

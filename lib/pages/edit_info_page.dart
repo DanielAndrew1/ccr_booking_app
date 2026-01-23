@@ -1,5 +1,6 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously
 import 'dart:async';
+import 'package:ccr_booking/core/theme.dart';
 import 'package:ccr_booking/core/user_provider.dart';
 import 'package:ccr_booking/widgets/custom_appbar.dart';
 import 'package:ccr_booking/widgets/custom_bg_svg.dart'; // Added SVG import
@@ -96,8 +97,9 @@ class _EditInfoPageState extends State<EditInfoPage> {
   @override
   Widget build(BuildContext context) {
     // Detect dark mode
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+    
     return Container(
       // Correct background color (AppColors.darkbg)
       color: isDark ? AppColors.darkbg : AppColors.lightcolor,

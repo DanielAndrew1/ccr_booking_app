@@ -2,12 +2,14 @@
 
 import 'dart:io';
 import 'package:ccr_booking/core/app_theme.dart';
+import 'package:ccr_booking/core/theme.dart';
 import 'package:ccr_booking/widgets/custom_appbar.dart';
 import 'package:ccr_booking/widgets/custom_button.dart';
 import 'package:ccr_booking/widgets/custom_loader.dart';
 import 'package:ccr_booking/widgets/custom_bg_svg.dart'; // Import your reusable widget
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:path/path.dart' as p;
 
@@ -127,8 +129,9 @@ class _AddProductState extends State<AddProduct> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+    
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
       extendBodyBehindAppBar: true, // Required for CustomBgSvg alignment

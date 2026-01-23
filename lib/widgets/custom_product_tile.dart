@@ -1,8 +1,10 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:ccr_booking/core/app_theme.dart';
+import 'package:ccr_booking/core/theme.dart';
 import 'package:ccr_booking/widgets/custom_loader.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class CustomProductTile extends StatelessWidget {
   final String title;
@@ -21,11 +23,12 @@ class CustomProductTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Detect dark mode
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
 
     return Column(
       children: [
-        const SizedBox(height: 5),
+        const SizedBox(height: 10),
         InkWell(
           borderRadius: BorderRadius.circular(12),
           onTap: () => Navigator.push(
@@ -35,11 +38,10 @@ class CustomProductTile extends StatelessWidget {
           child: Container(
             decoration: BoxDecoration(
               // Background color based on theme
-              color: isDark ? const Color(0xFF2A2A2A) : Colors.white,
+              color: isDark
+                  ? const Color(0xFF2A2A2A).withAlpha(200)
+                  : AppColors.lightbg.withAlpha(140),
               borderRadius: BorderRadius.circular(12),
-              border: isDark
-                  ? Border.all(color: Colors.white.withOpacity(0.05))
-                  : null,
               boxShadow: isDark
                   ? [] // Avoid glowing shadows in dark mode
                   : [
@@ -59,7 +61,7 @@ class CustomProductTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(4),
                   child: imageUrl != null && imageUrl!.isNotEmpty
                       ? Image.network(
                           imageUrl!,
@@ -68,15 +70,18 @@ class CustomProductTile extends StatelessWidget {
                             if (loadingProgress == null) return child;
                             return const Center(child: CustomLoader(size: 18));
                           },
-                          errorBuilder: (context, error, stackTrace) =>
-                              const Icon(
-                                Icons.broken_image_rounded,
-                                color: AppColors.primary,
-                              ),
+                          errorBuilder: (context, error, stackTrace) => Icon(
+                            Icons.broken_image_rounded,
+                            color: isDark
+                                ? AppColors.primary
+                                : AppColors.secondary,
+                          ),
                         )
-                      : const Icon(
+                      : Icon(
                           Icons.camera_alt_rounded,
-                          color: AppColors.primary,
+                          color: isDark
+                              ? AppColors.primary
+                              : AppColors.secondary,
                         ),
                 ),
               ),
@@ -112,7 +117,6 @@ class CustomProductTile extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 5),
       ],
     );
   }

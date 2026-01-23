@@ -1,5 +1,6 @@
 // ignore_for_file: unnecessary_underscores
 
+
 import 'package:ccr_booking/core/user_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -51,7 +52,7 @@ class CustomPfp extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           // Logic: Use provided color, otherwise default to AppColors.primary
-          color: color ?? AppColors.primary,
+          color: AppColors.primary,
         ),
         child: Text(
           initials,

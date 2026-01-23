@@ -1,9 +1,11 @@
 import 'package:ccr_booking/core/app_theme.dart';
+import 'package:ccr_booking/core/theme.dart';
 import 'package:ccr_booking/widgets/custom_appbar.dart';
 import 'package:ccr_booking/widgets/custom_button.dart';
 import 'package:ccr_booking/widgets/custom_textfield.dart';
 import 'package:ccr_booking/widgets/custom_bg_svg.dart'; // Import the new widget
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AddClient extends StatefulWidget {
@@ -66,8 +68,9 @@ class _AddClientState extends State<AddClient> {
   @override
   Widget build(BuildContext context) {
     // Detect dark mode
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+    
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
       // Extends body behind the appbar so the SVG coordinate system matches HomePage
@@ -84,7 +87,6 @@ class _AddClientState extends State<AddClient> {
               physics: const BouncingScrollPhysics(),
               children: [
                 // Push content down below the AppBar
-
                 CustomTextfield(
                   textEditingController: _nameController,
                   keyboardType: TextInputType.name,

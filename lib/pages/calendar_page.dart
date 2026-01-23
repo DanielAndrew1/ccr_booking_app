@@ -1,6 +1,7 @@
 // ignore_for_file: deprecated_member_use
 import 'dart:async';
 import 'package:ccr_booking/core/app_theme.dart';
+import 'package:ccr_booking/core/theme.dart';
 import 'package:ccr_booking/widgets/custom_appbar.dart';
 import 'package:ccr_booking/widgets/custom_internet_notification.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +9,8 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:provider/provider.dart';
+
 class CalendarPage extends StatefulWidget {
   const CalendarPage({super.key});
 
@@ -56,7 +59,6 @@ class CalendarPageState extends State<CalendarPage>
     });
   }
 
-  // --- Connectivity Logic ---
   Future<void> _initConnectivity() async {
     final result = await Connectivity().checkConnectivity();
     _checkStatus(result);
@@ -68,7 +70,6 @@ class CalendarPageState extends State<CalendarPage>
     });
   }
 
-  // --- Public Method (Called by Navbar) ---
   void resetToToday() {
     final now = DateTime.now().toLocal();
     setState(() => _selectedDate = now);
@@ -77,7 +78,7 @@ class CalendarPageState extends State<CalendarPage>
       _pageController.animateToPage(
         7,
         duration: const Duration(milliseconds: 400),
-        curve: Curves.easeInOut,
+        curve: Curves.fastOutSlowIn,
       );
     }
     _scrollDayBarToCenter(7);
@@ -123,57 +124,223 @@ class CalendarPageState extends State<CalendarPage>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
 
-    return Scaffold(
-      backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
-      appBar: CustomAppBar(text: 'Calendar', showPfp: true),
-      body: Column(
-        children: [
-          if (!_hasConnection) NoInternetWidget(),
-          _buildDaySelector(isDark),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : PageView.builder(
-                    controller: _pageController,
-                    onPageChanged: (index) {
-                      HapticFeedback.lightImpact();
-                      setState(() {
-                        _selectedDate = DateTime.now().toLocal().add(
-                          Duration(days: index - 7),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors
+            .transparent, // Keeps the background transparent or as styled by AppBar
+        statusBarIconBrightness: Brightness.light, // White icons for Android
+        statusBarBrightness: Brightness.dark, // White icons for iOS
+      ),
+      child: Scaffold(
+        backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
+        appBar: CustomAppBar(text: 'Calendar', showPfp: true),
+        body: Column(
+          children: [
+            if (!_hasConnection) const NoInternetWidget(),
+
+            // Merged Day Selector and Nav Row in one container
+            _buildMergedHeader(isDark),
+
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : PageView.builder(
+                      controller: _pageController,
+                      onPageChanged: (index) {
+                        HapticFeedback.selectionClick();
+                        setState(() {
+                          _selectedDate = DateTime.now().toLocal().add(
+                            Duration(days: index - 7),
+                          );
+                        });
+                        _scrollDayBarToCenter(index);
+                      },
+                      itemCount: 22,
+                      itemBuilder: (context, pageIndex) {
+                        final pageDate = DateTime.now().toLocal().add(
+                          Duration(days: pageIndex - 7),
                         );
-                      });
-                      _scrollDayBarToCenter(index);
-                    },
-                    itemCount: 22,
-                    itemBuilder: (context, pageIndex) {
-                      final pageDate = DateTime.now().toLocal().add(
-                        Duration(days: pageIndex - 7),
-                      );
-                      final isToday = isSameDay(
-                        pageDate,
-                        DateTime.now().toLocal(),
-                      );
+                        final isToday = isSameDay(
+                          pageDate,
+                          DateTime.now().toLocal(),
+                        );
 
-                      return SingleChildScrollView(
-                        physics: const ClampingScrollPhysics(),
-                        controller: isToday
-                            ? _todayScrollController
-                            : ScrollController(),
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 20.0),
-                          child: Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              _buildTimeGrid(isDark),
-                              if (isToday) _buildTimeIndicator(),
-                            ],
+                        return SingleChildScrollView(
+                          physics: const ClampingScrollPhysics(),
+                          controller: isToday
+                              ? _todayScrollController
+                              : ScrollController(),
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 20.0),
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                _buildTimeGrid(isDark),
+                                if (isToday) _buildTimeIndicator(),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMergedHeader(bool isDark) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkbg : AppColors.lightcolor,
+        boxShadow: [
+          BoxShadow(
+            color: isDark ? Colors.black26 : Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Day Selector List
+          SizedBox(
+            height: 85,
+            child: ListView.builder(
+              controller: _dayScrollController,
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+              itemCount: 22,
+              itemBuilder: (context, index) {
+                DateTime date = DateTime.now().toLocal().add(
+                  Duration(days: index - 7),
+                );
+                bool isSelected = isSameDay(_selectedDate, date);
+                bool isToday = isSameDay(DateTime.now().toLocal(), date);
+
+                return GestureDetector(
+                  key: _dayKeys[index],
+                  onTap: () {
+                    HapticFeedback.mediumImpact();
+                    _pageController.animateToPage(
+                      index,
+                      duration: const Duration(milliseconds: 400),
+                      curve: Curves.fastOutSlowIn,
+                    );
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeInOut,
+                    width: 65,
+                    margin: const EdgeInsets.symmetric(horizontal: 6),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppColors.primary
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(16), // Pill style
+                      border: isToday && !isSelected
+                          ? Border.all(color: AppColors.primary, width: 2)
+                          : null,
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          DateFormat('E').format(date),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                            color: isSelected
+                                ? Colors.white
+                                : (isDark
+                                      ? Colors.white70
+                                      : Colors.grey.shade600),
                           ),
                         ),
-                      );
-                    },
+                        const SizedBox(height: 4),
+                        Text(
+                          date.day.toString(),
+                          style: TextStyle(
+                            color: isSelected
+                                ? Colors.white
+                                : (isDark ? Colors.white : Colors.black),
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                );
+              },
+            ),
+          ),
+
+          // Navigation Row inside the same container
+          Padding(
+            padding: const EdgeInsets.fromLTRB(26, 0, 26, 6),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  onPressed: () {
+                    if (_pageController.page! > 0) {
+                      _pageController.previousPage(
+                        duration: const Duration(milliseconds: 400),
+                        curve: Curves.fastOutSlowIn,
+                      );
+                    }
+                  },
+                  icon: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    size: 16,
+                    color: isDark ? Colors.white54 : Colors.black45,
+                  ),
+                ),
+                GestureDetector(
+                  onTap: resetToToday,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      'Today',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () {
+                    if (_pageController.page! < 21) {
+                      _pageController.nextPage(
+                        duration: const Duration(milliseconds: 400),
+                        curve: Curves.fastOutSlowIn,
+                      );
+                    }
+                  },
+                  icon: Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 16,
+                    color: isDark ? Colors.white54 : Colors.black45,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -259,78 +426,6 @@ class CalendarPageState extends State<CalendarPage>
     );
   }
 
-  Widget _buildDaySelector(bool isDark) {
-    return Container(
-      height: 90,
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkbg : AppColors.lightcolor,
-        boxShadow: [
-          BoxShadow(
-            color: isDark ? Colors.black26 : Colors.black.withOpacity(0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ListView.builder(
-        controller: _dayScrollController,
-        scrollDirection: Axis.horizontal,
-        itemCount: 22,
-        itemBuilder: (context, index) {
-          DateTime date = DateTime.now().toLocal().add(
-            Duration(days: index - 7),
-          );
-          bool isSelected = isSameDay(_selectedDate, date);
-          bool isToday = isSameDay(DateTime.now().toLocal(), date);
-          return GestureDetector(
-            key: _dayKeys[index],
-            onTap: () => _pageController.animateToPage(
-              index,
-              duration: const Duration(milliseconds: 400),
-              curve: Curves.easeInOut,
-            ),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              width: 65,
-              margin: const EdgeInsets.symmetric(horizontal: 6),
-              decoration: BoxDecoration(
-                color: isSelected ? AppColors.primary : Colors.transparent,
-                borderRadius: BorderRadius.circular(16),
-                border: isToday && !isSelected
-                    ? Border.all(color: AppColors.primary, width: 2)
-                    : null,
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    DateFormat('E').format(date),
-                    style: TextStyle(
-                      color: isSelected
-                          ? Colors.white
-                          : (isDark ? Colors.white : Colors.grey.shade600),
-                    ),
-                  ),
-                  Text(
-                    date.day.toString(),
-                    style: TextStyle(
-                      color: isSelected
-                          ? Colors.white
-                          : (isDark ? Colors.white : Colors.black),
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
   void _scrollDayBarToCenter(int index) {
     if (index >= 0 && index < _dayKeys.length) {
       final context = _dayKeys[index].currentContext;
@@ -339,6 +434,7 @@ class CalendarPageState extends State<CalendarPage>
           context,
           alignment: 0.5,
           duration: const Duration(milliseconds: 500),
+          curve: Curves.fastOutSlowIn,
         );
       }
     }

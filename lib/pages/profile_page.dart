@@ -90,13 +90,13 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context);
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
     final currentUser = userProvider.currentUser;
 
     if (currentUser == null) {
       return const Scaffold(body: Center(child: CustomLoader()));
     }
 
-    final isDark = themeProvider.isDarkMode;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
@@ -214,11 +214,19 @@ class _ProfilePageState extends State<ProfilePage> {
                             icon: Icons.logout_rounded,
                             height: 50,
                             text: "Logout",
-                            color: WidgetStateProperty.all(const Color(0xFFFF1100)),
+                            color: WidgetStateProperty.all(
+                              const Color(0xFFFF1100),
+                            ),
                           ),
 
-                          SizedBox(height: 20,),
-                          Text("App Version ${AppVersion.version}"),
+                          SizedBox(height: 20),
+                          Text(
+                            "App Version ${AppVersion.version}",
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: isDark ? Colors.white : Colors.black,
+                            ),
+                          ),
                           const SizedBox(height: 120),
                         ],
                       ),

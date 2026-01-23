@@ -2,6 +2,7 @@
 
 import 'dart:async';
 import 'package:ccr_booking/core/app_theme.dart';
+import 'package:ccr_booking/core/theme.dart';
 import 'package:ccr_booking/pages/product_page.dart';
 import 'package:ccr_booking/widgets/custom_appbar.dart';
 import 'package:ccr_booking/widgets/custom_bg_svg.dart';
@@ -10,6 +11,8 @@ import 'package:ccr_booking/widgets/custom_loader.dart';
 import 'package:ccr_booking/widgets/custom_product_tile.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
@@ -23,6 +26,11 @@ class _InventoryPageState extends State<InventoryPage> {
   Key _streamKey = UniqueKey();
   late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
   bool _hasConnection = true;
+
+  // --- Search Logic ---
+  bool _isSearching = false;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = "";
 
   @override
   void initState() {
@@ -49,108 +57,204 @@ class _InventoryPageState extends State<InventoryPage> {
   @override
   void dispose() {
     _connectivitySubscription.cancel();
+    _searchController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
 
-    return Scaffold(
-      backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
-      // 1. THIS IS THE KEY: It allows the body to start from the top of the screen
-      extendBodyBehindAppBar: true,
-      appBar: const CustomAppBar(text: 'Inventory', showPfp: true),
-      body: Stack(
-        children: [
-          // 2. MATCHED TO HOME PAGE: top: 80, right: 0
-          CustomBgSvg(),
-          // 3. Add SafeArea or Padding to the Column so content doesn't hide behind AppBar
-          Column(
-            children: [
-              const SizedBox(height: 140), // Height of AppBar + some spacing
-              if (!_hasConnection) const NoInternetWidget(),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+        statusBarColor: Colors.transparent,
+      ),
+      child: Scaffold(
+        backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
+        extendBodyBehindAppBar: true,
+        appBar: CustomAppBar(
+          text: _isSearching ? "" : 'Inventory',
+          showPfp: !_isSearching,
+          hideLeading: _isSearching,
+          actions: [
+            if (_isSearching) ...[
+              // 1. BACK ARROW: Closes the search mode
+              IconButton(
+                onPressed: () {
+                  setState(() {
+                    _isSearching = false;
+                    _searchController.clear();
+                    _searchQuery = "";
+                  });
+                },
+                icon: Icon(Icons.adaptive.arrow_back_rounded, color: Colors.white),
+              ),
+              // 2. SEARCH FIELD
               Expanded(
-                child: CustomScrollView(
-                  physics: const BouncingScrollPhysics(
-                    parent: AlwaysScrollableScrollPhysics(),
+                child: TextField(
+                  controller: _searchController,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  autofocus: true,
+                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                  cursorColor: Colors.white,
+                  decoration: const InputDecoration(
+                    hintText: 'Search...',
+                    hintStyle: TextStyle(color: Colors.white60),
+                    border: InputBorder.none,
                   ),
-                  slivers: [
-                    CupertinoSliverRefreshControl(
-                      // refreshTriggerPullDistance: 50.0,
-                      // refreshIndicatorExtent: 40.0,
-                      onRefresh: () async {
-                        setState(() => _streamKey = UniqueKey());
-                        await Future.delayed(const Duration(seconds: 2));
-                      },
-                      builder:
-                          (
-                            context,
-                            refreshState,
-                            pulledExtent,
-                            refreshTriggerPullDistance,
-                            refreshIndicatorExtent,
-                          ) {
-                            return const Center(
-                              child: Padding(
-                                padding: EdgeInsets.symmetric(vertical: 16),
-                                child: CustomLoader(size: 24),
-                              ),
-                            );
-                          },
-                    ),
-
-                    StreamBuilder<List<Map<String, dynamic>>>(
-                      key: _streamKey,
-                      stream: Supabase.instance.client
-                          .from('products')
-                          .stream(primaryKey: ['id'])
-                          .order('name'),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const SliverFillRemaining(
-                            child: Center(child: CustomLoader()),
-                          );
-                        }
-
-                        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                          return const SliverFillRemaining(
-                            child: Center(child: Text("No products yet.")),
-                          );
-                        }
-
-                        final products = snapshot.data!;
-                        return SliverPadding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                          sliver: SliverList(
-                            delegate: SliverChildBuilderDelegate((
-                              context,
-                              index,
-                            ) {
-                              final product = products[index];
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 12.0),
-                                child: CustomProductTile(
-                                  title: product['name'] ?? 'Unnamed',
-                                  price: (product['price'] as num).toDouble(),
-                                  imageUrl: product['image_url'],
-                                  route: ProductPage(
-                                    productId: product['id'].toString(),
-                                  ),
-                                ),
-                              );
-                            }, childCount: products.length),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _searchQuery = value.toLowerCase();
+                    });
+                  },
                 ),
               ),
             ],
-          ),
-        ],
+            // 3. THE TOGGLE / CLEAR BUTTON
+            Padding(
+              padding: const EdgeInsets.only(right: 25),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _isSearching
+                      ? Colors.transparent // Background gone when searching
+                      : AppColors.primary.withAlpha(70),
+                ),
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  onPressed: () {
+                    if (_isSearching) {
+                      // If searching, this button CLEAR the text
+                      _searchController.clear();
+                      setState(() => _searchQuery = "");
+                    } else {
+                      // If not searching, this button OPEN search
+                      setState(() => _isSearching = true);
+                    }
+                  },
+                  icon: Icon(
+                    _isSearching ? Icons.close : Icons.search,
+                    color: _isSearching ? Colors.red : AppColors.primary,
+                    size: _isSearching ? 30 : 25,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        body: Stack(
+          children: [
+            const CustomBgSvg(),
+            Column(
+              children: [
+                const SizedBox(height: 140),
+                if (!_hasConnection) const NoInternetWidget(),
+                Expanded(
+                  child: CustomScrollView(
+                    physics: const BouncingScrollPhysics(
+                      parent: AlwaysScrollableScrollPhysics(),
+                    ),
+                    slivers: [
+                      CupertinoSliverRefreshControl(
+                        onRefresh: () async {
+                          setState(() => _streamKey = UniqueKey());
+                          await Future.delayed(const Duration(seconds: 2));
+                        },
+                        builder:
+                            (
+                              context,
+                              refreshState,
+                              pulledExtent,
+                              refreshTriggerPullDistance,
+                              refreshIndicatorExtent,
+                            ) {
+                              return const Center(
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 16),
+                                  child: CustomLoader(size: 24),
+                                ),
+                              );
+                            },
+                      ),
+                      StreamBuilder<List<Map<String, dynamic>>>(
+                        key: _streamKey,
+                        stream: Supabase.instance.client
+                            .from('products')
+                            .stream(primaryKey: ['id'])
+                            .order('name'),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const SliverFillRemaining(
+                              child: Center(child: CustomLoader()),
+                            );
+                          }
+
+                          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                            return const SliverFillRemaining(
+                              child: Center(child: Text("No products yet.")),
+                            );
+                          }
+
+                          final allProducts = snapshot.data!;
+                          final filteredProducts = allProducts.where((product) {
+                            final name = (product['name'] ?? '')
+                                .toString()
+                                .toLowerCase();
+                            return name.contains(_searchQuery);
+                          }).toList();
+
+                          if (filteredProducts.isEmpty) {
+                            return SliverFillRemaining(
+                              child: Center(
+                                child: Text(
+                                  'No items match "${_searchController.text}"',
+                                  style: const TextStyle(color: Colors.grey),
+                                ),
+                              ),
+                            );
+                          }
+
+                          return SliverPadding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 6,
+                            ),
+                            sliver: SliverList(
+                              delegate: SliverChildBuilderDelegate((
+                                context,
+                                index,
+                              ) {
+                                final product = filteredProducts[index];
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 12.0),
+                                  child: CustomProductTile(
+                                    title: product['name'] ?? 'Unnamed',
+                                    price: (product['price'] as num).toDouble(),
+                                    imageUrl: product['image_url'],
+                                    route: ProductPage(
+                                      productId: product['id'].toString(),
+                                    ),
+                                  ),
+                                );
+                              }, childCount: filteredProducts.length),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

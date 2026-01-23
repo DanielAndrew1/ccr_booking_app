@@ -1,5 +1,6 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously
 import 'package:ccr_booking/core/app_theme.dart';
+import 'package:ccr_booking/core/theme.dart';
 import 'package:ccr_booking/widgets/custom_appbar.dart';
 import 'package:ccr_booking/widgets/custom_button.dart';
 import 'package:ccr_booking/widgets/custom_loader.dart';
@@ -7,6 +8,7 @@ import 'package:ccr_booking/widgets/custom_bg_svg.dart'; // Added SVG import
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ProductPage extends StatefulWidget {
@@ -115,7 +117,8 @@ class _ProductPageState extends State<ProductPage> {
         bool isSaving = false;
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            final isDark = Theme.of(context).brightness == Brightness.dark;
+            final themeProvider = Provider.of<ThemeProvider>(context);
+            final isDark = themeProvider.isDarkMode;
             return Dialog(
               backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
               shape: RoundedRectangleBorder(
@@ -422,7 +425,8 @@ class _ProductPageState extends State<ProductPage> {
   }
 
   Future<void> _confirmDelete() async {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -463,8 +467,9 @@ class _ProductPageState extends State<ProductPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+    
     return Container(
       color: isDark ? AppColors.darkbg : AppColors.lightcolor,
       child: Stack(
@@ -472,7 +477,7 @@ class _ProductPageState extends State<ProductPage> {
           const CustomBgSvg(),
           Scaffold(
             backgroundColor: Colors.transparent,
-            appBar: CustomAppBar(text: name ?? 'Product', showPfp: false),
+            appBar: CustomAppBar(text: name ?? '', showPfp: false),
             body: isLoading
                 ? const Center(child: CustomLoader())
                 : error != null
@@ -491,38 +496,41 @@ class _ProductPageState extends State<ProductPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          width: double.infinity,
-                          height: 250,
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? Colors.white.withOpacity(0.05)
-                                : AppColors.primary.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: (imageUrl != null && imageUrl!.isNotEmpty)
-                                ? Image.network(
-                                    imageUrl!,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (c, e, s) => const Icon(
-                                      Icons.broken_image,
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: Container(
+                            width: double.infinity,
+                            height: 250,
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.white.withOpacity(0.05)
+                                  : AppColors.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: (imageUrl != null && imageUrl!.isNotEmpty)
+                                  ? Image.network(
+                                      imageUrl!,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (c, e, s) => const Icon(
+                                        Icons.broken_image,
+                                        size: 50,
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.image,
                                       size: 50,
+                                      color: AppColors.primary,
                                     ),
-                                  )
-                                : const Icon(
-                                    Icons.image,
-                                    size: 50,
-                                    color: AppColors.primary,
-                                  ),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 24),

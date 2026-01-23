@@ -1,5 +1,6 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously
 import 'dart:async';
+import 'package:ccr_booking/core/theme.dart';
 import 'package:ccr_booking/core/user_provider.dart';
 import 'package:ccr_booking/pages/add/add_booking.dart';
 import 'package:ccr_booking/services/notification_service.dart';
@@ -7,6 +8,7 @@ import 'package:ccr_booking/widgets/custom_bg_svg.dart';
 import 'package:ccr_booking/widgets/custom_internet_notification.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -469,62 +471,70 @@ class _HomePageState extends State<HomePage>
     super.build(context);
     final userProvider = Provider.of<UserProvider>(context);
     final currentUser = userProvider.currentUser;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
 
     if (currentUser == null) {
       return const Scaffold(body: Center(child: CustomLoader()));
     }
 
-    return Scaffold(
-      backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
-      body: Stack(
-        children: [
-          const CustomBgSvg(),
-          Column(
-            children: [
-              MediaQuery.removePadding(
-                context: context,
-                removeTop: true,
-                child: _buildAppBar(currentUser),
-              ),
-              if (!_hasConnection) NoInternetWidget(),
-              Expanded(
-                child: CustomScrollView(
-                  physics: const BouncingScrollPhysics(
-                    parent: AlwaysScrollableScrollPhysics(),
-                  ),
-                  slivers: [
-                    CupertinoSliverRefreshControl(
-                      onRefresh: () async {
-                        await userProvider.refreshUser();
-                        if (mounted) setState(() {});
-                      },
-                      builder:
-                          (
-                            context,
-                            refreshState,
-                            pulledExtent,
-                            triggerDistance,
-                            indicatorExtent,
-                          ) => const Center(
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(vertical: 16),
-                              child: CustomLoader(size: 24),
-                            ),
-                          ),
-                    ),
-                    SliverPadding(
-                      padding: const EdgeInsets.all(20.0),
-                      sliver: SliverToBoxAdapter(
-                        child: _buildRoleDashboard(currentUser.role, isDark),
-                      ),
-                    ),
-                  ],
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+        statusBarColor: Colors.transparent,
+      ),
+      child: Scaffold(
+        backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
+        body: Stack(
+          children: [
+            const CustomBgSvg(),
+            Column(
+              children: [
+                MediaQuery.removePadding(
+                  context: context,
+                  removeTop: true,
+                  child: _buildAppBar(currentUser),
                 ),
-              ),
-            ],
-          ),
-        ],
+                if (!_hasConnection) NoInternetWidget(),
+                Expanded(
+                  child: CustomScrollView(
+                    physics: const BouncingScrollPhysics(
+                      parent: AlwaysScrollableScrollPhysics(),
+                    ),
+                    slivers: [
+                      CupertinoSliverRefreshControl(
+                        onRefresh: () async {
+                          await userProvider.refreshUser();
+                          if (mounted) setState(() {});
+                        },
+                        builder:
+                            (
+                              context,
+                              refreshState,
+                              pulledExtent,
+                              triggerDistance,
+                              indicatorExtent,
+                            ) => const Center(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 16),
+                                child: CustomLoader(size: 24),
+                              ),
+                            ),
+                      ),
+                      SliverPadding(
+                        padding: const EdgeInsets.all(20.0),
+                        sliver: SliverToBoxAdapter(
+                          child: _buildRoleDashboard(currentUser.role, isDark),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -565,7 +575,7 @@ class _HomePageState extends State<HomePage>
           ),
           leading: const Padding(
             padding: EdgeInsets.only(left: 12.0),
-            child: Center(child: CustomPfp(dimentions: 60, fontSize: 24)),
+            child: Center(child: CustomPfp(dimentions: 65, fontSize: 21,)),
           ),
         ),
       ),
@@ -764,10 +774,15 @@ class _HomePageState extends State<HomePage>
               return const Center(child: CustomLoader());
             }
             if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return const Center(
+              return Center(
                 child: Padding(
                   padding: EdgeInsets.all(20),
-                  child: Text("No bookings for today."),
+                  child: Text(
+                    isPickup ? "No pickups for today." : "No returns for today",
+                    style: TextStyle(
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                  ),
                 ),
               );
             }
@@ -886,14 +901,18 @@ class _HomePageState extends State<HomePage>
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
+                      color: isDark ? Colors.white : Colors.black,
                     ),
                   ),
                   Text(
                     subtitle,
-                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    style: TextStyle(
+                      color: isDark ? Colors.white : Colors.black,
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),

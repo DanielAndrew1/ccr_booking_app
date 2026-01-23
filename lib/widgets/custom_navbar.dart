@@ -1,5 +1,6 @@
 // ignore_for_file: deprecated_member_use
 
+import 'package:ccr_booking/core/theme.dart';
 import 'package:ccr_booking/core/user_provider.dart';
 import 'package:ccr_booking/pages/add/add_booking.dart';
 import 'package:ccr_booking/pages/add/add_client.dart';
@@ -107,8 +108,8 @@ class _CustomNavbarState extends State<CustomNavbar> {
   Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context);
     final currentUser = userProvider.currentUser;
-
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
 
     // 1. Pass the key to CalendarPage
     final List<Widget> pages = [
@@ -160,7 +161,7 @@ class _CustomNavbarState extends State<CustomNavbar> {
             child: Container(
               height: 70,
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF252525) : Colors.white,
+                color: isDark ? Color(0xFF252525) : Colors.white,
                 borderRadius: BorderRadius.circular(18),
                 boxShadow: [
                   BoxShadow(

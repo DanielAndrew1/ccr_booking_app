@@ -1,5 +1,4 @@
 // ignore_for_file: deprecated_member_use
-
 import 'dart:async';
 import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
@@ -10,8 +9,6 @@ import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-
-// Internal Project Imports
 import 'firebase_options.dart';
 import 'package:ccr_booking/core/app_theme.dart';
 import 'package:ccr_booking/core/root.dart';
@@ -216,7 +213,8 @@ class _MyAppState extends State<MyApp> {
         '/register': (_) => const RegisterPage(),
         '/home': (_) => const CustomNavbar(),
       },
-      themeMode: ThemeMode.system, // Automatically switches based on phone settings
+      themeMode:
+          ThemeMode.system, // Automatically switches based on phone settings
       theme: ThemeData(
         brightness: Brightness.light,
         appBarTheme: const AppBarTheme(
@@ -346,7 +344,8 @@ class _SplashOverlayState extends State<SplashOverlay>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
 
     return AnimatedBuilder(
       animation: _controller,
