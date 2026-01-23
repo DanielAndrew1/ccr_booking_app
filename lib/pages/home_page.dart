@@ -575,7 +575,7 @@ class _HomePageState extends State<HomePage>
           ),
           leading: const Padding(
             padding: EdgeInsets.only(left: 12.0),
-            child: Center(child: CustomPfp(dimentions: 65, fontSize: 21,)),
+            child: Center(child: CustomPfp(dimentions: 65, fontSize: 21)),
           ),
         ),
       ),
@@ -851,7 +851,11 @@ class _HomePageState extends State<HomePage>
             const SizedBox(height: 8),
             SlidingNumber(
               value: value,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : Colors.grey.shade600,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
