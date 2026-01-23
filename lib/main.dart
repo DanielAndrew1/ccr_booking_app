@@ -22,7 +22,7 @@ import 'package:ccr_booking/widgets/custom_internet_notification.dart';
 import 'package:ccr_booking/widgets/custom_navbar.dart';
 
 class AppVersion {
-  static const String version = "1.0.1";
+  static const String version = "1.0.0";
 }
 
 @pragma('vm:entry-point')
