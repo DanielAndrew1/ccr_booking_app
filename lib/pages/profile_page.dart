@@ -219,7 +219,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             ),
                           ),
 
-                          SizedBox(height: 20),
+                          SizedBox(height: 12),
                           Text(
                             "App Version ${AppVersion.version}",
                             style: TextStyle(
