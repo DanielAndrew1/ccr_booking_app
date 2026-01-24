@@ -1,11 +1,12 @@
-// ignore_for_file: deprecated_member_use
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously
+
 import 'dart:async';
 import 'package:ccr_booking/core/app_theme.dart';
 import 'package:ccr_booking/core/theme.dart';
 import 'package:ccr_booking/core/user_provider.dart';
 import 'package:ccr_booking/widgets/custom_appbar.dart';
 import 'package:ccr_booking/widgets/custom_loader.dart';
-import 'package:ccr_booking/widgets/custom_bg_svg.dart'; // Added SVG import
+import 'package:ccr_booking/widgets/custom_bg_svg.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -45,18 +46,30 @@ class _ClientsPageState extends State<ClientsPage> {
 
   void _removeClient(String clientId, String clientName) {
     HapticFeedback.heavyImpact();
-    showDialog(
+    showCupertinoDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("Confirm Delete"),
-        content: Text("Are you sure you want to remove $clientName?"),
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text("Delete Client"),
+        content: Column(
+          children: [
+            Text('Are you sure you want to delete'),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('"'),
+                Text(clientName, style: TextStyle(color: AppColors.red),),
+                Text('" ?'),
+              ],
+            ),
+          ],
+        ),
         actions: [
-          TextButton(
+          CupertinoDialogAction(
+            child: const Text("Cancel", style: TextStyle(color: AppColors.secondary),),
             onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
           ),
-          TextButton(
+          CupertinoDialogAction(
+            isDestructiveAction: true,
             onPressed: () {
               Provider.of<UserProvider>(
                 context,
@@ -64,17 +77,116 @@ class _ClientsPageState extends State<ClientsPage> {
               ).deleteClient(clientId);
               Navigator.pop(context);
             },
-            child: const Text("Delete", style: TextStyle(color: Colors.red)),
+            child: const Text("Delete"),
           ),
         ],
       ),
     );
   }
 
+  void _editClientDialog(dynamic client) {
+    final nameController = TextEditingController(text: client.name);
+    final emailController = TextEditingController(text: client.email);
+    final isDark = Provider.of<ThemeProvider>(
+      context,
+      listen: false,
+    ).isDarkMode;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 50,
+        ),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkbg : AppColors.lightcolor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 50,
+              height: 5,
+              decoration: BoxDecoration(
+                color: Colors.grey.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              "Edit Client Info",
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : Colors.black,
+              ),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: nameController,
+              style: TextStyle(color: isDark ? Colors.white : Colors.black),
+              decoration: InputDecoration(
+                labelText: "Full Name",
+                labelStyle: const TextStyle(color: Colors.grey),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
+                ),
+                focusedBorder: const UnderlineInputBorder(
+                  borderSide: BorderSide(color: AppColors.primary, width: 2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 15),
+            TextField(
+              controller: emailController,
+              style: TextStyle(color: isDark ? Colors.white : Colors.black),
+              decoration: InputDecoration(
+                labelText: "Email Address",
+                labelStyle: const TextStyle(color: Colors.grey),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
+                ),
+                focusedBorder: const UnderlineInputBorder(
+                  borderSide: BorderSide(color: AppColors.primary, width: 2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 30),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: () => Navigator.pop(context),
+                child: const Text(
+                  "Save Changes",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDark = themeProvider.isDarkMode;
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     final userProvider = Provider.of<UserProvider>(context);
     final clients = userProvider.allClients;
 
@@ -82,7 +194,7 @@ class _ClientsPageState extends State<ClientsPage> {
       color: isDark ? AppColors.darkbg : AppColors.lightcolor,
       child: Stack(
         children: [
-          const CustomBgSvg(), // Pinned to the very top
+          const CustomBgSvg(),
           Scaffold(
             backgroundColor: Colors.transparent,
             appBar: const CustomAppBar(text: 'Manage Clients', showPfp: false),
@@ -93,35 +205,12 @@ class _ClientsPageState extends State<ClientsPage> {
               ),
               slivers: [
                 CupertinoSliverRefreshControl(
-                  refreshTriggerPullDistance: 150.0,
-                  refreshIndicatorExtent: 80.0,
                   onRefresh: () async {
                     _fetchClients();
                     await Future.delayed(const Duration(seconds: 2));
-                    if (mounted) {
-                      setState(() {
-                        _refreshKey = UniqueKey();
-                      });
-                    }
+                    if (mounted) setState(() => _refreshKey = UniqueKey());
                   },
-                  builder:
-                      (
-                        context,
-                        refreshState,
-                        pulledExtent,
-                        triggerDistance,
-                        indicatorExtent,
-                      ) {
-                        return Center(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            child: CustomLoader(size: 24),
-                          ),
-                        );
-                      },
                 ),
-
-                // Content Area
                 userProvider.isLoading
                     ? const SliverFillRemaining(
                         child: Center(child: CustomLoader()),
@@ -141,14 +230,7 @@ class _ClientsPageState extends State<ClientsPage> {
                             index,
                           ) {
                             final client = clients[index];
-                            final bool isExpanded = _expandedIndex == index;
-
-                            return _buildClientCard(
-                              client: client,
-                              isDark: isDark,
-                              index: index,
-                              isExpanded: isExpanded,
-                            );
+                            return _buildClientCard(client, isDark, index);
                           }, childCount: clients.length),
                         ),
                       ),
@@ -160,77 +242,78 @@ class _ClientsPageState extends State<ClientsPage> {
     );
   }
 
-  Widget _buildClientCard({
-    required dynamic client,
-    required bool isDark,
-    required int index,
-    bool isExpanded = false,
-  }) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF2C2C2C) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          ListTile(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 20,
-              vertical: 8,
+  Widget _buildClientCard(dynamic client, bool isDark, int index) {
+    final bool isExpanded = _expandedIndex == index;
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        setState(() => _expandedIndex = isExpanded ? null : index);
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF2C2C2C) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
-            leading: CircleAvatar(
-              backgroundColor: isDark
-                  ? AppColors.primary.withOpacity(0.2)
-                  : AppColors.secondary.withOpacity(0.2),
-              child: Text(
-                _getInitials(client.name),
+          ],
+        ),
+        child: Column(
+          children: [
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 8,
+              ),
+              leading: CircleAvatar(
+                backgroundColor: isDark
+                    ? AppColors.primary.withOpacity(0.2)
+                    : AppColors.secondary.withOpacity(0.2),
+                child: Text(
+                  _getInitials(client.name),
+                  style: TextStyle(
+                    color: isDark ? AppColors.primary : AppColors.secondary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              title: Text(
+                client.name,
                 style: TextStyle(
-                  color: isDark ? AppColors.primary : AppColors.secondary,
                   fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black,
+                ),
+              ),
+              subtitle: Text(
+                client.email ?? "No email provided",
+                style: TextStyle(
+                  color: isDark ? Colors.white70 : Colors.black54,
+                ),
+              ),
+              trailing: AnimatedRotation(
+                duration: const Duration(milliseconds: 300),
+                turns: isExpanded ? 0.5 : 0,
+                child: const Icon(
+                  Icons.keyboard_arrow_down,
+                  color: Colors.grey,
                 ),
               ),
             ),
-            title: Text(
-              client.name,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.black,
-              ),
-            ),
-            subtitle: Text(
-              client.email ?? "No email provided",
-              style: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
-            ),
-            trailing: AnimatedRotation(
+            AnimatedSize(
               duration: const Duration(milliseconds: 300),
-              turns: isExpanded ? 0.5 : 0,
-              child: const Icon(Icons.keyboard_arrow_down, color: Colors.grey),
+              curve: Curves.easeInOut,
+              child: isExpanded
+                  ? _buildActionButtons(client)
+                  : const SizedBox(width: double.infinity, height: 0),
             ),
-            onTap: () {
-              HapticFeedback.selectionClick();
-              setState(() {
-                _expandedIndex = isExpanded ? null : index;
-              });
-            },
-          ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            child: isExpanded
-                ? _buildActionButtons(client)
-                : const SizedBox(width: double.infinity, height: 0),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -245,11 +328,8 @@ class _ClientsPageState extends State<ClientsPage> {
           Row(
             children: [
               Expanded(
-                child: InkWell(
-                  onTap: () {
-                    // Navigate to client detail or edit page
-                  },
-                  borderRadius: BorderRadius.circular(12),
+                child: GestureDetector(
+                  onTap: () => _editClientDialog(client),
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
@@ -258,7 +338,7 @@ class _ClientsPageState extends State<ClientsPage> {
                     ),
                     child: const Center(
                       child: Text(
-                        "View Profile",
+                        "Edit Info",
                         style: TextStyle(
                           color: AppColors.primary,
                           fontWeight: FontWeight.bold,
@@ -270,21 +350,32 @@ class _ClientsPageState extends State<ClientsPage> {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: Colors.red),
+                child: GestureDetector(
+                  onTap: () => _removeClient(client.id, client.name),
+                  child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF1100),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                  ),
-                  onPressed: () => _removeClient(client.id, client.name),
-                  icon: const Icon(Icons.delete_outline, size: 18),
-                  label: const Text(
-                    "Delete",
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.delete_outline,
+                          size: 18,
+                          color: Colors.white,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          "Delete",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

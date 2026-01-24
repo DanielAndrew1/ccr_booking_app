@@ -1,8 +1,10 @@
 // ignore_for_file: deprecated_member_use, unnecessary_underscores
 
 import 'package:ccr_booking/core/app_theme.dart';
+import 'package:ccr_booking/core/theme.dart';
 import 'package:ccr_booking/widgets/custom_loader.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class CustomSearch extends StatefulWidget {
@@ -17,7 +19,7 @@ class CustomSearch extends StatefulWidget {
 class _CustomSearchState extends State<CustomSearch> {
   final SupabaseClient supabase = Supabase.instance.client;
 
-  String? selectedClientName;
+  String selectedClientName = '';
   List<Map<String, dynamic>> allClients = [];
   List<Map<String, dynamic>> filteredClients = [];
   bool isLoading = false;
@@ -55,7 +57,8 @@ class _CustomSearchState extends State<CustomSearch> {
   }
 
   void _showSearchSheet() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDark = themeProvider.isDarkMode;
 
     showModalBottomSheet(
       context: context,
@@ -144,7 +147,30 @@ class _CustomSearchState extends State<CustomSearch> {
                           ),
                           itemBuilder: (context, index) {
                             final client = filteredClients[index];
+
+                            // Generate initials
+                            String initials = '';
+                            if (client['name'] != null) {
+                              final names = client['name'].toString().split(
+                                ' ',
+                              );
+                              if (names.isNotEmpty)
+                                initials += names[0][0].toUpperCase();
+                              if (names.length > 1)
+                                initials += names[1][0].toUpperCase();
+                            }
+
                             return ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: AppColors.primary,
+                                child: Text(
+                                  initials,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
                               contentPadding: const EdgeInsets.symmetric(
                                 vertical: 4,
                               ),
@@ -198,7 +224,7 @@ class _CustomSearchState extends State<CustomSearch> {
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 16,
-            color: isDark ? Colors.white : Colors.black,
+            color: isDark ? Colors.black : Colors.white,
           ),
         ),
         const SizedBox(height: 8),
@@ -208,33 +234,32 @@ class _CustomSearchState extends State<CustomSearch> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF2A2A2A) : Colors.white,
+              color: isDark ? Colors.white : const Color(0xFF2A2A2A),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isDark ? Colors.white10 : Colors.grey[300]!,
-              ),
             ),
             child: Row(
               children: [
                 Icon(
                   Icons.person_search_rounded,
-                  color: selectedClientName == null
+                  color: selectedClientName.isEmpty
                       ? Colors.grey
                       : AppColors.primary,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    selectedClientName ?? "Tap to search client...",
+                    selectedClientName.isEmpty
+                        ? "Search client"
+                        : selectedClientName,
                     style: TextStyle(
-                      color: selectedClientName == null
-                          ? Colors.grey
-                          : (isDark ? Colors.white : Colors.black),
+                      color: selectedClientName.isEmpty
+                          ? Colors.white70
+                          : (isDark ? Colors.black : Colors.white),
                       fontSize: 16,
                     ),
                   ),
                 ),
-                const Icon(Icons.arrow_drop_down, color: Colors.grey),
+                const Icon(Icons.arrow_drop_down, color: Colors.white70),
               ],
             ),
           ),

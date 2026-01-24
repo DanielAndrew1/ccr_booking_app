@@ -43,7 +43,6 @@ class _CustomNavbarState extends State<CustomNavbar> {
     } else {
       // If tapping the Calendar tab (index 1), call the reset function
       if (pageIndex == 1) {
-        // We use the key to call the public method on the CalendarPage state
         _calendarKey.currentState?.resetToToday();
       }
 
@@ -52,7 +51,9 @@ class _CustomNavbarState extends State<CustomNavbar> {
   }
 
   void _showAddBottomSheet() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // FIX: Use listen: false because we are inside a function/callback, not the build method.
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDark = themeProvider.isDarkMode;
 
     showModalBottomSheet(
       context: context,
@@ -111,10 +112,9 @@ class _CustomNavbarState extends State<CustomNavbar> {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
 
-    // 1. Pass the key to CalendarPage
     final List<Widget> pages = [
       const HomePage(),
-      CalendarPage(key: _calendarKey), // Key passed here
+      CalendarPage(key: _calendarKey),
       const InventoryPage(),
       const ProfilePage(),
     ];
@@ -161,7 +161,7 @@ class _CustomNavbarState extends State<CustomNavbar> {
             child: Container(
               height: 70,
               decoration: BoxDecoration(
-                color: isDark ? Color(0xFF252525) : Colors.white,
+                color: isDark ? const Color(0xFF252525) : Colors.white,
                 borderRadius: BorderRadius.circular(18),
                 boxShadow: [
                   BoxShadow(
@@ -290,7 +290,8 @@ class _AddListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
 
     return ListTile(
       leading: Icon(icon, color: AppColors.primary),

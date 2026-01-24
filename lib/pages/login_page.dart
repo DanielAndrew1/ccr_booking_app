@@ -91,7 +91,7 @@ class _LoginPageState extends State<LoginPage> {
             CustomButton(
               onPressed: _loading ? null : _login,
               child: _loading
-                  ? const CustomLoader(size: 24)
+                  ? const CustomLoader(size: 24,)
                   : const Text('Login', style: TextStyle(color: Colors.white)),
             ),
             const SizedBox(height: 12),
@@ -99,22 +99,28 @@ class _LoginPageState extends State<LoginPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  "Don't have an account?",
-                  style: AppFontStyle.descriptionRegular(
-                    // Toggle description color
-                    isDark ? Colors.white70 : AppColors.darkcolor,
-                  ),
+                  "Don't have an account? ",
+                  style: TextStyle(
+                    color: isDark ? Colors.white70 : AppColors.darkcolor,
+                  ).copyWith(fontSize: 14),
                 ),
                 TextButton(
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const RegisterPage()),
+                      MaterialPageRoute(builder: (context) => RegisterPage()),
                     );
                   },
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
                   child: Text(
-                    'Create account',
-                    style: AppFontStyle.descriptionSemiBold(AppColors.primary),
+                    'Create Account',
+                    style: AppFontStyle.descriptionSemiBold(
+                      AppColors.primary,
+                    ).copyWith(fontSize: 14),
                   ),
                 ),
               ],

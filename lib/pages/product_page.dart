@@ -1,10 +1,11 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously
+import 'dart:async';
 import 'package:ccr_booking/core/app_theme.dart';
 import 'package:ccr_booking/core/theme.dart';
 import 'package:ccr_booking/widgets/custom_appbar.dart';
 import 'package:ccr_booking/widgets/custom_button.dart';
 import 'package:ccr_booking/widgets/custom_loader.dart';
-import 'package:ccr_booking/widgets/custom_bg_svg.dart'; // Added SVG import
+import 'package:ccr_booking/widgets/custom_bg_svg.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -139,8 +140,6 @@ class _ProductPageState extends State<ProductPage> {
                         ),
                       ),
                       const SizedBox(height: 15),
-
-                      // Image Picker UI
                       GestureDetector(
                         onTap: () async {
                           final XFile? pickedFile = await picker.pickImage(
@@ -199,7 +198,6 @@ class _ProductPageState extends State<ProductPage> {
                                 ),
                         ),
                       ),
-
                       const SizedBox(height: 20),
                       _buildTextField(
                         _nameController,
@@ -429,39 +427,100 @@ class _ProductPageState extends State<ProductPage> {
     final isDark = themeProvider.isDarkMode;
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        title: Text(
-          'Confirm Delete',
-          style: TextStyle(color: isDark ? Colors.white : Colors.black),
-        ),
-        content: Text(
-          'Are you sure you want to delete this product?',
-          style: TextStyle(color: isDark ? Colors.white70 : Colors.black87),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: isDark ? Colors.white54 : Colors.grey),
-            ),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await Supabase.instance.client
-                  .from('products')
-                  .delete()
-                  .eq('id', widget.productId);
-              if (!mounted) return;
-              Navigator.pop(context);
-            },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
+      builder: (context) {
+        bool isDeleting = false;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+              title: Text(
+                'Confirm Delete',
+                style: TextStyle(color: isDark ? Colors.white : Colors.black),
+              ),
+              content: isDeleting
+                  ? const SizedBox(
+                      height: 100,
+                      child: Center(child: CustomLoader()),
+                    )
+                  : Text(
+                      'Are you sure you want to delete this product? This will also remove the product image.',
+                      style: TextStyle(
+                        color: isDark ? Colors.white70 : Colors.black87,
+                      ),
+                    ),
+              actions: isDeleting
+                  ? null
+                  : [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: Text(
+                          'Cancel',
+                          style: TextStyle(
+                            color: isDark ? Colors.white54 : Colors.grey,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () async {
+                          setDialogState(() => isDeleting = true);
+                          try {
+                            // 1. Delete image from Storage if it exists
+                            if (imageUrl != null && imageUrl!.isNotEmpty) {
+                              try {
+                                final uri = Uri.parse(imageUrl!);
+                                final pathSegments = uri.pathSegments;
+                                // The path is everything after 'product-images/'
+                                final int bucketIndex = pathSegments.indexOf(
+                                  'product-images',
+                                );
+                                if (bucketIndex != -1 &&
+                                    bucketIndex + 1 < pathSegments.length) {
+                                  final filePath = pathSegments
+                                      .sublist(bucketIndex + 1)
+                                      .join('/');
+                                  await Supabase.instance.client.storage
+                                      .from('product-images')
+                                      .remove([filePath]);
+                                }
+                              } catch (storageError) {
+                                debugPrint(
+                                  "Storage deletion error: $storageError",
+                                );
+                                // We continue even if storage delete fails to avoid orphaned DB records
+                              }
+                            }
+
+                            // 2. Delete product record from DB
+                            await Supabase.instance.client
+                                .from('products')
+                                .delete()
+                                .eq('id', widget.productId);
+
+                            if (!mounted) return;
+                            Navigator.pop(context); // Close dialog
+                            Navigator.pop(context); // Go back to previous page
+                          } catch (e) {
+                            if (mounted) {
+                              setDialogState(() => isDeleting = false);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Delete failed: $e')),
+                              );
+                            }
+                          }
+                        },
+                        child: const Text(
+                          'Delete',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                      ),
+                    ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -469,7 +528,7 @@ class _ProductPageState extends State<ProductPage> {
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
-    
+
     return Container(
       color: isDark ? AppColors.darkbg : AppColors.lightcolor,
       child: Stack(

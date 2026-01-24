@@ -99,6 +99,30 @@ class _HomePageState extends State<HomePage>
 
   // --- HELPERS ---
 
+  String _getEmptyDialogMessage(String title) {
+    final t = title.toLowerCase();
+
+    if (t.contains('pickup')) return "No pickups for today";
+    if (t.contains('return')) return "No returns for today";
+    if (t.contains('product')) return "No products found";
+    if (t.contains('client')) return "No clients found";
+    if (t.contains('employee') || t.contains('user')) {
+      return "No employees found";
+    }
+
+    return "No data available";
+  }
+
+  /// Logic for initials: "First Last" -> "FL", "First" -> "F"
+  String _getInitials(String name) {
+    if (name.isEmpty) return "?";
+    List<String> parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.length > 1) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return parts[0][0].toUpperCase();
+  }
+
   Map<String, String> _getTodayRange() {
     final now = DateTime.now();
     final start = DateTime(
@@ -127,10 +151,8 @@ class _HomePageState extends State<HomePage>
   }
 
   // --- NOTIFICATION BROADCAST ---
-
   Future<void> _notifyAdminsAndOwners(String title, String body) async {
     try {
-      // Fetch users with roles Admin or Owner
       final response = await supabase
           .from('users')
           .select('id')
@@ -138,8 +160,6 @@ class _HomePageState extends State<HomePage>
 
       final List adminOwnerIds = response as List;
 
-      // In a real production app with FCM, you would send to these specific IDs.
-      // For this local simulation, we trigger the notification to show it works.
       if (adminOwnerIds.isNotEmpty) {
         _notificationService.showNotification(
           id: DateTime.now().millisecond,
@@ -153,10 +173,8 @@ class _HomePageState extends State<HomePage>
   }
 
   // --- DATA FETCHING ---
-
   Future<List<Map<String, dynamic>>> _getUpcomingBookings() async {
     final range = _getTodayRange();
-    // Explicitly select all columns including 'products'
     final response = await supabase
         .from('bookings')
         .select('*')
@@ -215,7 +233,6 @@ class _HomePageState extends State<HomePage>
   }
 
   // --- DIALOGS ---
-
   void _showBookingDetails(
     Map<String, dynamic> data,
     bool isDark, {
@@ -223,7 +240,6 @@ class _HomePageState extends State<HomePage>
     bool isPickup = true,
     double width = 500,
   }) {
-    // Parse products from DB
     List<String> productList = [];
     var productsRaw = data['products'];
 
@@ -330,7 +346,6 @@ class _HomePageState extends State<HomePage>
                           .update({'status': newStatus})
                           .eq('id', data['id']);
 
-                      // Notify all Admins and Owners
                       await _notifyAdminsAndOwners(
                         isPickup ? "Pickup Confirmed" : "Return Confirmed",
                         "${data['client_name']} has ${isPickup ? 'picked up' : 'returned'} items.",
@@ -377,9 +392,16 @@ class _HomePageState extends State<HomePage>
                 );
               }
               if (!snapshot.hasData || (snapshot.data as List).isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.all(20),
-                  child: Text("No data found.", textAlign: TextAlign.center),
+                return Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(
+                    _getEmptyDialogMessage(title),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: isDark ? Colors.white70 : Colors.black54,
+                      fontSize: 14,
+                    ),
+                  ),
                 );
               }
 
@@ -393,8 +415,29 @@ class _HomePageState extends State<HomePage>
                       item['name'] ??
                       item['client_name'] ??
                       "ID: ${item['id']}";
-                  String subText =
-                      item['email'] ?? item['status'] ?? "Entry #$index";
+
+                  // Determine if this is a product list
+                  bool isProduct = title.toLowerCase().contains("product");
+                  String? imageUrl = item['image_url'];
+
+                  // Build subtitle: Color it primary if it's a price
+                  Widget subtitleWidget;
+                  if (isProduct && item['price'] != null) {
+                    subtitleWidget = Text(
+                      "${item['price']} EGP/Day",
+                      style: const TextStyle(
+                        color: AppColors.primary, // Changed to primary color
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    );
+                  } else {
+                    subtitleWidget = Text(
+                      item['email'] ?? item['status'] ?? "Entry #$index",
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    );
+                  }
+
                   return ListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(
@@ -404,17 +447,28 @@ class _HomePageState extends State<HomePage>
                         fontSize: 14,
                       ),
                     ),
-                    subtitle: Text(
-                      subText,
-                      style: const TextStyle(color: Colors.grey, fontSize: 12),
-                    ),
-                    leading: CircleAvatar(
-                      backgroundColor: AppColors.primary.withOpacity(0.1),
-                      child: Text(
-                        mainText[0].toUpperCase(),
-                        style: const TextStyle(color: AppColors.primary),
-                      ),
-                    ),
+                    subtitle: subtitleWidget,
+                    leading: isProduct && imageUrl != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: Container(
+                              width: 45,
+                              height: 45,
+                              color: AppColors.primary.withOpacity(0.1),
+                              child: Image.network(imageUrl, fit: BoxFit.cover),
+                            ),
+                          )
+                        : CircleAvatar(
+                            backgroundColor: AppColors.primary.withOpacity(0.1),
+                            child: Text(
+                              _getInitials(mainText),
+                              style: const TextStyle(
+                                color: AppColors.primary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
                   );
                 },
               );
@@ -702,9 +756,10 @@ class _HomePageState extends State<HomePage>
                 _buildStatCard(
                   "Today's Pickups",
                   "${stats['pickups']}",
-                  Icons.calendar_today,
+                  Icons.assignment_return,
                   accent,
                   isDark,
+                  mirrorIcon: true,
                   onTap: () {
                     final range = _getTodayRange();
                     _showDetailsDialog(
@@ -776,7 +831,7 @@ class _HomePageState extends State<HomePage>
             if (!snapshot.hasData || snapshot.data!.isEmpty) {
               return Center(
                 child: Padding(
-                  padding: EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(20),
                   child: Text(
                     isPickup ? "No pickups for today." : "No returns for today",
                     style: TextStyle(
@@ -834,6 +889,7 @@ class _HomePageState extends State<HomePage>
     Color color,
     bool isDark, {
     bool isFullWidth = false,
+    bool mirrorIcon = false,
     VoidCallback? onTap,
   }) {
     Widget card = GestureDetector(
@@ -847,7 +903,12 @@ class _HomePageState extends State<HomePage>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: color, size: 32),
+            mirrorIcon
+                ? Transform.flip(
+                    flipX: true,
+                    child: Icon(icon, color: color, size: 32),
+                  )
+                : Icon(icon, color: color, size: 32),
             const SizedBox(height: 8),
             SlidingNumber(
               value: value,

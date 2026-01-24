@@ -1,6 +1,8 @@
+import 'package:ccr_booking/core/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:ccr_booking/core/app_theme.dart';
 import 'package:ccr_booking/widgets/custom_loader.dart';
+import 'package:provider/provider.dart';
 
 class CustomButton extends StatefulWidget {
   final Future<void> Function()? onPressed;
@@ -43,7 +45,8 @@ class _CustomButtonState extends State<CustomButton> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
 
     final WidgetStateProperty<Color> effectiveColor =
         widget.color ??

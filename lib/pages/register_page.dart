@@ -1,10 +1,9 @@
-import 'dart:io' show Platform;
-
 import 'package:ccr_booking/core/app_theme.dart';
 import 'package:ccr_booking/core/theme.dart';
+import 'package:ccr_booking/pages/login_page.dart';
 import 'package:ccr_booking/widgets/custom_button.dart';
+import 'package:ccr_booking/widgets/custom_loader.dart';
 import 'package:ccr_booking/widgets/custom_textfield.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
@@ -46,22 +45,6 @@ class _RegisterPageState extends State<RegisterPage> {
     if (mounted) {
       setState(() => _loading = false);
     }
-  }
-
-  Widget _buildAdaptiveLoader() {
-    if (Platform.isIOS) {
-      return const CupertinoActivityIndicator(radius: 12);
-    }
-
-    return const SizedBox(
-      width: 22,
-      height: 22,
-      child: CircularProgressIndicator(
-        strokeWidth: 2,
-        color: Colors
-            .white, // Changed to white to contrast with primary button color
-      ),
-    );
   }
 
   @override
@@ -128,7 +111,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   onPressed: _loading ? null : _register,
                   color: WidgetStateProperty.all(AppColors.primary),
                   child: _loading
-                      ? _buildAdaptiveLoader()
+                      ? const CustomLoader(size: 24, color: AppColors.secondary)
                       : const Text(
                           'Create Account',
                           style: TextStyle(color: Colors.white),
@@ -142,14 +125,18 @@ class _RegisterPageState extends State<RegisterPage> {
                   children: [
                     Text(
                       "Already have an account? ",
-                      style: AppFontStyle.descriptionRegular(
-                        // Toggle text color
-                        isDark ? Colors.white70 : AppColors.darkcolor,
-                      ),
+                      style: TextStyle(
+                        color: isDark ? Colors.white70 : AppColors.darkcolor,
+                      ).copyWith(fontSize: 14),
                     ),
                     TextButton(
                       onPressed: () {
-                        Navigator.pushNamed(context, '/login');
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => LoginPage(),
+                          ),
+                        );
                       },
                       style: TextButton.styleFrom(
                         padding: EdgeInsets.zero,
@@ -160,7 +147,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         'Login',
                         style: AppFontStyle.descriptionSemiBold(
                           AppColors.primary,
-                        ),
+                        ).copyWith(fontSize: 14),
                       ),
                     ),
                   ],

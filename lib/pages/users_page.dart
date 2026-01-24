@@ -300,10 +300,7 @@ class _UsersPageState extends State<UsersPage> {
                   offset: const Offset(0, 45),
                   onSelected: (role) => _changeRole(user.id, role),
                   itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: "Warehouse",
-                      child: Text("Warehouse"),
-                    ),
+                    const PopupMenuItem(value: "Warehouse", child: Text("Warehouse")),
                     const PopupMenuItem(value: "Admin", child: Text("Admin")),
                     const PopupMenuItem(value: "Owner", child: Text("Owner")),
                   ],
@@ -329,18 +326,18 @@ class _UsersPageState extends State<UsersPage> {
               Expanded(
                 child: OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    backgroundColor: Colors.red,
+                    backgroundColor: AppColors.red,
                     foregroundColor: Colors.white,
-                    side: const BorderSide(color: Colors.red),
+                    side: const BorderSide(color: AppColors.red),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                   onPressed: () => _removeUser(user.id, user.name),
-                  icon: const Icon(Icons.person_remove_outlined, size: 18),
+                  icon: const Icon(Icons.delete_rounded, size: 18),
                   label: const Text(
-                    "Remove User",
+                    "Delete User",
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),

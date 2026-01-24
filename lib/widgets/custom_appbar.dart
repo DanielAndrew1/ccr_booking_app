@@ -8,6 +8,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final bool showPfp;
   final List<Widget>? actions;
   final bool hideLeading;
+  final VoidCallback? onTodayPressed; // Added for Calendar reset
 
   const CustomAppBar({
     super.key,
@@ -15,6 +16,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.showPfp,
     this.actions,
     this.hideLeading = false,
+    this.onTodayPressed, // Added for Calendar reset
   });
 
   @override
@@ -39,16 +41,55 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
               : (showPfp
                     ? Padding(
                         padding: const EdgeInsets.only(left: 12),
-                        child: CustomPfp(dimentions: 65, fontSize: 21),
+                        child: CustomPfp(
+                          dimentions: 45,
+                          fontSize: 21,
+                        ), // Slightly smaller for 80 height
                       )
                     : IconButton(
                         onPressed: () => Navigator.pop(context),
                         icon: Icon(Icons.adaptive.arrow_back_rounded),
                       )),
           centerTitle: true,
-          title: Text(
-            text,
-            style: AppFontStyle.titleMedium().copyWith(color: Colors.white),
+          title: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                text,
+                style: AppFontStyle.titleMedium().copyWith(color: Colors.white),
+              ),
+              // Animated "Today" button under the text
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: onTodayPressed != null
+                    ? GestureDetector(
+                        onTap: onTodayPressed,
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Container(
+                            width: 60,
+                            height: 25,
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(50)
+                            ),
+                            child: Center(
+                              child: Text(
+                                "Today",
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primary,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ],
           ),
           actions: actions,
         ),

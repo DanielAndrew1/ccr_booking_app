@@ -29,7 +29,6 @@ class CalendarPageState extends State<CalendarPage>
   DateTime _selectedDate = DateTime.now().toLocal();
   bool _isLoading = false;
 
-  // Connectivity
   late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
   bool _hasConnection = true;
 
@@ -42,18 +41,14 @@ class CalendarPageState extends State<CalendarPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-
     _initConnectivity();
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
       _checkStatus,
     );
-
     _ticker = createTicker((elapsed) {
       if (mounted) setState(() {});
     })..start();
-
     _fetchBookings();
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _handleInitialSnap();
     });
@@ -65,24 +60,30 @@ class CalendarPageState extends State<CalendarPage>
   }
 
   void _checkStatus(List<ConnectivityResult> result) {
-    setState(() {
-      _hasConnection = !result.contains(ConnectivityResult.none);
-    });
+    setState(() => _hasConnection = !result.contains(ConnectivityResult.none));
   }
 
-  void resetToToday() {
+  // UPDATED: Now handles both Page and Time scrolling
+  void resetToToday() async {
+    HapticFeedback.mediumImpact();
     final now = DateTime.now().toLocal();
+    final bool alreadyOnTodayPage = isSameDay(_selectedDate, now);
+
     setState(() => _selectedDate = now);
 
-    if (_pageController.hasClients) {
-      _pageController.animateToPage(
+    // 1. Scroll the Day Bar
+    _scrollDayBarToCenter(7);
+
+    // 2. Animate to the Today Page if not already there
+    if (!alreadyOnTodayPage && _pageController.hasClients) {
+      await _pageController.animateToPage(
         7,
-        duration: const Duration(milliseconds: 400),
+        duration: const Duration(milliseconds: 500),
         curve: Curves.fastOutSlowIn,
       );
     }
-    _scrollDayBarToCenter(7);
 
+    // 3. Snap to Current Time (Delayed slightly to ensure PageView has rendered the controller)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _snapToCurrentTime();
     });
@@ -104,20 +105,18 @@ class CalendarPageState extends State<CalendarPage>
 
   void _snapToCurrentTime() {
     if (!_todayScrollController.hasClients) return;
-
     final now = DateTime.now().toLocal();
     final double indicatorY =
         (now.hour * hourHeight) +
         (now.minute * (hourHeight / 60.0)) +
         gridLineTopOffset;
-
     final double viewportHeight =
         _todayScrollController.position.viewportDimension;
     final double targetScroll = (indicatorY + 20.0) - (viewportHeight / 2);
 
     _todayScrollController.animateTo(
       targetScroll.clamp(0.0, _todayScrollController.position.maxScrollExtent),
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 1000),
       curve: Curves.fastLinearToSlowEaseIn,
     );
   }
@@ -126,223 +125,142 @@ class CalendarPageState extends State<CalendarPage>
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
+    final bool isNotToday = !isSameDay(_selectedDate, DateTime.now().toLocal());
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor: Colors
-            .transparent, // Keeps the background transparent or as styled by AppBar
-        statusBarIconBrightness: Brightness.light, // White icons for Android
-        statusBarBrightness: Brightness.dark, // White icons for iOS
+    return Scaffold(
+      backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
+      appBar: CustomAppBar(
+        text: 'Calendar',
+        showPfp: true,
+        onTodayPressed: isNotToday ? resetToToday : null,
       ),
-      child: Scaffold(
-        backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
-        appBar: CustomAppBar(text: 'Calendar', showPfp: true),
-        body: Column(
-          children: [
-            if (!_hasConnection) const NoInternetWidget(),
+      body: Column(
+        children: [
+          if (!_hasConnection) const NoInternetWidget(),
+          _buildCompactDaySelector(isDark),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : PageView.builder(
+                    controller: _pageController,
+                    onPageChanged: (index) {
+                      HapticFeedback.selectionClick();
+                      setState(
+                        () => _selectedDate = DateTime.now().toLocal().add(
+                          Duration(days: index - 7),
+                        ),
+                      );
+                      _scrollDayBarToCenter(index);
+                    },
+                    itemCount: 22,
+                    itemBuilder: (context, pageIndex) {
+                      final pageDate = DateTime.now().toLocal().add(
+                        Duration(days: pageIndex - 7),
+                      );
+                      final isToday = isSameDay(
+                        pageDate,
+                        DateTime.now().toLocal(),
+                      );
 
-            // Merged Day Selector and Nav Row in one container
-            _buildMergedHeader(isDark),
-
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : PageView.builder(
-                      controller: _pageController,
-                      onPageChanged: (index) {
-                        HapticFeedback.selectionClick();
-                        setState(() {
-                          _selectedDate = DateTime.now().toLocal().add(
-                            Duration(days: index - 7),
-                          );
-                        });
-                        _scrollDayBarToCenter(index);
-                      },
-                      itemCount: 22,
-                      itemBuilder: (context, pageIndex) {
-                        final pageDate = DateTime.now().toLocal().add(
-                          Duration(days: pageIndex - 7),
-                        );
-                        final isToday = isSameDay(
-                          pageDate,
-                          DateTime.now().toLocal(),
-                        );
-
-                        return SingleChildScrollView(
-                          physics: const ClampingScrollPhysics(),
-                          controller: isToday
-                              ? _todayScrollController
-                              : ScrollController(),
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 20.0),
-                            child: Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                _buildTimeGrid(isDark),
-                                if (isToday) _buildTimeIndicator(),
-                              ],
-                            ),
+                      return SingleChildScrollView(
+                        physics: const ClampingScrollPhysics(),
+                        // IMPORTANT: Only attach the controller if it is actually Today's page
+                        controller: isToday
+                            ? _todayScrollController
+                            : ScrollController(),
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 20.0),
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              _buildTimeGrid(isDark),
+                              if (isToday) _buildTimeIndicator(),
+                            ],
                           ),
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildMergedHeader(bool isDark) {
+  Widget _buildCompactDaySelector(bool isDark) {
     return Container(
+      height: 70,
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkbg : AppColors.lightcolor,
         boxShadow: [
           BoxShadow(
             color: isDark ? Colors.black26 : Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: Column(
-        children: [
-          // Day Selector List
-          SizedBox(
-            height: 85,
-            child: ListView.builder(
-              controller: _dayScrollController,
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-              itemCount: 22,
-              itemBuilder: (context, index) {
-                DateTime date = DateTime.now().toLocal().add(
-                  Duration(days: index - 7),
-                );
-                bool isSelected = isSameDay(_selectedDate, date);
-                bool isToday = isSameDay(DateTime.now().toLocal(), date);
+      child: ListView.builder(
+        controller: _dayScrollController,
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        itemCount: 22,
+        itemBuilder: (context, index) {
+          DateTime date = DateTime.now().toLocal().add(
+            Duration(days: index - 7),
+          );
+          bool isSelected = isSameDay(_selectedDate, date);
+          bool isToday = isSameDay(DateTime.now().toLocal(), date);
 
-                return GestureDetector(
-                  key: _dayKeys[index],
-                  onTap: () {
-                    HapticFeedback.mediumImpact();
-                    _pageController.animateToPage(
-                      index,
-                      duration: const Duration(milliseconds: 400),
-                      curve: Curves.fastOutSlowIn,
-                    );
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
-                    curve: Curves.easeInOut,
-                    width: 65,
-                    margin: const EdgeInsets.symmetric(horizontal: 6),
-                    decoration: BoxDecoration(
+          return GestureDetector(
+            key: _dayKeys[index],
+            onTap: () {
+              HapticFeedback.mediumImpact();
+              _pageController.animateToPage(
+                index,
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.fastOutSlowIn,
+              );
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              width: 50,
+              margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+              decoration: BoxDecoration(
+                color: isSelected ? AppColors.primary : Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+                border: isToday && !isSelected
+                    ? Border.all(color: AppColors.primary, width: 1.5)
+                    : null,
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    DateFormat('E').format(date).toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
                       color: isSelected
-                          ? AppColors.primary
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(16), // Pill style
-                      border: isToday && !isSelected
-                          ? Border.all(color: AppColors.primary, width: 2)
-                          : null,
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          DateFormat('E').format(date),
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: isSelected
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                            color: isSelected
-                                ? Colors.white
-                                : (isDark
-                                      ? Colors.white70
-                                      : Colors.grey.shade600),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          date.day.toString(),
-                          style: TextStyle(
-                            color: isSelected
-                                ? Colors.white
-                                : (isDark ? Colors.white : Colors.black),
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
+                          ? Colors.white
+                          : (isDark ? Colors.white54 : Colors.grey.shade600),
                     ),
                   ),
-                );
-              },
+                  Text(
+                    date.day.toString(),
+                    style: TextStyle(
+                      color: isSelected
+                          ? Colors.white
+                          : (isDark ? Colors.white : Colors.black),
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-
-          // Navigation Row inside the same container
-          Padding(
-            padding: const EdgeInsets.fromLTRB(26, 0, 26, 6),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                IconButton(
-                  onPressed: () {
-                    if (_pageController.page! > 0) {
-                      _pageController.previousPage(
-                        duration: const Duration(milliseconds: 400),
-                        curve: Curves.fastOutSlowIn,
-                      );
-                    }
-                  },
-                  icon: Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    size: 16,
-                    color: isDark ? Colors.white54 : Colors.black45,
-                  ),
-                ),
-                GestureDetector(
-                  onTap: resetToToday,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      'Today',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ),
-                ),
-                IconButton(
-                  onPressed: () {
-                    if (_pageController.page! < 21) {
-                      _pageController.nextPage(
-                        duration: const Duration(milliseconds: 400),
-                        curve: Curves.fastOutSlowIn,
-                      );
-                    }
-                  },
-                  icon: Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    size: 16,
-                    color: isDark ? Colors.white54 : Colors.black45,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -362,7 +280,7 @@ class CalendarPageState extends State<CalendarPage>
                     _formatHour(i),
                     textAlign: TextAlign.right,
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 13,
                       color: isDark ? Colors.white54 : Colors.black45,
                       fontWeight: FontWeight.w500,
                     ),
@@ -375,24 +293,12 @@ class CalendarPageState extends State<CalendarPage>
                     height: 1.0,
                     color: isDark
                         ? Colors.white10
-                        : Colors.grey.withOpacity(0.3),
+                        : Colors.grey.withOpacity(0.2),
                   ),
                 ),
               ],
             ),
           ),
-        Row(
-          children: [
-            SizedBox(width: labelWidth + 15),
-            Expanded(
-              child: Container(
-                margin: EdgeInsets.only(top: gridLineTopOffset),
-                height: 1.0,
-                color: isDark ? Colors.white10 : Colors.grey.withOpacity(0.3),
-              ),
-            ),
-          ],
-        ),
         const SizedBox(height: 115),
       ],
     );
@@ -420,7 +326,7 @@ class CalendarPageState extends State<CalendarPage>
               shape: BoxShape.circle,
             ),
           ),
-          Expanded(child: Container(height: 2, color: AppColors.primary)),
+          Expanded(child: Container(height: 1.5, color: AppColors.primary)),
         ],
       ),
     );
