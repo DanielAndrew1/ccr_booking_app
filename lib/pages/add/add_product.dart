@@ -1,4 +1,4 @@
-// ignore_for_file: deprecated_member_use
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously
 
 import 'dart:io';
 import 'package:ccr_booking/core/app_theme.dart';
@@ -6,8 +6,9 @@ import 'package:ccr_booking/core/theme.dart';
 import 'package:ccr_booking/widgets/custom_appbar.dart';
 import 'package:ccr_booking/widgets/custom_button.dart';
 import 'package:ccr_booking/widgets/custom_loader.dart';
-import 'package:ccr_booking/widgets/custom_bg_svg.dart'; // Import your reusable widget
+import 'package:ccr_booking/widgets/custom_bg_svg.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -131,108 +132,117 @@ class _AddProductState extends State<AddProduct> {
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
-    
-    return Scaffold(
-      backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
-      extendBodyBehindAppBar: true, // Required for CustomBgSvg alignment
-      appBar: const CustomAppBar(text: "Add a Product", showPfp: false),
-      body: Stack(
-        children: [
-          const CustomBgSvg(), // Decoration layer
 
-          _isLoading
-              ? const Center(child: CustomLoader())
-              : Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: ListView(
-                    physics: const BouncingScrollPhysics(),
-                    children: [
-                      // Image Picker UI
-                      GestureDetector(
-                        onTap: _pickImage,
-                        child: Container(
-                          height: 200,
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? Colors.white.withOpacity(0.05)
-                                : Colors.grey.shade200,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+      ),
+      child: Scaffold(
+        backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
+        extendBodyBehindAppBar: true,
+        appBar: const CustomAppBar(text: "Add a Product", showPfp: false),
+        body: Stack(
+          children: [
+            const CustomBgSvg(),
+
+            _isLoading
+                ? const Center(child: CustomLoader())
+                : Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: ListView(
+                      physics: const BouncingScrollPhysics(),
+                      children: [
+                        const SizedBox(height: 20), // Space for CustomAppBar
+                        // Image Picker UI
+                        GestureDetector(
+                          onTap: _pickImage,
+                          child: Container(
+                            height: 200,
+                            decoration: BoxDecoration(
                               color: isDark
-                                  ? Colors.white24
-                                  : Colors.grey.shade400,
+                                  ? Colors.white.withOpacity(0.05)
+                                  : Colors.grey.shade200,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isDark
+                                    ? Colors.white24
+                                    : Colors.grey.shade400,
+                              ),
+                              image: _imageFile != null
+                                  ? DecorationImage(
+                                      image: FileImage(_imageFile!),
+                                      fit: BoxFit.cover,
+                                    )
+                                  : null,
                             ),
-                            image: _imageFile != null
-                                ? DecorationImage(
-                                    image: FileImage(_imageFile!),
-                                    fit: BoxFit.cover,
-                                  )
-                                : null,
-                          ),
-                          child: _imageFile == null
-                              ? Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.add_a_photo,
-                                      size: 40,
-                                      color: isDark
-                                          ? Colors.white54
-                                          : Colors.grey,
-                                    ),
-                                    Text(
-                                      "Add Product Image",
-                                      style: TextStyle(
+                            child: _imageFile == null
+                                ? Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.add_a_photo,
+                                        size: 40,
                                         color: isDark
                                             ? Colors.white54
                                             : Colors.grey,
                                       ),
-                                    ),
-                                  ],
-                                )
-                              : null,
+                                      Text(
+                                        "Add Product Image",
+                                        style: TextStyle(
+                                          color: isDark
+                                              ? Colors.white54
+                                              : Colors.grey,
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : null,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 24),
-                      _buildThemedTextField(
-                        controller: _nameController,
-                        label: 'Product Name',
-                        isDark: isDark,
-                        keyboardType: TextInputType.text,
-                      ),
-                      const SizedBox(height: 12),
-                      _buildThemedTextField(
-                        controller: _priceController,
-                        label: 'Price',
-                        suffix: 'EGP / Day',
-                        isDark: isDark,
-                        keyboardType: TextInputType.number,
-                      ),
-                      const SizedBox(height: 12),
-                      _buildThemedTextField(
-                        controller: _quantityController,
-                        label: 'Quantity',
-                        isDark: isDark,
-                        keyboardType: TextInputType.number,
-                      ),
-                      const SizedBox(height: 12),
-                      _buildThemedTextField(
-                        controller: _descriptionController,
-                        label: 'Description',
-                        isDark: isDark,
-                        maxLines: 5,
-                        keyboardType: TextInputType.multiline,
-                      ),
-                      const SizedBox(height: 32),
-                      CustomButton(
-                        text: "Save Product",
-                        color: WidgetStateProperty.all(AppColors.primary),
-                        onPressed: _saveProduct,
-                      ),
-                    ],
+                        const SizedBox(height: 24),
+                        _buildThemedTextField(
+                          controller: _nameController,
+                          label: 'Product Name',
+                          isDark: isDark,
+                          keyboardType: TextInputType.text,
+                        ),
+                        const SizedBox(height: 12),
+                        _buildThemedTextField(
+                          controller: _priceController,
+                          label: 'Price',
+                          suffix: 'EGP / Day',
+                          isDark: isDark,
+                          keyboardType: TextInputType.number,
+                        ),
+                        const SizedBox(height: 12),
+                        _buildThemedTextField(
+                          controller: _quantityController,
+                          label: 'Quantity',
+                          isDark: isDark,
+                          keyboardType: TextInputType.number,
+                        ),
+                        const SizedBox(height: 12),
+                        _buildThemedTextField(
+                          controller: _descriptionController,
+                          label: 'Description',
+                          isDark: isDark,
+                          maxLines: 5,
+                          keyboardType: TextInputType.multiline,
+                        ),
+                        const SizedBox(height: 32),
+                        CustomButton(
+                          text: "Save Product",
+                          color: WidgetStateProperty.all(AppColors.primary),
+                          onPressed: _saveProduct,
+                        ),
+                        const SizedBox(height: 40),
+                      ],
+                    ),
                   ),
-                ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -254,7 +264,7 @@ class _AddProductState extends State<AddProduct> {
       decoration: InputDecoration(
         labelText: label,
         suffixText: suffix,
-        suffixStyle: const TextStyle(color: Colors.grey),
+        suffixStyle: const TextStyle(color: AppColors.primary, fontSize: 16, fontWeight: FontWeight.w600),
         labelStyle: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
         enabledBorder: UnderlineInputBorder(
           borderSide: BorderSide(

@@ -3,8 +3,9 @@ import 'package:ccr_booking/core/theme.dart';
 import 'package:ccr_booking/widgets/custom_appbar.dart';
 import 'package:ccr_booking/widgets/custom_button.dart';
 import 'package:ccr_booking/widgets/custom_textfield.dart';
-import 'package:ccr_booking/widgets/custom_bg_svg.dart'; // Import the new widget
+import 'package:ccr_booking/widgets/custom_bg_svg.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -67,59 +68,61 @@ class _AddClientState extends State<AddClient> {
 
   @override
   Widget build(BuildContext context) {
-    // Detect dark mode
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
-    
-    return Scaffold(
-      backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
-      // Extends body behind the appbar so the SVG coordinate system matches HomePage
-      extendBodyBehindAppBar: true,
-      appBar: const CustomAppBar(text: "Add a Client", showPfp: false),
-      body: Stack(
-        children: [
-          // The background decoration
-          const CustomBgSvg(),
 
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: ListView(
-              physics: const BouncingScrollPhysics(),
-              children: [
-                // Push content down below the AppBar
-                CustomTextfield(
-                  textEditingController: _nameController,
-                  keyboardType: TextInputType.name,
-                  isObsecure: false,
-                  textCapitalization: TextCapitalization.words,
-                  labelText: 'Name',
-                ),
-                const SizedBox(height: 16),
-                CustomTextfield(
-                  textEditingController: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  isObsecure: false,
-                  textCapitalization: TextCapitalization.none,
-                  labelText: 'Email',
-                ),
-                const SizedBox(height: 16),
-                CustomTextfield(
-                  textEditingController: _phoneController,
-                  keyboardType: TextInputType.phone,
-                  isObsecure: false,
-                  textCapitalization: TextCapitalization.none,
-                  labelText: 'Phone Number',
-                ),
-                const SizedBox(height: 32),
-                CustomButton(
-                  onPressed: _loading ? null : _saveClient,
-                  text: _loading ? "Saving..." : "Save",
-                  color: WidgetStateProperty.all(AppColors.primary),
-                ),
-              ],
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+      ),
+      child: Scaffold(
+        backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
+        extendBodyBehindAppBar: true,
+        appBar: const CustomAppBar(text: "Add a Client", showPfp: false),
+        body: Stack(
+          children: [
+            const CustomBgSvg(),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: ListView(
+                physics: const BouncingScrollPhysics(),
+                children: [
+                  CustomTextfield(
+                    textEditingController: _nameController,
+                    keyboardType: TextInputType.name,
+                    isObsecure: false,
+                    textCapitalization: TextCapitalization.words,
+                    labelText: 'Name',
+                  ),
+                  const SizedBox(height: 16),
+                  CustomTextfield(
+                    textEditingController: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    isObsecure: false,
+                    textCapitalization: TextCapitalization.none,
+                    labelText: 'Email',
+                  ),
+                  const SizedBox(height: 16),
+                  CustomTextfield(
+                    textEditingController: _phoneController,
+                    keyboardType: TextInputType.phone,
+                    isObsecure: false,
+                    textCapitalization: TextCapitalization.none,
+                    labelText: 'Phone Number',
+                  ),
+                  const SizedBox(height: 32),
+                  CustomButton(
+                    onPressed: _loading ? null : _saveClient,
+                    text: _loading ? "Saving..." : "Save",
+                    color: WidgetStateProperty.all(AppColors.primary),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

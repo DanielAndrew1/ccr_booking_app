@@ -340,7 +340,7 @@ class _HomePageState extends State<HomePage>
                       ),
                     ),
                     onPressed: () async {
-                      String newStatus = isPickup ? 'returning' : 'completed';
+                      String newStatus = isPickup ? 'Returning' : 'Completed';
                       await supabase
                           .from('bookings')
                           .update({'status': newStatus})
@@ -915,7 +915,7 @@ class _HomePageState extends State<HomePage>
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.grey.shade600,
+                color: isDark ? Colors.white : Colors.black,
               ),
             ),
             const SizedBox(height: 4),

@@ -60,21 +60,21 @@ class CalendarPageState extends State<CalendarPage>
   }
 
   void _checkStatus(List<ConnectivityResult> result) {
-    setState(() => _hasConnection = !result.contains(ConnectivityResult.none));
+    if (mounted) {
+      setState(
+        () => _hasConnection = !result.contains(ConnectivityResult.none),
+      );
+    }
   }
 
-  // UPDATED: Now handles both Page and Time scrolling
   void resetToToday() async {
     HapticFeedback.mediumImpact();
     final now = DateTime.now().toLocal();
     final bool alreadyOnTodayPage = isSameDay(_selectedDate, now);
 
     setState(() => _selectedDate = now);
-
-    // 1. Scroll the Day Bar
     _scrollDayBarToCenter(7);
 
-    // 2. Animate to the Today Page if not already there
     if (!alreadyOnTodayPage && _pageController.hasClients) {
       await _pageController.animateToPage(
         7,
@@ -83,7 +83,6 @@ class CalendarPageState extends State<CalendarPage>
       );
     }
 
-    // 3. Snap to Current Time (Delayed slightly to ensure PageView has rendered the controller)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _snapToCurrentTime();
     });
@@ -127,62 +126,81 @@ class CalendarPageState extends State<CalendarPage>
     final isDark = themeProvider.isDarkMode;
     final bool isNotToday = !isSameDay(_selectedDate, DateTime.now().toLocal());
 
-    return Scaffold(
-      backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
-      appBar: CustomAppBar(
-        text: 'Calendar',
-        showPfp: true,
-        onTodayPressed: isNotToday ? resetToToday : null,
+    // This block forces the system status bar to follow the app theme
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent, // Background of the status bar
+        statusBarIconBrightness: isDark
+            ? Brightness.light
+            : Brightness.dark, // Android icons
+        statusBarBrightness: isDark
+            ? Brightness.dark
+            : Brightness.light, // iOS text/icons
+        systemNavigationBarColor: isDark
+            ? AppColors.darkbg
+            : AppColors.lightcolor,
+        systemNavigationBarIconBrightness: isDark
+            ? Brightness.light
+            : Brightness.dark,
       ),
-      body: Column(
-        children: [
-          if (!_hasConnection) const NoInternetWidget(),
-          _buildCompactDaySelector(isDark),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : PageView.builder(
-                    controller: _pageController,
-                    onPageChanged: (index) {
-                      HapticFeedback.selectionClick();
-                      setState(
-                        () => _selectedDate = DateTime.now().toLocal().add(
-                          Duration(days: index - 7),
-                        ),
-                      );
-                      _scrollDayBarToCenter(index);
-                    },
-                    itemCount: 22,
-                    itemBuilder: (context, pageIndex) {
-                      final pageDate = DateTime.now().toLocal().add(
-                        Duration(days: pageIndex - 7),
-                      );
-                      final isToday = isSameDay(
-                        pageDate,
-                        DateTime.now().toLocal(),
-                      );
-
-                      return SingleChildScrollView(
-                        physics: const ClampingScrollPhysics(),
-                        // IMPORTANT: Only attach the controller if it is actually Today's page
-                        controller: isToday
-                            ? _todayScrollController
-                            : ScrollController(),
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 20.0),
-                          child: Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              _buildTimeGrid(isDark),
-                              if (isToday) _buildTimeIndicator(),
-                            ],
+      child: Scaffold(
+        // resizeToAvoidBottomInset: false stops the "container artifact" from moving with the keyboard
+        resizeToAvoidBottomInset: false,
+        backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
+        appBar: CustomAppBar(
+          text: 'Calendar',
+          showPfp: true,
+          onTodayPressed: isNotToday ? resetToToday : null,
+        ),
+        body: Column(
+          children: [
+            if (!_hasConnection) const NoInternetWidget(),
+            _buildCompactDaySelector(isDark),
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : PageView.builder(
+                      controller: _pageController,
+                      onPageChanged: (index) {
+                        HapticFeedback.selectionClick();
+                        setState(
+                          () => _selectedDate = DateTime.now().toLocal().add(
+                            Duration(days: index - 7),
                           ),
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ],
+                        );
+                        _scrollDayBarToCenter(index);
+                      },
+                      itemCount: 22,
+                      itemBuilder: (context, pageIndex) {
+                        final pageDate = DateTime.now().toLocal().add(
+                          Duration(days: pageIndex - 7),
+                        );
+                        final isToday = isSameDay(
+                          pageDate,
+                          DateTime.now().toLocal(),
+                        );
+
+                        return SingleChildScrollView(
+                          physics: const ClampingScrollPhysics(),
+                          controller: isToday
+                              ? _todayScrollController
+                              : ScrollController(),
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 20.0),
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                _buildTimeGrid(isDark),
+                                if (isToday) _buildTimeIndicator(),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -321,7 +339,7 @@ class CalendarPageState extends State<CalendarPage>
           Container(
             width: circleSize,
             height: circleSize,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: AppColors.primary,
               shape: BoxShape.circle,
             ),

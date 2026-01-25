@@ -33,9 +33,16 @@ class CustomTile extends StatelessWidget {
     // Default background: color if provided, else dark color or WHITE
     final bgColor = color ?? (isDark ? const Color(0xFF2D2D2D) : Colors.white);
 
-    // Default text/icon: textColor if provided, else white or dark grey
+    // Default text/icon color
     final contentColor =
         textColor ?? (isDark ? Colors.white : const Color(0xFF2D2D2D));
+
+    // Logic for the icon's background container:
+    // If a custom textColor is provided, we use it with opacity.
+    // Otherwise, we default to a neutral grey.
+    final iconContainerColor = textColor != null
+        ? textColor!.withOpacity(0.3)
+        : Colors.grey.withOpacity(0.2);
 
     return Column(
       children: [
@@ -72,7 +79,14 @@ class CustomTile extends StatelessWidget {
             ),
             child: Center(
               child: ListTile(
-                leading: Icon(icon, color: contentColor),
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: iconContainerColor, // Applied the grey logic here
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: contentColor),
+                ),
                 title: Text(
                   title,
                   style: TextStyle(

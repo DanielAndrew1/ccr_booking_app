@@ -52,20 +52,23 @@ class _ClientsPageState extends State<ClientsPage> {
         title: const Text("Delete Client"),
         content: Column(
           children: [
-            Text('Are you sure you want to delete'),
+            const Text('Are you sure you want to delete'),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text('"'),
-                Text(clientName, style: TextStyle(color: AppColors.red),),
-                Text('" ?'),
+                const Text('"'),
+                Text(clientName, style: const TextStyle(color: AppColors.red)),
+                const Text('" ?'),
               ],
             ),
           ],
         ),
         actions: [
           CupertinoDialogAction(
-            child: const Text("Cancel", style: TextStyle(color: AppColors.secondary),),
+            child: const Text(
+              "Cancel",
+              style: TextStyle(color: AppColors.secondary),
+            ),
             onPressed: () => Navigator.pop(context),
           ),
           CupertinoDialogAction(
@@ -87,6 +90,9 @@ class _ClientsPageState extends State<ClientsPage> {
   void _editClientDialog(dynamic client) {
     final nameController = TextEditingController(text: client.name);
     final emailController = TextEditingController(text: client.email);
+    // Accessing .phone now works after updating the model
+    final phoneController = TextEditingController(text: client.phone ?? "");
+
     final isDark = Provider.of<ThemeProvider>(
       context,
       listen: false,
@@ -145,9 +151,26 @@ class _ClientsPageState extends State<ClientsPage> {
             const SizedBox(height: 15),
             TextField(
               controller: emailController,
+              keyboardType: TextInputType.emailAddress,
               style: TextStyle(color: isDark ? Colors.white : Colors.black),
               decoration: InputDecoration(
                 labelText: "Email Address",
+                labelStyle: const TextStyle(color: Colors.grey),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
+                ),
+                focusedBorder: const UnderlineInputBorder(
+                  borderSide: BorderSide(color: AppColors.primary, width: 2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 15),
+            TextField(
+              controller: phoneController,
+              keyboardType: TextInputType.phone,
+              style: TextStyle(color: isDark ? Colors.white : Colors.black),
+              decoration: InputDecoration(
+                labelText: "Phone Number",
                 labelStyle: const TextStyle(color: Colors.grey),
                 enabledBorder: UnderlineInputBorder(
                   borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
@@ -168,7 +191,10 @@ class _ClientsPageState extends State<ClientsPage> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                onPressed: () => Navigator.pop(context),
+                onPressed: () {
+                  // TODO: Add update logic in UserProvider
+                  Navigator.pop(context);
+                },
                 child: const Text(
                   "Save Changes",
                   style: TextStyle(
@@ -190,54 +216,73 @@ class _ClientsPageState extends State<ClientsPage> {
     final userProvider = Provider.of<UserProvider>(context);
     final clients = userProvider.allClients;
 
-    return Container(
-      color: isDark ? AppColors.darkbg : AppColors.lightcolor,
-      child: Stack(
-        children: [
-          const CustomBgSvg(),
-          Scaffold(
-            backgroundColor: Colors.transparent,
-            appBar: const CustomAppBar(text: 'Manage Clients', showPfp: false),
-            body: CustomScrollView(
-              key: _refreshKey,
-              physics: const BouncingScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics(),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+      ),
+      child: Container(
+        color: isDark ? AppColors.darkbg : AppColors.lightcolor,
+        child: Stack(
+          children: [
+            const CustomBgSvg(),
+            Scaffold(
+              backgroundColor: Colors.transparent,
+              appBar: const CustomAppBar(
+                text: 'Manage Clients',
+                showPfp: false,
               ),
-              slivers: [
-                CupertinoSliverRefreshControl(
-                  onRefresh: () async {
-                    _fetchClients();
-                    await Future.delayed(const Duration(seconds: 2));
-                    if (mounted) setState(() => _refreshKey = UniqueKey());
-                  },
+              body: CustomScrollView(
+                key: _refreshKey,
+                physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
                 ),
-                userProvider.isLoading
-                    ? const SliverFillRemaining(
-                        child: Center(child: CustomLoader()),
-                      )
-                    : clients.isEmpty
-                    ? const SliverFillRemaining(
-                        child: Center(child: Text("No clients found")),
-                      )
-                    : SliverPadding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
+                slivers: [
+                  CupertinoSliverRefreshControl(
+                    onRefresh: () async {
+                      _fetchClients();
+                      await Future.delayed(const Duration(seconds: 2));
+                      if (mounted) setState(() => _refreshKey = UniqueKey());
+                    },
+                  ),
+                  userProvider.isLoading
+                      ? const SliverFillRemaining(
+                          child: Center(child: CustomLoader()),
+                        )
+                      : clients.isEmpty
+                      ? SliverFillRemaining(
+                          child: Center(
+                            child: Text(
+                              "No clients found",
+                              style: TextStyle(
+                                color: isDark ? Colors.white70 : Colors.black54,
+                              ),
+                            ),
+                          ),
+                        )
+                      : SliverPadding(
+                          padding: const EdgeInsets.only(
+                            left: 16,
+                            right: 16,
+                            top: 10,
+                            bottom: 110,
+                          ),
+                          sliver: SliverList(
+                            delegate: SliverChildBuilderDelegate((
+                              context,
+                              index,
+                            ) {
+                              final client = clients[index];
+                              return _buildClientCard(client, isDark, index);
+                            }, childCount: clients.length),
+                          ),
                         ),
-                        sliver: SliverList(
-                          delegate: SliverChildBuilderDelegate((
-                            context,
-                            index,
-                          ) {
-                            final client = clients[index];
-                            return _buildClientCard(client, isDark, index);
-                          }, childCount: clients.length),
-                        ),
-                      ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

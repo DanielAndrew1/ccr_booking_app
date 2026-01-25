@@ -74,6 +74,10 @@ class _InventoryPageState extends State<InventoryPage> {
       ),
       child: Scaffold(
         backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
+        // This stops THIS scaffold from moving, but if your navbar is in a parent
+        // scaffold, you must apply this setting there as well.
+        resizeToAvoidBottomInset: false,
+
         extendBodyBehindAppBar: true,
         appBar: CustomAppBar(
           text: _isSearching ? "" : 'Inventory',
@@ -81,24 +85,30 @@ class _InventoryPageState extends State<InventoryPage> {
           hideLeading: _isSearching,
           actions: [
             if (_isSearching) ...[
-              // 1. BACK ARROW: Closes the search mode
               IconButton(
                 onPressed: () {
                   setState(() {
                     _isSearching = false;
                     _searchController.clear();
                     _searchQuery = "";
+                    FocusScope.of(context).unfocus();
                   });
                 },
-                icon: Icon(Icons.adaptive.arrow_back_rounded, color: Colors.white),
+                icon: Icon(
+                  Icons.adaptive.arrow_back_rounded,
+                  color: Colors.white,
+                ),
               ),
-              // 2. SEARCH FIELD
               Expanded(
                 child: TextField(
                   controller: _searchController,
                   autocorrect: false,
                   enableSuggestions: false,
                   autofocus: true,
+                  // FIX: Forces the keyboard to be dark or light based on your theme
+                  keyboardAppearance: isDark
+                      ? Brightness.dark
+                      : Brightness.light,
                   style: const TextStyle(color: Colors.white, fontSize: 16),
                   cursorColor: Colors.white,
                   decoration: const InputDecoration(
@@ -114,7 +124,6 @@ class _InventoryPageState extends State<InventoryPage> {
                 ),
               ),
             ],
-            // 3. THE TOGGLE / CLEAR BUTTON
             Padding(
               padding: const EdgeInsets.only(right: 25),
               child: Container(
@@ -123,18 +132,16 @@ class _InventoryPageState extends State<InventoryPage> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: _isSearching
-                      ? Colors.transparent // Background gone when searching
+                      ? Colors.transparent
                       : AppColors.primary.withAlpha(70),
                 ),
                 child: IconButton(
                   padding: EdgeInsets.zero,
                   onPressed: () {
                     if (_isSearching) {
-                      // If searching, this button CLEAR the text
                       _searchController.clear();
                       setState(() => _searchQuery = "");
                     } else {
-                      // If not searching, this button OPEN search
                       setState(() => _isSearching = true);
                     }
                   },
@@ -248,6 +255,13 @@ class _InventoryPageState extends State<InventoryPage> {
                           );
                         },
                       ),
+                      // Optional: Add space at bottom if keyboard covers results
+                      if (_isSearching)
+                        SliverToBoxAdapter(
+                          child: SizedBox(
+                            height: MediaQuery.of(context).viewInsets.bottom,
+                          ),
+                        ),
                     ],
                   ),
                 ),

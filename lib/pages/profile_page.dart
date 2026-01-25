@@ -6,7 +6,7 @@ import 'package:ccr_booking/core/theme.dart';
 import 'package:ccr_booking/core/user_provider.dart';
 import 'package:ccr_booking/main.dart';
 import 'package:ccr_booking/pages/clients_page.dart';
-import 'package:ccr_booking/pages/users_page.dart';
+import 'package:ccr_booking/pages/employees_page.dart';
 import 'package:ccr_booking/widgets/custom_bg_svg.dart';
 import 'package:ccr_booking/widgets/custom_internet_notification.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -307,7 +307,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           if (currentUser.role == 'Owner') ...[
                             CustomTile(
                               icon: Icons.manage_accounts_rounded,
-                              title: 'User Management',
+                              title: 'Employee Management',
                               route: const UsersPage(),
                             ),
                             const SizedBox(height: 6),

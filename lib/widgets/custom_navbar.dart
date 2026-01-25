@@ -25,7 +25,7 @@ class CustomNavbar extends StatefulWidget {
 class _CustomNavbarState extends State<CustomNavbar> {
   late int _currentIndex;
 
-  // Define a GlobalKey to access the CalendarPageState
+  // GlobalKey to access Calendar reset logic
   final GlobalKey<CalendarPageState> _calendarKey =
       GlobalKey<CalendarPageState>();
 
@@ -41,17 +41,15 @@ class _CustomNavbarState extends State<CustomNavbar> {
     if (isAddButton) {
       _showAddBottomSheet();
     } else {
-      // If tapping the Calendar tab (index 1), call the reset function
+      // Logic for Calendar tab reset
       if (pageIndex == 1) {
         _calendarKey.currentState?.resetToToday();
       }
-
       setState(() => _currentIndex = pageIndex);
     }
   }
 
   void _showAddBottomSheet() {
-    // FIX: Use listen: false because we are inside a function/callback, not the build method.
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final isDark = themeProvider.isDarkMode;
 
@@ -150,114 +148,137 @@ class _CustomNavbarState extends State<CustomNavbar> {
       _NavItemData(icon: Icons.person_rounded, label: 'Profile', pageIndex: 3),
     );
 
-    return Scaffold(
-      body: Stack(
-        children: [
-          IndexedStack(index: _currentIndex, children: pages),
-          Positioned(
-            left: 16,
-            right: 16,
-            bottom: 35,
-            child: Container(
-              height: 70,
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF252525) : Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: [
-                  BoxShadow(
-                    color: isDark
-                        ? AppColors.primary.withOpacity(0.1)
-                        : AppColors.primary.withOpacity(0.15),
-                    blurRadius: 25,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final itemWidth = constraints.maxWidth / navItems.length;
+    // --- STATUS BAR LOGIC ---
+    // Rule: Icons are always white (Brightness.light)
+    // EXCEPT when on Profile (index 3) AND the app is in light mode.
+    final bool shouldShowBlackIcons = (_currentIndex == 3 && !isDark);
 
-                  return Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Builder(
-                        builder: (context) {
-                          int activeIndex = navItems.indexWhere(
-                            (item) => item.pageIndex == _currentIndex,
-                          );
-                          if (activeIndex == -1) activeIndex = 0;
-                          return AnimatedPositioned(
-                            duration: const Duration(milliseconds: 200),
-                            curve: Curves.easeInOut,
-                            left:
-                                activeIndex * itemWidth + (itemWidth - 24) / 2,
-                            top: 0,
-                            child: Container(
-                              width: 24,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: AppColors.primary,
-                                borderRadius: const BorderRadius.only(
-                                  bottomLeft: Radius.circular(6),
-                                  bottomRight: Radius.circular(6),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        // Brightness.dark for icons actually means "Icons for dark backgrounds" (which are white)
+        // Brightness.light for icons actually means "Icons for light backgrounds" (which are black)
+        // Note: Flutter's terminology can be confusing, but setting brightness to
+        // light results in dark icons on Android and vice versa.
+        statusBarIconBrightness: shouldShowBlackIcons
+            ? Brightness.dark
+            : Brightness.light,
+        statusBarBrightness: shouldShowBlackIcons
+            ? Brightness.light
+            : Brightness.dark, // iOS
+      ),
+      child: Scaffold(
+        resizeToAvoidBottomInset: false,
+        backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
+        body: Stack(
+          children: [
+            IndexedStack(index: _currentIndex, children: pages),
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 35,
+              child: Container(
+                height: 70,
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF252525) : Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [
+                    BoxShadow(
+                      color: isDark
+                          ? AppColors.primary.withOpacity(0.1)
+                          : AppColors.primary.withOpacity(0.15),
+                      blurRadius: 25,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final itemWidth = constraints.maxWidth / navItems.length;
+
+                    return Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Builder(
+                          builder: (context) {
+                            int activeIndex = navItems.indexWhere(
+                              (item) => item.pageIndex == _currentIndex,
+                            );
+                            if (activeIndex == -1) activeIndex = 0;
+                            return AnimatedPositioned(
+                              duration: const Duration(milliseconds: 200),
+                              curve: Curves.easeInOut,
+                              left:
+                                  activeIndex * itemWidth +
+                                  (itemWidth - 24) / 2,
+                              top: 0,
+                              child: Container(
+                                width: 24,
+                                height: 6,
+                                decoration: const BoxDecoration(
+                                  color: AppColors.primary,
+                                  borderRadius: BorderRadius.only(
+                                    bottomLeft: Radius.circular(6),
+                                    bottomRight: Radius.circular(6),
+                                  ),
                                 ),
                               ),
-                            ),
-                          );
-                        },
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: navItems.map((data) {
-                          final isActive = data.pageIndex == _currentIndex;
+                            );
+                          },
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: navItems.map((data) {
+                            final isActive = data.pageIndex == _currentIndex;
 
-                          return Expanded(
-                            child: GestureDetector(
-                              onTap: () =>
-                                  _onTap(data.pageIndex, data.isAddButton),
-                              behavior: HitTestBehavior.opaque,
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const SizedBox(height: 6),
-                                  Icon(
-                                    data.icon,
-                                    color: isActive
-                                        ? AppColors.primary
-                                        : (isDark
-                                              ? Colors.grey[400]
-                                              : Colors.grey),
-                                    size: 28,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    data.label,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
+                            return Expanded(
+                              child: GestureDetector(
+                                onTap: () =>
+                                    _onTap(data.pageIndex, data.isAddButton),
+                                behavior: HitTestBehavior.opaque,
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const SizedBox(height: 6),
+                                    Icon(
+                                      data.icon,
                                       color: isActive
                                           ? AppColors.primary
                                           : (isDark
                                                 ? Colors.grey[400]
                                                 : Colors.grey),
-                                      fontWeight: isActive
-                                          ? FontWeight.bold
-                                          : FontWeight.normal,
-                                      fontSize: 11,
+                                      size: 28,
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      data.label,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: isActive
+                                            ? AppColors.primary
+                                            : (isDark
+                                                  ? Colors.grey[400]
+                                                  : Colors.grey),
+                                        fontWeight: isActive
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  );
-                },
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    );
+                  },
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -308,7 +329,7 @@ class _AddListTile extends StatelessWidget {
         color: isDark ? Colors.white54 : Colors.grey,
       ),
       onTap: () {
-        HapticFeedback.mediumImpact();
+        HapticFeedback.lightImpact();
         onTap();
       },
     );

@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'package:ccr_booking/core/theme.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../core/app_theme.dart';
 
 class CustomLoader extends StatelessWidget {
@@ -17,7 +19,8 @@ class CustomLoader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
 
     // Determine the color: use the passed color if it exists,
     // otherwise fall back to the dark/light mode logic.

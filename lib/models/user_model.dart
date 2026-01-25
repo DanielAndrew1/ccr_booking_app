@@ -26,21 +26,33 @@ class AppUser {
 }
 
 class AppClient {
-  final String id; // UUID String
+  final String id;
   final String name;
   final String? email;
+  final String? phone; // Add this line
 
-  AppClient({required this.id, required this.name, this.email});
+  AppClient({
+    required this.id,
+    required this.name,
+    this.email,
+    this.phone, // Add this line
+  });
 
   factory AppClient.fromJson(Map<String, dynamic> json) {
     return AppClient(
-      id: json['id'] as String, // Direct cast for UUID
-      name: json['name'] ?? 'No Name',
+      id: json['id'],
+      name: json['name'],
       email: json['email'],
+      phone: json['phone'], // Add this line
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {'id': id, 'name': name, 'email': email};
+    return {
+      'id': id,
+      'name': name,
+      'email': email,
+      'phone': phone, // Add this line
+    };
   }
 }

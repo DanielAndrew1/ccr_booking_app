@@ -102,7 +102,7 @@ class _UsersPageState extends State<UsersPage> {
           const CustomBgSvg(), // Decoration layer pinned to top
           Scaffold(
             backgroundColor: Colors.transparent, // Reveal Container color & SVG
-            appBar: const CustomAppBar(text: 'Manage Users', showPfp: false),
+            appBar: const CustomAppBar(text: 'Manage Employees', showPfp: false),
             body: userProvider.isLoading
                 ? const Center(child: CustomLoader())
                 : AnimatedSwitcher(
@@ -337,7 +337,7 @@ class _UsersPageState extends State<UsersPage> {
                   onPressed: () => _removeUser(user.id, user.name),
                   icon: const Icon(Icons.delete_rounded, size: 18),
                   label: const Text(
-                    "Delete User",
+                    "Delete Employee",
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),

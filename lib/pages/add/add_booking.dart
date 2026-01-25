@@ -1,11 +1,11 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously, unnecessary_underscores
-
 import 'package:ccr_booking/core/app_theme.dart';
 import 'package:ccr_booking/core/theme.dart';
 import 'package:ccr_booking/widgets/custom_appbar.dart';
 import 'package:ccr_booking/widgets/custom_search.dart';
 import 'package:ccr_booking/widgets/custom_bg_svg.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -271,226 +271,240 @@ class _AddBookingState extends State<AddBooking> {
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final isDark = themeProvider.isDarkMode;
 
-    return Container(
-      color: isDark ? AppColors.darkbg : AppColors.lightcolor,
-      child: Stack(
-        children: [
-          const CustomBgSvg(),
-          Scaffold(
-            backgroundColor: Colors.transparent,
-            appBar: const CustomAppBar(text: "Add a Booking", showPfp: false),
-            body: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CustomSearch(
-                    onClientSelected: (client) =>
-                        setState(() => selectedClient = client),
-                  ),
-                  const SizedBox(height: 25),
-                  Text(
-                    "Products",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: isDark ? Colors.white : Colors.black,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+      ),
+      child: Container(
+        color: isDark ? AppColors.darkbg : AppColors.lightcolor,
+        child: Stack(
+          children: [
+            const CustomBgSvg(),
+            Scaffold(
+              backgroundColor: Colors.transparent,
+              appBar: const CustomAppBar(text: "Add a Booking", showPfp: false),
+              body: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CustomSearch(
+                      onClientSelected: (client) =>
+                          setState(() => selectedClient = client),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: selectedProducts.length,
-                    itemBuilder: (context, index) {
-                      bool isLast = index == selectedProducts.length - 1;
-                      final product = selectedProducts[index];
-                      final imageUrl =
-                          product?['image_url'] ?? product?['image'];
+                    const SizedBox(height: 25),
+                    Text(
+                      "Products",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: selectedProducts.length,
+                      itemBuilder: (context, index) {
+                        bool isLast = index == selectedProducts.length - 1;
+                        final product = selectedProducts[index];
+                        final imageUrl =
+                            product?['image_url'] ?? product?['image'];
 
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12.0),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: InkWell(
-                                onTap: () => _showProductSearch(index),
-                                borderRadius: BorderRadius.circular(12),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 15,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: isDark
-                                        ? const Color(0xFF2A2A2A)
-                                        : Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(4),
-                                        child: imageUrl != null
-                                            ? Image.network(
-                                                imageUrl,
-                                                width: 40,
-                                                height: 40,
-                                                fit: BoxFit.cover,
-                                                errorBuilder:
-                                                    (
-                                                      context,
-                                                      error,
-                                                      stackTrace,
-                                                    ) => _buildPlaceholderIcon(
-                                                      isDark,
-                                                    ),
-                                              )
-                                            : _buildPlaceholderIcon(isDark),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              product?['name'] ??
-                                                  "Select Product",
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                color: isDark
-                                                    ? Colors.white
-                                                    : Colors.black,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                            if (product?['price'] != null)
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12.0),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: InkWell(
+                                  onTap: () => _showProductSearch(index),
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 15,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: isDark
+                                          ? const Color(0xFF2A2A2A)
+                                          : Colors.white,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                          child: imageUrl != null
+                                              ? Image.network(
+                                                  imageUrl,
+                                                  width: 40,
+                                                  height: 40,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder:
+                                                      (
+                                                        context,
+                                                        error,
+                                                        stackTrace,
+                                                      ) =>
+                                                          _buildPlaceholderIcon(
+                                                            isDark,
+                                                          ),
+                                                )
+                                              : _buildPlaceholderIcon(isDark),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
                                               Text(
-                                                "${product!['price']} EGP/Day",
-                                                style: const TextStyle(
-                                                  color: AppColors.primary,
-                                                  fontSize: 14,
+                                                product?['name'] ??
+                                                    "Select Product",
+                                                style: TextStyle(
+                                                  fontSize: 16,
+                                                  color: isDark
+                                                      ? Colors.white
+                                                      : Colors.black,
+                                                  fontWeight: FontWeight.w500,
                                                 ),
                                               ),
-                                          ],
+                                              if (product?['price'] != null)
+                                                Text(
+                                                  "${product!['price']} EGP/Day",
+                                                  style: const TextStyle(
+                                                    color: AppColors.primary,
+                                                    fontSize: 14,
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
                                         ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              if (isLast)
+                                GestureDetector(
+                                  onTap: selectedProducts[index] != null
+                                      ? () => setState(
+                                          () => selectedProducts.add(null),
+                                        )
+                                      : null,
+                                  child: Container(
+                                    width: 45,
+                                    height: 45,
+                                    decoration: BoxDecoration(
+                                      color: selectedProducts[index] != null
+                                          ? AppColors.primary
+                                          : AppColors.primary.withOpacity(0.9),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Center(
+                                      child: Icon(
+                                        Icons.add,
+                                        color: Colors.white,
                                       ),
-                                    ],
+                                    ),
+                                  ),
+                                )
+                              else
+                                GestureDetector(
+                                  onTap: () => setState(
+                                    () => selectedProducts.removeAt(index),
+                                  ),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red.withOpacity(0.3),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.close,
+                                      color: Colors.red,
+                                      size: 20,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            if (isLast)
-                              GestureDetector(
-                                onTap: selectedProducts[index] != null
-                                    ? () => setState(
-                                        () => selectedProducts.add(null),
-                                      )
-                                    : null,
-                                child: Container(
-                                  width: 45,
-                                  height: 45,
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: selectedProducts[index] != null
-                                        ? AppColors.primary
-                                        : AppColors.primary.withOpacity(0.9),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.add,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              )
-                            else
-                              GestureDetector(
-                                onTap: () => setState(
-                                  () => selectedProducts.removeAt(index),
-                                ),
-                                child: Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.withOpacity(0.3),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.close,
-                                    color: Colors.red,
-                                    size: 20,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                  Text(
-                    "Pickup Details",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: isDark ? Colors.white : Colors.black,
+                            ],
+                          ),
+                        );
+                      },
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  _PickerTile(
-                    icon: Icons.calendar_today,
-                    label: pickupDate == null
-                        ? "Select Pickup Date"
-                        : DateFormat('MMM dd, yyyy').format(pickupDate!),
-                    onTap: () => _pickDate(isPickup: true),
-                    isDark: isDark,
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    "Return Details",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: isDark ? Colors.white : Colors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  _PickerTile(
-                    icon: Icons.event_available,
-                    label: returnDate == null
-                        ? "Select Return Date"
-                        : DateFormat('MMM dd, yyyy').format(returnDate!),
-                    onTap: () => _pickDate(isPickup: false),
-                    isDark: isDark,
-                  ),
-                  const SizedBox(height: 40),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      onPressed: _saveBooking,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                    Text(
+                      "Pickup Details",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: isDark ? Colors.white : Colors.black,
                       ),
-                      child: const Text(
-                        "Confirm Booking",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                    ),
+                    const SizedBox(height: 10),
+                    _PickerTile(
+                      icon: Icons.calendar_today,
+                      label: pickupDate == null
+                          ? "Select Pickup Date"
+                          : DateFormat('MMM dd, yyyy').format(pickupDate!),
+                      onTap: () => _pickDate(isPickup: true),
+                      isDark: isDark,
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      "Return Details",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    _PickerTile(
+                      icon: Icons.event_available,
+                      label: returnDate == null
+                          ? "Select Return Date"
+                          : DateFormat('MMM dd, yyyy').format(returnDate!),
+                      onTap: () => _pickDate(isPickup: false),
+                      isDark: isDark,
+                    ),
+                    const SizedBox(height: 40),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: _saveBooking,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          "Confirm Booking",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

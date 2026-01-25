@@ -214,7 +214,8 @@ class _CustomSearchState extends State<CustomSearch> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDark = themeProvider.isDarkMode;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -224,7 +225,7 @@ class _CustomSearchState extends State<CustomSearch> {
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 16,
-            color: isDark ? Colors.black : Colors.white,
+            color: isDark ? Colors.white : Colors.black,
           ),
         ),
         const SizedBox(height: 8),
@@ -234,7 +235,7 @@ class _CustomSearchState extends State<CustomSearch> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
             decoration: BoxDecoration(
-              color: isDark ? Colors.white : const Color(0xFF2A2A2A),
+              color: isDark ? const Color(0xFF2A2A2A) : Colors.white,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -254,7 +255,7 @@ class _CustomSearchState extends State<CustomSearch> {
                     style: TextStyle(
                       color: selectedClientName.isEmpty
                           ? Colors.white70
-                          : (isDark ? Colors.black : Colors.white),
+                          : (isDark ? Colors.white : Colors.black),
                       fontSize: 16,
                     ),
                   ),
