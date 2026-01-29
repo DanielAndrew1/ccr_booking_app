@@ -1,10 +1,10 @@
+// lib/pages/edit_info_page.dart
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously
 
 import '../core/imports.dart';
 
 class EditInfoPage extends StatefulWidget {
   final VoidCallback? onSaved;
-
   const EditInfoPage({super.key, this.onSaved});
 
   @override
@@ -16,24 +16,20 @@ class _EditInfoPageState extends State<EditInfoPage> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-
   bool _loading = false;
 
   @override
   void initState() {
     super.initState();
     final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final currentUser = userProvider.currentUser;
-
-    if (currentUser != null) {
-      _nameController.text = currentUser.name;
-      _emailController.text = currentUser.email;
+    if (userProvider.currentUser != null) {
+      _nameController.text = userProvider.currentUser!.name;
+      _emailController.text = userProvider.currentUser!.email;
     }
   }
 
   Future<void> _saveChanges() async {
     setState(() => _loading = true);
-
     try {
       await _authService.updateUser(
         name: _nameController.text.trim(),
@@ -42,38 +38,31 @@ class _EditInfoPageState extends State<EditInfoPage> {
             ? null
             : _passwordController.text.trim(),
       );
-
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
-      await userProvider.refreshUser();
-
+      await Provider.of<UserProvider>(context, listen: false).refreshUser();
+      widget.onSaved?.call();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              'Profile updated',
-              style: TextStyle(color: Colors.white),
-            ),
+            content: Text('Profile updated'),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
           ),
         );
+        Navigator.pop(context, true);
       }
-
-      widget.onSaved?.call();
-      if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Update failed: $e'),
-            behavior: SnackBarBehavior.floating,
             backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
-
-    if (mounted) setState(() => _loading = false);
   }
 
   @override
@@ -86,29 +75,47 @@ class _EditInfoPageState extends State<EditInfoPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Detect dark mode
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDark = themeProvider.isDarkMode;
-    
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+
     return Container(
-      // Correct background color (AppColors.darkbg)
+      // This ensures the background color matches the theme under the SVG
       color: isDark ? AppColors.darkbg : AppColors.lightcolor,
       child: Stack(
         children: [
-          const CustomBgSvg(), // Pinned to the top behind the app bar
+          // The background SVG pinned to the top/fill
+          CustomBgSvg(),
           Scaffold(
-            backgroundColor:
-                Colors.transparent, // Reveal SVG and Container color
+            // Make Scaffold transparent so the Stack background and SVG show through
+            backgroundColor: Colors.transparent,
             appBar: const CustomAppBar(
               text: "Edit Personal Info",
               showPfp: false,
             ),
             body: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
               child: Column(
                 children: [
                   const SizedBox(height: 10),
+                  // REAL-TIME UPDATE HERO
+                  ValueListenableBuilder(
+                    valueListenable: _nameController,
+                    builder: (context, value, child) {
+                      return Hero(
+                        tag: 'profile_image',
+                        // Material wrapper removes the yellow underline during transition
+                        child: Material(
+                          type: MaterialType.transparency,
+                          child: CustomPfp(
+                            dimentions: 120,
+                            fontSize: 50,
+                            nameOverride: _nameController.text,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 30),
                   CustomTextfield(
                     labelText: "Name",
                     textEditingController: _nameController,
@@ -134,11 +141,11 @@ class _EditInfoPageState extends State<EditInfoPage> {
                   ),
                   const SizedBox(height: 32),
                   CustomButton(
-                    // Button color swaps to primary in dark mode for better visibility
                     color: WidgetStateProperty.all(
                       isDark ? AppColors.primary : AppColors.secondary,
                     ),
                     onPressed: _loading ? null : _saveChanges,
+                    height: 55,
                     child: _loading
                         ? const CustomLoader(size: 24)
                         : Text(

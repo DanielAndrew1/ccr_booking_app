@@ -151,7 +151,7 @@ class CalendarPageState extends State<CalendarPage>
             _buildCompactDaySelector(isDark),
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const Center(child: CustomLoader())
                   : PageView.builder(
                       controller: _pageController,
                       onPageChanged: (index) {

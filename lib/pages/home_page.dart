@@ -645,23 +645,23 @@ class _HomePageState extends State<HomePage>
         ],
         if (role == 'Admin' || role == 'Owner') ...[
           _buildActionButton(
-            title: "Create New Booking",
-            subtitle: "Start a fresh equipment rental",
-            icon: Icons.add_circle_outline,
-            color: AppColors.primary,
+            title: "Add New Client",
+            subtitle: "Add a new client to your database",
+            imagePath: "assets/user-add.svg",
+            color: isDark ? AppColors.primary : AppColors.secondary,
             isDark: isDark,
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const AddBooking()),
+              MaterialPageRoute(builder: (context) => const AddClient()),
             ),
           ),
           const SizedBox(height: 20),
         ],
         _buildActionButton(
           title: "Recieve a notification",
-          subtitle: "Test the notifications",
-          icon: Icons.notifications_on_rounded,
-          color: AppColors.secondary,
+          subtitle: "Test the notification system",
+          imagePath: "assets/notification-bing.svg",
+          color: isDark ? AppColors.primary : AppColors.secondary,
           isDark: isDark,
           onTap: () => _notificationService.showNotification(
             id: 1,
@@ -945,7 +945,8 @@ class _HomePageState extends State<HomePage>
   Widget _buildActionButton({
     required String title,
     required String subtitle,
-    required IconData icon,
+    IconData? icon, // Made optional
+    String? imagePath, // Added for SVG/Image support
     required Color color,
     required bool isDark,
     required VoidCallback onTap,
@@ -958,12 +959,37 @@ class _HomePageState extends State<HomePage>
           color: isDark ? const Color(0xFF2C2C2C) : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: color.withOpacity(0.5)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Row(
           children: [
-            CircleAvatar(
-              backgroundColor: color.withOpacity(0.1),
-              child: Icon(icon, color: color),
+            // Container for the leading icon or image
+            Container(
+              width: 45,
+              height: 45,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: imagePath != null
+                    ? IconHandler.buildIcon(
+                        imagePath: imagePath,
+                        color: color,
+                        size: 24,
+                      )
+                    : Icon(
+                        icon ?? Icons.help_outline, // Fallback icon
+                        color: color,
+                        size: 24,
+                      ),
+              ),
             ),
             const SizedBox(width: 15),
             Expanded(
@@ -978,17 +1004,22 @@ class _HomePageState extends State<HomePage>
                       color: isDark ? Colors.white : Colors.black,
                     ),
                   ),
+                  const SizedBox(height: 2), // Slight spacing improvement
                   Text(
                     subtitle,
                     style: TextStyle(
-                      color: isDark ? Colors.white : Colors.black,
+                      color: isDark ? Colors.white70 : Colors.black54,
                       fontSize: 12,
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 14,
+              color: isDark ? Colors.white38 : Colors.grey,
+            ),
           ],
         ),
       ),

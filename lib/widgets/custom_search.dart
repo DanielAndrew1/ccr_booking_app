@@ -260,7 +260,7 @@ class _CustomSearchState extends State<CustomSearch> {
                         : selectedClientName,
                     style: TextStyle(
                       color: selectedClientName.isEmpty
-                          ? Colors.white70
+                          ? Color(0xFF6A6A6A)
                           : (isDark ? Colors.white : Colors.black),
                       fontSize: 16,
                     ),

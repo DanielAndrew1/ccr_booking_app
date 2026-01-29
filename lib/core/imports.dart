@@ -62,3 +62,4 @@ export 'package:ccr_booking/widgets/custom_internet_notification.dart';
 export '../widgets/custom_pfp.dart';
 export '../widgets/custom_tile.dart';
 export 'package:ccr_booking/widgets/custom_product_tile.dart';
+export 'package:ccr_booking/widgets/custom_search.dart';

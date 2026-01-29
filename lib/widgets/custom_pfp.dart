@@ -1,59 +1,57 @@
-// ignore_for_file: unnecessary_underscores
-
+// lib/widgets/custom_pfp.dart
 import '../core/imports.dart';
 
 class CustomPfp extends StatelessWidget {
-  final Color? color; // Removed the assignment here
   final double dimentions;
   final double fontSize;
+  final String? nameOverride; // Allows real-time updates from TextField
 
   const CustomPfp({
     super.key,
     required this.dimentions,
     required this.fontSize,
-    this.color, // Added to constructor
+    this.nameOverride,
   });
-
-  String _getInitials(String name) {
-    final parts = name.trim().split(' ');
-    if (parts.length == 1) return parts.first[0].toUpperCase();
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-  }
 
   @override
   Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context);
-    final currentUser = userProvider.currentUser;
 
-    if (currentUser == null) return const SizedBox.shrink();
+    // Logic: Use the override if the user is typing, otherwise use the saved name
+    final String displayName =
+        nameOverride ?? userProvider.currentUser?.name ?? "?";
 
-    final initials = _getInitials(currentUser.name);
+    // Extract initials safely
+    String initials = "";
+    if (displayName.trim().isNotEmpty) {
+      List<String> parts = displayName.trim().split(" ");
+      if (parts.length > 1) {
+        initials = (parts[0][0] + parts[1][0]).toUpperCase();
+      } else if (parts[0].isNotEmpty) {
+        initials = parts[0][0].toUpperCase();
+      }
+    }
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () {
-        Navigator.of(context).pushReplacement(
-          PageRouteBuilder(
-            transitionDuration: Duration.zero,
-            reverseTransitionDuration: Duration.zero,
-            pageBuilder: (_, __, ___) => const CustomNavbar(initialIndex: 3),
+    return Container(
+      width: dimentions,
+      height: dimentions,
+      decoration: BoxDecoration(
+        color: AppColors.primary,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            spreadRadius: 2,
           ),
-        );
-      },
-      child: Container(
-        width: dimentions,
-        height: dimentions,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          // Logic: Use provided color, otherwise default to AppColors.primary
-          color: AppColors.primary,
-        ),
+        ],
+      ),
+      child: Center(
         child: Text(
           initials,
           style: TextStyle(
             fontSize: fontSize,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.bold,
             color: Colors.white,
           ),
         ),

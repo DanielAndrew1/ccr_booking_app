@@ -1,6 +1,8 @@
 PODS:
   - app_links (6.4.1):
     - Flutter
+  - apple_passkit (0.0.1):
+    - Flutter
   - connectivity_plus (0.0.1):
     - Flutter
   - Firebase/CoreOnly (12.6.0):
@@ -137,6 +139,7 @@ PODS:
 
 DEPENDENCIES:
   - app_links (from `.symlinks/plugins/app_links/ios`)
+  - apple_passkit (from `.symlinks/plugins/apple_passkit/ios`)
   - connectivity_plus (from `.symlinks/plugins/connectivity_plus/ios`)
   - firebase_core (from `.symlinks/plugins/firebase_core/ios`)
   - firebase_messaging (from `.symlinks/plugins/firebase_messaging/ios`)
@@ -167,6 +170,8 @@ SPEC REPOS:
 EXTERNAL SOURCES:
   app_links:
     :path: ".symlinks/plugins/app_links/ios"
+  apple_passkit:
+    :path: ".symlinks/plugins/apple_passkit/ios"
   connectivity_plus:
     :path: ".symlinks/plugins/connectivity_plus/ios"
   firebase_core:
@@ -194,6 +199,7 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   app_links: 3dbc685f76b1693c66a6d9dd1e9ab6f73d97dc0a
+  apple_passkit: cfde108b6976f5ac79dddc174a7b806f94f81f83
   connectivity_plus: cb623214f4e1f6ef8fe7403d580fdad517d2f7dd
   Firebase: a451a7b61536298fd5cbfe3a746fd40443a50679
   firebase_core: ba00a168e719694f38960502ceb560285603d073

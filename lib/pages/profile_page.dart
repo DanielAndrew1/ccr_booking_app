@@ -1,9 +1,7 @@
+// lib/pages/profile_page.dart
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously
-
 import 'dart:ui';
-
 import 'package:flutter/cupertino.dart';
-
 import '../core/imports.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -45,9 +43,9 @@ class _ProfilePageState extends State<ProfilePage> {
 
   void _checkStatus(List<ConnectivityResult> result) {
     if (mounted) {
-      setState(() {
-        _hasConnection = !result.contains(ConnectivityResult.none);
-      });
+      setState(
+        () => _hasConnection = !result.contains(ConnectivityResult.none),
+      );
     }
   }
 
@@ -68,7 +66,6 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _confirmDeleteAccount() async {
-    // Using Cupertino styling for a clean confirmation
     final bool? confirm = await showCupertinoDialog<bool>(
       context: context,
       builder: (context) => CupertinoAlertDialog(
@@ -90,50 +87,36 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
 
-    if (confirm == true) {
-      _deleteAccount();
-    }
+    if (confirm == true) _deleteAccount();
   }
 
   Future<void> _deleteAccount() async {
     try {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       final userId = userProvider.currentUser?.id;
-
       if (userId != null) {
         await Supabase.instance.client.from('users').delete().eq('id', userId);
         await _logout(context);
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Error deleting account: $e"),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
       );
     }
   }
 
   Future<void> _editProfile(BuildContext context) async {
-    final updated = await Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) =>
             EditInfoPage(onSaved: () => Navigator.pop(context, true)),
       ),
     );
-
-    if (updated == true && mounted) {
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
-      await userProvider.refreshUser();
-    }
   }
 
   Widget _buildStickyAppBar(dynamic currentUser, bool isDark) {
-    final userProvider = Provider.of<UserProvider>(context);
-    final currentUser = userProvider.currentUser;
     return ClipRRect(
-      borderRadius: const BorderRadius.only(bottomRight: Radius.circular(0)),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: Container(
@@ -143,44 +126,45 @@ class _ProfilePageState extends State<ProfilePage> {
             elevation: 0,
             foregroundColor: AppColors.lightcolor,
             toolbarHeight: 80,
-            surfaceTintColor: Colors.transparent,
             automaticallyImplyLeading: false,
-            centerTitle: false,
-            title: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
+            title: Row(
               children: [
-                Text(
-                  currentUser!.name,
-                  style: AppFontStyle.subTitleMedium().copyWith(
-                    color: AppColors.lightcolor,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                // Role Container matched to normal view style
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    currentUser.role,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
+                const CustomPfp(dimentions: 45, fontSize: 22),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      currentUser.name,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
+                    SizedBox(height: 4,),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        currentUser.role,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
-            ),
-            leading: const Padding(
-              padding: EdgeInsets.only(left: 12.0),
-              child: Center(child: CustomPfp(dimentions: 65, fontSize: 21)),
             ),
           ),
         ),
@@ -201,12 +185,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
-        statusBarIconBrightness: (_showCompactHeader || isDark)
-            ? Brightness.light
-            : Brightness.dark,
-        statusBarBrightness: (_showCompactHeader || isDark)
-            ? Brightness.dark
-            : Brightness.light,
+        statusBarIconBrightness: Brightness.dark,
         statusBarColor: Colors.transparent,
       ),
       child: Scaffold(
@@ -216,11 +195,7 @@ class _ProfilePageState extends State<ProfilePage> {
             const CustomBgSvg(),
             Column(
               children: [
-                if (!_hasConnection)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 100.0),
-                    child: NoInternetWidget(),
-                  ),
+                if (!_hasConnection) const NoInternetWidget(),
                 Expanded(
                   child: SingleChildScrollView(
                     controller: _scrollController,
@@ -228,11 +203,17 @@ class _ProfilePageState extends State<ProfilePage> {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20.0),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           const SizedBox(height: 100),
-                          const Center(
-                            child: CustomPfp(dimentions: 140, fontSize: 65),
+                          Center(
+                            child: Hero(
+                              tag: 'profile_image',
+                              // Material wrapper removes the yellow underline during transition
+                              child: Material(
+                                type: MaterialType.transparency,
+                                child: CustomPfp(dimentions: 140, fontSize: 60),
+                              ),
+                            ),
                           ),
                           const SizedBox(height: 20),
                           Text(
@@ -268,10 +249,9 @@ class _ProfilePageState extends State<ProfilePage> {
                           ),
                           const SizedBox(height: 30),
                           const Divider(thickness: 0.5),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 10),
                           CustomTile(
                             title: "Dark Mode",
-                            overlayColor: false,
                             icon: Icons.dark_mode_outlined,
                             trailing: CupertinoSwitch(
                               value: isDark,
@@ -280,32 +260,28 @@ class _ProfilePageState extends State<ProfilePage> {
                                   themeProvider.toggleTheme(value),
                             ),
                           ),
-                          const SizedBox(height: 6),
                           CustomTile(
                             imagePath: "assets/user.svg",
                             title: 'Edit Info',
                             onTap: () => _editProfile(context),
                           ),
-                          const SizedBox(height: 6),
                           if (currentUser.role == 'Owner') ...[
                             CustomTile(
                               imagePath: "assets/user-search.svg",
                               title: 'Employee Management',
                               route: const UsersPage(),
                             ),
-                            const SizedBox(height: 6),
                             CustomTile(
                               imagePath: "assets/profile-2user.svg",
                               title: 'Client Management',
                               route: const ClientsPage(),
                             ),
                           ],
-                          const SizedBox(height: 6),
-                          // Red Logout Tile
+                          const SizedBox(height: 12),
                           CustomTile(
                             icon: Icons.logout_rounded,
                             title: 'Logout',
-                            textColor: Color(0xFFFF1100),
+                            textColor: const Color(0xFFFF1100),
                             onTap: () => _logout(context),
                           ),
                           const SizedBox(height: 20),
@@ -323,7 +299,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             "App Version ${AppVersion.version}",
                             style: TextStyle(
                               fontSize: 14,
-                              color: isDark ? Colors.white : Colors.black,
+                              color: isDark ? Colors.white54 : Colors.black54,
                             ),
                           ),
                           const SizedBox(height: 120),

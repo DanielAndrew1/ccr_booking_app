@@ -1,4 +1,5 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously
+
 import 'core/imports.dart';
 import 'firebase_options.dart';
 
@@ -325,16 +326,14 @@ class _SplashOverlayState extends State<SplashOverlay>
     // 1. Wait for critical data to load while logo is static
     await Future.wait([
       userProvider.loadUser(),
-      // Adding a slight delay so it doesn't flicker on fast connections
       Future.delayed(const Duration(seconds: 1)),
     ]);
 
     if (mounted) {
       setState(() {
-        _isDataReady = true; // Data is now loaded
+        _isDataReady = true;
       });
 
-      // 2. Start the animation only after data is ready
       await _controller.forward();
       widget.onAnimationComplete();
     }
@@ -355,25 +354,17 @@ class _SplashOverlayState extends State<SplashOverlay>
       animation: _controller,
       builder: (context, child) {
         return Opacity(
-          // Ensure opacity is 1.0 while data is loading
           opacity: _isDataReady ? _opacityAnimation.value : 1.0,
           child: Container(
             color: isDark ? AppColors.darkbg : AppColors.lightcolor,
             child: Center(
               child: Transform.scale(
-                // Ensure scale is 1.0 while data is loading
                 scale: _isDataReady ? _scaleAnimation.value : 1.0,
                 child: ClipRect(
                   child: Align(
                     alignment: Alignment.centerLeft,
-                    // Ensure widthFactor is 1.0 while data is loading
                     widthFactor: _isDataReady ? _cropAnimation.value : 1.0,
-                    child: Image.asset(
-                      "assets/logo.png",
-                      width: 400,
-                      // Note: No more 'transparent' color during loading
-                      // so the logo stays visible from the start
-                    ),
+                    child: Image.asset("assets/logo.png", width: 400),
                   ),
                 ),
               ),

@@ -3,7 +3,7 @@ import '../core/imports.dart';
 class CustomTextfield extends StatelessWidget {
   final TextEditingController textEditingController;
   final TextInputType keyboardType;
-  final bool isObsecure;
+  final bool? isObsecure;
   final String? labelText;
   final String? hintText;
   final TextCapitalization textCapitalization;
@@ -12,7 +12,7 @@ class CustomTextfield extends StatelessWidget {
     super.key,
     required this.textEditingController,
     required this.keyboardType,
-    required this.isObsecure,
+    this.isObsecure = false,
     this.labelText,
     this.hintText,
     required this.textCapitalization,
@@ -31,7 +31,7 @@ class CustomTextfield extends StatelessWidget {
     return TextField(
       controller: textEditingController,
       keyboardType: keyboardType,
-      obscureText: isObsecure,
+      obscureText: isObsecure!,
       textCapitalization: textCapitalization,
       cursorColor: AppColors.primary,
 

@@ -1,7 +1,8 @@
 import '../../core/imports.dart';
 
 class AddClient extends StatefulWidget {
-  const AddClient({super.key});
+  final bool isRoot; // Logic to determine if this is a main tab in Navbar
+  const AddClient({super.key, this.isRoot = false});
 
   @override
   State<AddClient> createState() => _AddClientState();
@@ -11,7 +12,6 @@ class _AddClientState extends State<AddClient> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
-
   bool _loading = false;
 
   Future<void> _saveClient() async {
@@ -29,20 +29,17 @@ class _AddClientState extends State<AddClient> {
     }
 
     setState(() => _loading = true);
-
     try {
       await Supabase.instance.client.from('clients').insert({
         'name': name,
         'email': email,
         'phone': phone,
       });
-
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Client saved successfully')),
         );
       }
-
       _nameController.clear();
       _emailController.clear();
       _phoneController.clear();
@@ -65,13 +62,17 @@ class _AddClientState extends State<AddClient> {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
-        statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
       ),
       child: Scaffold(
         backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
         extendBodyBehindAppBar: true,
-        appBar: const CustomAppBar(text: "Add a Client", showPfp: false),
+        appBar: CustomAppBar(
+          text: "Add a Client",
+          // Show PFP/Initials ONLY if this page is a root tab in Navbar
+          showPfp: widget.isRoot,
+        ),
         body: Stack(
           children: [
             const CustomBgSvg(),
@@ -82,25 +83,22 @@ class _AddClientState extends State<AddClient> {
                 children: [
                   CustomTextfield(
                     textEditingController: _nameController,
-                    keyboardType: TextInputType.name,
-                    isObsecure: false,
                     textCapitalization: TextCapitalization.words,
+                    keyboardType: TextInputType.name,
                     labelText: 'Name',
                   ),
                   const SizedBox(height: 16),
                   CustomTextfield(
                     textEditingController: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    isObsecure: false,
                     textCapitalization: TextCapitalization.none,
+                    keyboardType: TextInputType.emailAddress,
                     labelText: 'Email',
                   ),
                   const SizedBox(height: 16),
                   CustomTextfield(
                     textEditingController: _phoneController,
-                    keyboardType: TextInputType.phone,
-                    isObsecure: false,
                     textCapitalization: TextCapitalization.none,
+                    keyboardType: TextInputType.phone,
                     labelText: 'Phone Number',
                   ),
                   const SizedBox(height: 32),
@@ -108,6 +106,7 @@ class _AddClientState extends State<AddClient> {
                     onPressed: _loading ? null : _saveClient,
                     text: _loading ? "Saving..." : "Save",
                     color: WidgetStateProperty.all(AppColors.primary),
+                    height: 50,
                   ),
                 ],
               ),

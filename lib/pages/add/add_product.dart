@@ -1,11 +1,10 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously
-
 import 'package:path/path.dart' as p;
-
 import '../../core/imports.dart';
 
 class AddProduct extends StatefulWidget {
-  const AddProduct({super.key});
+  final bool isRoot; // Logic to determine if this is a main tab in Navbar
+  const AddProduct({super.key, this.isRoot = false});
 
   @override
   State<AddProduct> createState() => _AddProductState();
@@ -24,7 +23,7 @@ class _AddProductState extends State<AddProduct> {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(
       source: ImageSource.gallery,
-      imageQuality: 80,
+      imageQuality: 120,
     );
 
     if (image != null) {
@@ -53,44 +52,33 @@ class _AddProductState extends State<AddProduct> {
       return;
     }
 
-    final price = double.tryParse(priceText);
-    final quantity = int.tryParse(quantityText);
-
-    if (price == null || quantity == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a valid price and quantity'),
-        ),
-      );
-      return;
-    }
-
     setState(() => _isLoading = true);
 
     try {
       final supabase = Supabase.instance.client;
 
-      final fileExtension = p.extension(_imageFile!.path);
-      final fileName = "${DateTime.now().millisecondsSinceEpoch}$fileExtension";
-      final imagePath = fileName;
-
+      // 1. Upload Image
+      final fileName =
+          "${DateTime.now().millisecondsSinceEpoch}${p.extension(_imageFile!.path)}";
       await supabase.storage
           .from('product-images')
           .upload(
-            imagePath,
+            fileName,
             _imageFile!,
             fileOptions: const FileOptions(cacheControl: '3600', upsert: false),
           );
 
+      // 2. Get Public URL
       final String imageUrl = supabase.storage
           .from('product-images')
-          .getPublicUrl(imagePath);
+          .getPublicUrl(fileName);
 
+      // 3. Save to Database
       await supabase.from('products').insert({
         'name': name,
-        'price': price,
+        'price': double.parse(priceText),
         'description': description,
-        'quantity': quantity,
+        'quantity': int.parse(quantityText),
         'image_url': imageUrl,
       });
 
@@ -98,20 +86,18 @@ class _AddProductState extends State<AddProduct> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Product saved successfully!')),
         );
+        // Clear fields
+        _nameController.clear();
+        _priceController.clear();
+        _descriptionController.clear();
+        _quantityController.clear();
+        setState(() => _imageFile = null);
       }
-
-      _nameController.clear();
-      _priceController.clear();
-      _descriptionController.clear();
-      _quantityController.clear();
-      setState(() {
-        _imageFile = null;
-      });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error saving product: $e')));
+        ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -126,17 +112,20 @@ class _AddProductState extends State<AddProduct> {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
-        statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
       ),
       child: Scaffold(
         backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
         extendBodyBehindAppBar: true,
-        appBar: const CustomAppBar(text: "Add a Product", showPfp: false),
+        appBar: CustomAppBar(
+          text: "Add a Product",
+          // Show PFP/Initials ONLY if this page is a root tab in Navbar
+          showPfp: widget.isRoot,
+        ),
         body: Stack(
           children: [
             const CustomBgSvg(),
-
             _isLoading
                 ? const Center(child: CustomLoader())
                 : Padding(
@@ -144,22 +133,17 @@ class _AddProductState extends State<AddProduct> {
                     child: ListView(
                       physics: const BouncingScrollPhysics(),
                       children: [
-                        const SizedBox(height: 20), // Space for CustomAppBar
-                        // Image Picker UI
+                        const SizedBox(height: 20), // Space for AppBar height
                         GestureDetector(
                           onTap: _pickImage,
                           child: Container(
                             height: 200,
+                            width: double.infinity,
                             decoration: BoxDecoration(
                               color: isDark
                                   ? Colors.white.withOpacity(0.05)
                                   : Colors.grey.shade200,
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: isDark
-                                    ? Colors.white24
-                                    : Colors.grey.shade400,
-                              ),
                               image: _imageFile != null
                                   ? DecorationImage(
                                       image: FileImage(_imageFile!),
@@ -176,14 +160,15 @@ class _AddProductState extends State<AddProduct> {
                                         size: 40,
                                         color: isDark
                                             ? Colors.white54
-                                            : Colors.grey,
+                                            : Colors.black38,
                                       ),
+                                      const SizedBox(height: 8),
                                       Text(
-                                        "Add Product Image",
+                                        "Tap to select product image",
                                         style: TextStyle(
                                           color: isDark
                                               ? Colors.white54
-                                              : Colors.grey,
+                                              : Colors.black38,
                                         ),
                                       ),
                                     ],
@@ -196,36 +181,35 @@ class _AddProductState extends State<AddProduct> {
                           controller: _nameController,
                           label: 'Product Name',
                           isDark: isDark,
-                          keyboardType: TextInputType.text,
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
                         _buildThemedTextField(
                           controller: _priceController,
                           label: 'Price',
-                          suffix: 'EGP / Day',
                           isDark: isDark,
+                          suffix: 'EGP/Day',
                           keyboardType: TextInputType.number,
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
                         _buildThemedTextField(
                           controller: _quantityController,
                           label: 'Quantity',
                           isDark: isDark,
                           keyboardType: TextInputType.number,
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
                         _buildThemedTextField(
                           controller: _descriptionController,
                           label: 'Description',
                           isDark: isDark,
-                          maxLines: 5,
-                          keyboardType: TextInputType.multiline,
+                          maxLines: 4,
                         ),
                         const SizedBox(height: 32),
                         CustomButton(
                           text: "Save Product",
                           color: WidgetStateProperty.all(AppColors.primary),
                           onPressed: _saveProduct,
+                          height: 50,
                         ),
                         const SizedBox(height: 40),
                       ],
@@ -254,7 +238,11 @@ class _AddProductState extends State<AddProduct> {
       decoration: InputDecoration(
         labelText: label,
         suffixText: suffix,
-        suffixStyle: const TextStyle(color: AppColors.primary, fontSize: 16, fontWeight: FontWeight.w600),
+        suffixStyle: const TextStyle(
+          color: AppColors.primary,
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+        ),
         labelStyle: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
         enabledBorder: UnderlineInputBorder(
           borderSide: BorderSide(

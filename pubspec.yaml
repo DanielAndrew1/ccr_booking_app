@@ -28,6 +28,7 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  apple_passkit: ^1.3.1
   connectivity_plus: ^7.0.0
   cupertino_icons: ^1.0.8
   firebase_core: ^4.3.0
@@ -41,6 +42,7 @@ dependencies:
   home_widget: ^0.8.1
   image_picker: ^1.2.1
   intl: ^0.20.2
+  passkit_ui: ^1.0.0
   path: ^1.9.1
   permission_handler: ^12.0.1
   provider: ^6.1.5+1

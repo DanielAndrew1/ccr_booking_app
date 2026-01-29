@@ -1,3 +1,4 @@
+// lib/widgets/custom_app_bar.dart
 import '../core/imports.dart';
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -18,26 +19,22 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Detect the app theme
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
 
     return ClipRRect(
       borderRadius: const BorderRadius.only(bottomRight: Radius.circular(60)),
       child: AppBar(
-        // --- THE FIX ---
-        // We set the status bar style here dynamically based on the app's theme
         systemOverlayStyle: SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
-          // If App is Dark -> Use Light Icons. If App is Light -> Use Dark Icons.
           statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
-          // Required for iOS to flip text color
           statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
         ),
         backgroundColor: AppColors.secondary,
         foregroundColor: AppColors.lightcolor,
         surfaceTintColor: Colors.transparent,
         toolbarHeight: 80,
+        elevation: 10,
         automaticallyImplyLeading: false,
         shadowColor: AppColors.primary,
         leading: hideLeading
@@ -45,11 +42,16 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
             : (showPfp
                   ? Padding(
                       padding: const EdgeInsets.only(left: 12),
-                      child: CustomPfp(dimentions: 45, fontSize: 21),
+                      child: Center(
+                        child: CustomPfp(dimentions: 45, fontSize: 21),
+                      ),
                     )
                   : IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: Icon(Icons.adaptive.arrow_back_rounded),
+                      onPressed: () => Navigator.maybePop(context),
+                      icon: Icon(
+                        Icons.adaptive.arrow_back_rounded,
+                        color: Colors.white,
+                      ),
                     )),
         centerTitle: true,
         title: Column(
@@ -76,7 +78,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                           child: Center(
                             child: Text(
                               "Today",
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
                                 color: AppColors.primary,
