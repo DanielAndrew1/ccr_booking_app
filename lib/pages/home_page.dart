@@ -647,8 +647,8 @@ class _HomePageState extends State<HomePage>
           _buildActionButton(
             title: "Create New Booking",
             subtitle: "Start a fresh equipment rental",
-            imagePath: "assets/add-square.svg",
-            color: isDark ? AppColors.primary : AppColors.secondary,
+            icon: Icons.add_circle_outline,
+            color: AppColors.primary,
             isDark: isDark,
             onTap: () => Navigator.push(
               context,
@@ -660,13 +660,13 @@ class _HomePageState extends State<HomePage>
         _buildActionButton(
           title: "Recieve a notification",
           subtitle: "Test the notifications",
-          imagePath: "assets/notification-bing.svg",
-          color: isDark ? AppColors.primary : AppColors.secondary,
+          icon: Icons.notifications_on_rounded,
+          color: AppColors.secondary,
           isDark: isDark,
           onTap: () => _notificationService.showNotification(
             id: 1,
             title: "CCR Booking",
-            body: "Eshta8al el notification",
+            body: "Notification triggered successfully",
           ),
         ),
         const SizedBox(height: 20),
@@ -710,7 +710,7 @@ class _HomePageState extends State<HomePage>
                   "Employees",
                   "${stats['employees']}",
                   null,
-                  "assets/user-search.svg", // Using SVG for employees
+                  "assets/user-search.svg",
                   accent,
                   isDark,
                   onTap: () => _showDetailsDialog(
@@ -892,23 +892,13 @@ class _HomePageState extends State<HomePage>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // FIXED: Using CustomNavbar._buildIcon correctly
+            // UPDATED: Directly using SvgPicture for SVGs to avoid Image.asset crashes
             mirrorIcon
                 ? Transform.flip(
                     flipX: true,
-                    child: CustomNavbar.buildIcon(
-                      imagePath: imagePath,
-                      icon: icon,
-                      color: color,
-                      size: 32,
-                    ),
+                    child: _buildIconHelper(imagePath, icon, color),
                   )
-                : CustomNavbar.buildIcon(
-                    imagePath: imagePath,
-                    icon: icon,
-                    color: color,
-                    size: 32,
-                  ),
+                : _buildIconHelper(imagePath, icon, color),
             const SizedBox(height: 8),
             SlidingNumber(
               value: value,
@@ -937,50 +927,45 @@ class _HomePageState extends State<HomePage>
         : Expanded(child: card);
   }
 
+  // New helper to handle SVG vs IconData properly
+  Widget _buildIconHelper(String? imagePath, IconData? icon, Color color) {
+    if (imagePath != null && imagePath.endsWith('.svg')) {
+      return SvgPicture.asset(
+        imagePath,
+        colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+        height: 32,
+        width: 32,
+      );
+    } else if (icon != null) {
+      return Icon(icon, color: color, size: 32);
+    }
+    return const SizedBox(height: 32, width: 32);
+  }
+
   Widget _buildActionButton({
     required String title,
     required String subtitle,
-    IconData? icon, // Made optional
-    String? imagePath, // Added imagePath support
+    required IconData icon,
     required Color color,
     required bool isDark,
     required VoidCallback onTap,
   }) {
     return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        onTap();
-      },
+      onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF2C2C2C) : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: color.withOpacity(0.5)),
-          boxShadow: isDark
-              ? []
-              : [
-                  BoxShadow(
-                    color: color.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
         ),
         child: Row(
           children: [
-            // Container for the Icon/Image
             CircleAvatar(
               backgroundColor: color.withOpacity(0.1),
-              child: CustomNavbar.buildIcon(
-                imagePath: imagePath,
-                icon: icon,
-                color: color,
-                size: 20,
-              ),
+              child: Icon(icon, color: color),
             ),
             const SizedBox(width: 15),
-            // Text Content
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -996,19 +981,14 @@ class _HomePageState extends State<HomePage>
                   Text(
                     subtitle,
                     style: TextStyle(
-                      color: isDark ? Colors.white70 : Colors.black54,
+                      color: isDark ? Colors.white : Colors.black,
                       fontSize: 12,
                     ),
                   ),
                 ],
               ),
             ),
-            // Trailing Arrow
-            Icon(
-              Icons.arrow_forward_ios,
-              size: 16,
-              color: isDark ? Colors.white24 : Colors.grey.shade400,
-            ),
+            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
           ],
         ),
       ),
