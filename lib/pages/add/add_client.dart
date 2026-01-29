@@ -1,13 +1,4 @@
-import 'package:ccr_booking/core/app_theme.dart';
-import 'package:ccr_booking/core/theme.dart';
-import 'package:ccr_booking/widgets/custom_appbar.dart';
-import 'package:ccr_booking/widgets/custom_button.dart';
-import 'package:ccr_booking/widgets/custom_textfield.dart';
-import 'package:ccr_booking/widgets/custom_bg_svg.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../core/imports.dart';
 
 class AddClient extends StatefulWidget {
   const AddClient({super.key});

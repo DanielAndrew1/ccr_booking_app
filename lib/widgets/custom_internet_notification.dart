@@ -1,6 +1,6 @@
 // ignore_for_file: deprecated_member_use
 
-import 'package:flutter/material.dart';
+import '../core/imports.dart';
 
 class NoInternetWidget extends StatelessWidget {
   const NoInternetWidget({super.key});
@@ -10,7 +10,7 @@ class NoInternetWidget extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4,),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: const Color(0xFFFF3B3B),
           borderRadius: BorderRadius.circular(

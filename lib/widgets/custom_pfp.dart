@@ -1,11 +1,6 @@
 // ignore_for_file: unnecessary_underscores
 
-
-import 'package:ccr_booking/core/user_provider.dart';
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../core/app_theme.dart';
-import 'custom_navbar.dart';
+import '../core/imports.dart';
 
 class CustomPfp extends StatelessWidget {
   final Color? color; // Removed the assignment here

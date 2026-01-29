@@ -1,22 +1,22 @@
 // ignore_for_file: deprecated_member_use, dead_code
-import 'package:ccr_booking/core/theme.dart';
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import '../core/imports.dart';
 
 class CustomTile extends StatelessWidget {
   final String title;
   final Widget? route;
   final IconData? icon;
+  final String? imagePath;
   final bool overlayColor;
   final Widget? trailing;
   final VoidCallback? onTap;
-  final Color? color; // Added color parameter
-  final Color? textColor; // Added text/icon color parameter
+  final Color? color;
+  final Color? textColor;
 
   const CustomTile({
     super.key,
     required this.title,
     this.icon,
+    this.imagePath,
     this.route,
     this.trailing,
     this.onTap,
@@ -29,27 +29,16 @@ class CustomTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
-
-    // Default background: color if provided, else dark color or WHITE
     final bgColor = color ?? (isDark ? const Color(0xFF2D2D2D) : Colors.white);
-
-    // Default text/icon color
-    final contentColor =
-        textColor ?? (isDark ? Colors.white : const Color(0xFF2D2D2D));
-
-    // Logic for the icon's background container:
-    // If a custom textColor is provided, we use it with opacity.
-    // Otherwise, we default to a neutral grey.
-    final iconContainerColor = textColor != null
-        ? textColor!.withOpacity(0.3)
-        : Colors.grey.withOpacity(0.2);
+    final contentColor = textColor ?? (isDark ? Colors.white : Colors.black);
+    final iconContainerColor = textColor != null ? textColor!.withOpacity(0.2) : Colors.grey.withOpacity(0.25);
 
     return Column(
       children: [
         const SizedBox(height: 5),
         InkWell(
           overlayColor: overlayColor
-              ? null
+              ? WidgetStateProperty.all(Colors.grey)
               : WidgetStateProperty.all(Colors.transparent),
           borderRadius: BorderRadius.circular(12),
           onTap:
@@ -77,31 +66,34 @@ class CustomTile extends StatelessWidget {
                       ),
                     ],
             ),
-            child: Center(
-              child: ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: iconContainerColor, // Applied the grey logic here
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(icon, color: contentColor),
+            child: ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: iconContainerColor,
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                title: Text(
-                  title,
-                  style: TextStyle(
-                    color: contentColor,
-                    fontWeight: FontWeight.w500,
-                  ),
+                child: IconHandler.buildIcon(
+                  imagePath: imagePath,
+                  icon: icon,
+                  color: contentColor,
+                  size: 20,
                 ),
-                trailing:
-                    trailing ??
-                    Icon(
-                      Icons.adaptive.arrow_forward_rounded,
-                      color: contentColor,
-                      size: 20,
-                    ),
               ),
+              title: Text(
+                title,
+                style: TextStyle(
+                  color: contentColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              trailing:
+                  trailing ??
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    color: contentColor,
+                    size: 20,
+                  ),
             ),
           ),
         ),

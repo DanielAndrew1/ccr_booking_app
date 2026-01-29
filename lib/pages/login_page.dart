@@ -1,15 +1,6 @@
 // ignore_for_file: use_build_context_synchronously
 
-import 'package:ccr_booking/core/theme.dart';
-import 'package:ccr_booking/core/user_provider.dart';
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../services/auth_service.dart';
-import '../pages/register_page.dart';
-import '../widgets/custom_textfield.dart';
-import '../widgets/custom_button.dart';
-import '../widgets/custom_loader.dart';
-import '../core/app_theme.dart';
+import '../core/imports.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});

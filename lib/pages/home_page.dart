@@ -1,21 +1,8 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously
-import 'dart:async';
-import 'package:ccr_booking/core/theme.dart';
-import 'package:ccr_booking/core/user_provider.dart';
-import 'package:ccr_booking/pages/add/add_booking.dart';
-import 'package:ccr_booking/services/notification_service.dart';
-import 'package:ccr_booking/widgets/custom_bg_svg.dart';
-import 'package:ccr_booking/widgets/custom_internet_notification.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:intl/intl.dart';
-import '../core/app_theme.dart';
-import '../widgets/custom_pfp.dart';
-import '../widgets/custom_loader.dart';
+
+import '../core/imports.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -113,7 +100,6 @@ class _HomePageState extends State<HomePage>
     return "No data available";
   }
 
-  /// Logic for initials: "First Last" -> "FL", "First" -> "F"
   String _getInitials(String name) {
     if (name.isEmpty) return "?";
     List<String> parts = name.trim().split(RegExp(r'\s+'));
@@ -150,7 +136,6 @@ class _HomePageState extends State<HomePage>
     return DateFormat('MMM dd, yyyy - hh:mm a').format(date);
   }
 
-  // --- NOTIFICATION BROADCAST ---
   Future<void> _notifyAdminsAndOwners(String title, String body) async {
     try {
       final response = await supabase
@@ -416,17 +401,15 @@ class _HomePageState extends State<HomePage>
                       item['client_name'] ??
                       "ID: ${item['id']}";
 
-                  // Determine if this is a product list
                   bool isProduct = title.toLowerCase().contains("product");
                   String? imageUrl = item['image_url'];
 
-                  // Build subtitle: Color it primary if it's a price
                   Widget subtitleWidget;
                   if (isProduct && item['price'] != null) {
                     subtitleWidget = Text(
                       "${item['price']} EGP/Day",
                       style: const TextStyle(
-                        color: AppColors.primary, // Changed to primary color
+                        color: AppColors.primary,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
@@ -664,8 +647,8 @@ class _HomePageState extends State<HomePage>
           _buildActionButton(
             title: "Create New Booking",
             subtitle: "Start a fresh equipment rental",
-            icon: Icons.add_circle_outline,
-            color: AppColors.primary,
+            imagePath: "assets/add-square.svg",
+            color: isDark ? AppColors.primary : AppColors.secondary,
             isDark: isDark,
             onTap: () => Navigator.push(
               context,
@@ -677,8 +660,8 @@ class _HomePageState extends State<HomePage>
         _buildActionButton(
           title: "Recieve a notification",
           subtitle: "Test the notifications",
-          icon: Icons.notifications_on_rounded,
-          color: AppColors.secondary,
+          imagePath: "assets/notification-bing.svg",
+          color: isDark ? AppColors.primary : AppColors.secondary,
           isDark: isDark,
           onTap: () => _notificationService.showNotification(
             id: 1,
@@ -712,7 +695,8 @@ class _HomePageState extends State<HomePage>
                 _buildStatCard(
                   "Clients",
                   "${stats['clients']}",
-                  Icons.people,
+                  null,
+                  "assets/profile-2user.svg",
                   accent,
                   isDark,
                   onTap: () => _showDetailsDialog(
@@ -725,7 +709,8 @@ class _HomePageState extends State<HomePage>
                 _buildStatCard(
                   "Employees",
                   "${stats['employees']}",
-                  Icons.badge,
+                  null,
+                  "assets/user-search.svg", // Using SVG for employees
                   accent,
                   isDark,
                   onTap: () => _showDetailsDialog(
@@ -740,7 +725,8 @@ class _HomePageState extends State<HomePage>
             _buildStatCard(
               "Products",
               "${stats['products']}",
-              Icons.inventory_2,
+              null,
+              "assets/box.svg",
               accent,
               isDark,
               isFullWidth: true,
@@ -756,7 +742,8 @@ class _HomePageState extends State<HomePage>
                 _buildStatCard(
                   "Today's Pickups",
                   "${stats['pickups']}",
-                  Icons.assignment_return,
+                  null,
+                  "assets/calendar.svg",
                   accent,
                   isDark,
                   mirrorIcon: true,
@@ -777,7 +764,8 @@ class _HomePageState extends State<HomePage>
                 _buildStatCard(
                   "Today's Returns",
                   "${stats['returns']}",
-                  Icons.assignment_return,
+                  null,
+                  "assets/calendar.svg",
                   accent,
                   isDark,
                   onTap: () {
@@ -885,7 +873,8 @@ class _HomePageState extends State<HomePage>
   Widget _buildStatCard(
     String label,
     String value,
-    IconData icon,
+    IconData? icon,
+    String? imagePath,
     Color color,
     bool isDark, {
     bool isFullWidth = false,
@@ -903,12 +892,23 @@ class _HomePageState extends State<HomePage>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // FIXED: Using CustomNavbar._buildIcon correctly
             mirrorIcon
                 ? Transform.flip(
                     flipX: true,
-                    child: Icon(icon, color: color, size: 32),
+                    child: CustomNavbar.buildIcon(
+                      imagePath: imagePath,
+                      icon: icon,
+                      color: color,
+                      size: 32,
+                    ),
                   )
-                : Icon(icon, color: color, size: 32),
+                : CustomNavbar.buildIcon(
+                    imagePath: imagePath,
+                    icon: icon,
+                    color: color,
+                    size: 32,
+                  ),
             const SizedBox(height: 8),
             SlidingNumber(
               value: value,
@@ -931,6 +931,7 @@ class _HomePageState extends State<HomePage>
         ),
       ),
     );
+
     return isFullWidth
         ? SizedBox(width: double.infinity, child: card)
         : Expanded(child: card);
@@ -939,27 +940,47 @@ class _HomePageState extends State<HomePage>
   Widget _buildActionButton({
     required String title,
     required String subtitle,
-    required IconData icon,
+    IconData? icon, // Made optional
+    String? imagePath, // Added imagePath support
     required Color color,
     required bool isDark,
     required VoidCallback onTap,
   }) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF2C2C2C) : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: color.withOpacity(0.5)),
+          boxShadow: isDark
+              ? []
+              : [
+                  BoxShadow(
+                    color: color.withOpacity(0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
         ),
         child: Row(
           children: [
+            // Container for the Icon/Image
             CircleAvatar(
               backgroundColor: color.withOpacity(0.1),
-              child: Icon(icon, color: color),
+              child: CustomNavbar.buildIcon(
+                imagePath: imagePath,
+                icon: icon,
+                color: color,
+                size: 20,
+              ),
             ),
             const SizedBox(width: 15),
+            // Text Content
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -975,14 +996,19 @@ class _HomePageState extends State<HomePage>
                   Text(
                     subtitle,
                     style: TextStyle(
-                      color: isDark ? Colors.white : Colors.black,
+                      color: isDark ? Colors.white70 : Colors.black54,
                       fontSize: 12,
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+            // Trailing Arrow
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 16,
+              color: isDark ? Colors.white24 : Colors.grey.shade400,
+            ),
           ],
         ),
       ),

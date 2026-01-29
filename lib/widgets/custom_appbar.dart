@@ -1,9 +1,4 @@
-import 'package:ccr_booking/core/app_theme.dart';
-import 'package:ccr_booking/core/theme.dart'; // Import for ThemeProvider
-import 'package:ccr_booking/widgets/custom_pfp.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
+import '../core/imports.dart';
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String text;

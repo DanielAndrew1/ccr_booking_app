@@ -1,11 +1,6 @@
 // ignore_for_file: deprecated_member_use, unnecessary_underscores
 
-import 'package:ccr_booking/core/app_theme.dart';
-import 'package:ccr_booking/core/theme.dart';
-import 'package:ccr_booking/widgets/custom_loader.dart';
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../core/imports.dart';
 
 class CustomSearch extends StatefulWidget {
   final Function(Map<String, dynamic>) onClientSelected;
@@ -106,9 +101,18 @@ class _CustomSearchState extends State<CustomSearch> {
                     hintStyle: TextStyle(
                       color: isDark ? Colors.white38 : Colors.grey,
                     ),
-                    prefixIcon: const Icon(
-                      Icons.search,
-                      color: AppColors.primary,
+                    // FIXED: Changed Image.asset to SvgPicture.asset
+                    prefixIcon: Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: SvgPicture.asset(
+                        "assets/search-normal.svg",
+                        width: 20,
+                        height: 20,
+                        colorFilter: ColorFilter.mode(
+                          isDark ? Colors.white38 : Colors.grey,
+                          BlendMode.srcIn,
+                        ),
+                      ),
                     ),
                     filled: true,
                     fillColor: isDark
@@ -154,10 +158,12 @@ class _CustomSearchState extends State<CustomSearch> {
                               final names = client['name'].toString().split(
                                 ' ',
                               );
-                              if (names.isNotEmpty)
+                              if (names.isNotEmpty) {
                                 initials += names[0][0].toUpperCase();
-                              if (names.length > 1)
+                              }
+                              if (names.length > 1) {
                                 initials += names[1][0].toUpperCase();
+                              }
                             }
 
                             return ListTile(
@@ -240,8 +246,8 @@ class _CustomSearchState extends State<CustomSearch> {
             ),
             child: Row(
               children: [
-                Icon(
-                  Icons.person_search_rounded,
+                SvgPicture.asset(
+                  "assets/user-search.svg",
                   color: selectedClientName.isEmpty
                       ? Colors.grey
                       : AppColors.primary,

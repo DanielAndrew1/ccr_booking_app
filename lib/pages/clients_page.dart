@@ -1,16 +1,8 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously
 
-import 'dart:async';
-import 'package:ccr_booking/core/app_theme.dart';
-import 'package:ccr_booking/core/theme.dart';
-import 'package:ccr_booking/core/user_provider.dart';
-import 'package:ccr_booking/widgets/custom_appbar.dart';
-import 'package:ccr_booking/widgets/custom_loader.dart';
-import 'package:ccr_booking/widgets/custom_bg_svg.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
+
+import '../core/imports.dart';
 
 class ClientsPage extends StatefulWidget {
   const ClientsPage({super.key});
@@ -233,52 +225,55 @@ class _ClientsPageState extends State<ClientsPage> {
                 text: 'Manage Clients',
                 showPfp: false,
               ),
-              body: CustomScrollView(
-                key: _refreshKey,
-                physics: const BouncingScrollPhysics(
-                  parent: AlwaysScrollableScrollPhysics(),
-                ),
-                slivers: [
-                  CupertinoSliverRefreshControl(
-                    onRefresh: () async {
-                      _fetchClients();
-                      await Future.delayed(const Duration(seconds: 2));
-                      if (mounted) setState(() => _refreshKey = UniqueKey());
-                    },
+              body: Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: CustomScrollView(
+                  key: _refreshKey,
+                  physics: const BouncingScrollPhysics(
+                    parent: AlwaysScrollableScrollPhysics(),
                   ),
-                  userProvider.isLoading
-                      ? const SliverFillRemaining(
-                          child: Center(child: CustomLoader()),
-                        )
-                      : clients.isEmpty
-                      ? SliverFillRemaining(
-                          child: Center(
-                            child: Text(
-                              "No clients found",
-                              style: TextStyle(
-                                color: isDark ? Colors.white70 : Colors.black54,
+                  slivers: [
+                    CupertinoSliverRefreshControl(
+                      onRefresh: () async {
+                        _fetchClients();
+                        await Future.delayed(const Duration(seconds: 2));
+                        if (mounted) setState(() => _refreshKey = UniqueKey());
+                      },
+                    ),
+                    userProvider.isLoading
+                        ? const SliverFillRemaining(
+                            child: Center(child: CustomLoader()),
+                          )
+                        : clients.isEmpty
+                        ? SliverFillRemaining(
+                            child: Center(
+                              child: Text(
+                                "No clients found",
+                                style: TextStyle(
+                                  color: isDark ? Colors.white70 : Colors.black54,
+                                ),
                               ),
                             ),
+                          )
+                        : SliverPadding(
+                            padding: const EdgeInsets.only(
+                              left: 16,
+                              right: 16,
+                              top: 10,
+                              bottom: 110,
+                            ),
+                            sliver: SliverList(
+                              delegate: SliverChildBuilderDelegate((
+                                context,
+                                index,
+                              ) {
+                                final client = clients[index];
+                                return _buildClientCard(client, isDark, index);
+                              }, childCount: clients.length),
+                            ),
                           ),
-                        )
-                      : SliverPadding(
-                          padding: const EdgeInsets.only(
-                            left: 16,
-                            right: 16,
-                            top: 10,
-                            bottom: 110,
-                          ),
-                          sliver: SliverList(
-                            delegate: SliverChildBuilderDelegate((
-                              context,
-                              index,
-                            ) {
-                              final client = clients[index];
-                              return _buildClientCard(client, isDark, index);
-                            }, childCount: clients.length),
-                          ),
-                        ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],
@@ -403,14 +398,10 @@ class _ClientsPageState extends State<ClientsPage> {
                       color: const Color(0xFFFF1100),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
-                          Icons.delete_outline,
-                          size: 18,
-                          color: Colors.white,
-                        ),
+                        SvgPicture.asset("assets/trash.svg", color: Colors.white,),
                         SizedBox(width: 8),
                         Text(
                           "Delete",

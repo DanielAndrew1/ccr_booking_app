@@ -1,16 +1,6 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously
-import 'dart:async';
-import 'package:ccr_booking/core/theme.dart';
-import 'package:ccr_booking/core/user_provider.dart';
-import 'package:ccr_booking/widgets/custom_appbar.dart';
-import 'package:ccr_booking/widgets/custom_bg_svg.dart'; // Added SVG import
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../core/app_theme.dart';
-import '../services/auth_service.dart';
-import '../widgets/custom_button.dart';
-import '../widgets/custom_loader.dart';
-import '../widgets/custom_textfield.dart';
+
+import '../core/imports.dart';
 
 class EditInfoPage extends StatefulWidget {
   final VoidCallback? onSaved;

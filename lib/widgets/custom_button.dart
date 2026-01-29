@@ -1,24 +1,23 @@
-import 'package:ccr_booking/core/theme.dart';
-import 'package:flutter/material.dart';
-import 'package:ccr_booking/core/app_theme.dart';
-import 'package:ccr_booking/widgets/custom_loader.dart';
-import 'package:provider/provider.dart';
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously
+import '../core/imports.dart';
 
 class CustomButton extends StatefulWidget {
   final Future<void> Function()? onPressed;
-  final double height; // Changed: Removed fixed value
+  final double height;
   final String? text;
   final Widget? child;
   final IconData? icon;
+  final String? imagePath;
   final WidgetStateProperty<Color>? color;
 
   const CustomButton({
     super.key,
     required this.onPressed,
-    this.height = 45, // Changed: Added to constructor with default
+    this.height = 45,
     this.text,
     this.child,
     this.icon,
+    this.imagePath,
     this.color,
   });
 
@@ -31,24 +30,18 @@ class _CustomButtonState extends State<CustomButton> {
 
   Future<void> _handlePress() async {
     if (widget.onPressed == null || _loading) return;
-
     setState(() => _loading = true);
-
     try {
       await widget.onPressed!();
     } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDark = themeProvider.isDarkMode;
-
-    final WidgetStateProperty<Color> effectiveColor =
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+    final effectiveColor =
         widget.color ??
         WidgetStateProperty.all(
           isDark ? AppColors.primary : AppColors.secondary,
@@ -56,7 +49,7 @@ class _CustomButtonState extends State<CustomButton> {
 
     return SizedBox(
       width: double.infinity,
-      height: widget.height, // Changed: Uses the height from the widget
+      height: widget.height,
       child: ElevatedButton(
         onPressed: _loading ? null : _handlePress,
         style: ButtonStyle(
@@ -65,21 +58,41 @@ class _CustomButtonState extends State<CustomButton> {
           shape: WidgetStateProperty.all(
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
+          elevation: WidgetStateProperty.all(0),
         ),
         child: _loading
-            ? const CustomLoader(size: 22, strokeWidth: 2)
+            ? Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const CustomLoader(size: 22, strokeWidth: 2),
+                  const SizedBox(width: 6),
+                  Text(
+                    widget.text ?? '',
+                    style: AppFontStyle.textMedium().copyWith(
+                      color: AppColors.lightcolor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              )
             : widget.child ??
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      if (widget.icon != null) ...[
-                        Icon(widget.icon, size: 22),
-                        const SizedBox(width: 6),
+                      if (widget.imagePath != null || widget.icon != null) ...[
+                        IconHandler.buildIcon(
+                          imagePath: widget.imagePath,
+                          icon: widget.icon,
+                          color: AppColors.lightcolor,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
                       ],
                       Text(
                         widget.text ?? '',
                         style: AppFontStyle.textMedium().copyWith(
                           color: AppColors.lightcolor,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],

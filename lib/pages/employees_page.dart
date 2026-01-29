@@ -1,15 +1,6 @@
 // ignore_for_file: deprecated_member_use
 
-import 'package:ccr_booking/core/app_theme.dart';
-import 'package:ccr_booking/core/theme.dart';
-import 'package:ccr_booking/core/user_provider.dart';
-import 'package:ccr_booking/widgets/custom_appbar.dart';
-import 'package:ccr_booking/widgets/custom_loader.dart';
-import 'package:ccr_booking/widgets/custom_bg_svg.dart'; // Import your reusable background
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../core/imports.dart';
 
 class UsersPage extends StatefulWidget {
   const UsersPage({super.key});
@@ -335,7 +326,7 @@ class _UsersPageState extends State<UsersPage> {
                     ),
                   ),
                   onPressed: () => _removeUser(user.id, user.name),
-                  icon: const Icon(Icons.delete_rounded, size: 18),
+                  icon: SvgPicture.asset("assets/trash.svg", color: Colors.white,),
                   label: const Text(
                     "Delete Employee",
                     style: TextStyle(fontWeight: FontWeight.bold),

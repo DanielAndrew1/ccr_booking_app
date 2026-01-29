@@ -1,28 +1,39 @@
-// ignore_for_file: deprecated_member_use
-import 'dart:async';
-import 'dart:io';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously
+import 'core/imports.dart';
 import 'firebase_options.dart';
-import 'package:ccr_booking/core/app_theme.dart';
-import 'package:ccr_booking/core/root.dart';
-import 'package:ccr_booking/core/theme.dart';
-import 'package:ccr_booking/core/user_provider.dart';
-import 'package:ccr_booking/pages/login_page.dart';
-import 'package:ccr_booking/pages/register_page.dart';
-import 'package:ccr_booking/services/notification_service.dart';
-import 'package:ccr_booking/services/supbase_service.dart';
-import 'package:ccr_booking/widgets/custom_internet_notification.dart';
-import 'package:ccr_booking/widgets/custom_navbar.dart';
 
 class AppVersion {
   static const String version = "1.0.0";
+}
+
+class IconHandler {
+  static Widget buildIcon({
+    String? imagePath,
+    IconData? icon,
+    required Color color,
+    double size = 24,
+    bool isAdd = false,
+  }) {
+    final double finalSize = isAdd ? 30 : size;
+    if (imagePath != null) {
+      if (imagePath.toLowerCase().contains('.svg')) {
+        return SvgPicture.asset(
+          imagePath,
+          width: finalSize,
+          height: finalSize,
+          colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+        );
+      } else {
+        return Image.asset(
+          imagePath,
+          width: finalSize,
+          height: finalSize,
+          color: color,
+        );
+      }
+    }
+    return Icon(icon, color: color, size: finalSize);
+  }
 }
 
 @pragma('vm:entry-point')
@@ -50,8 +61,6 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-
-    // 2. REGISTER BACKGROUND HANDLER
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   } catch (e) {
     debugPrint("Firebase init error: $e");
@@ -103,7 +112,6 @@ class _MyAppState extends State<MyApp> {
         if (sessionUser != null) {
           userProvider.refreshUser();
           _setupSupabaseListener();
-          // Force token refresh on login
           NotificationService().getAndSaveToken();
         } else {
           userProvider.clearUser();
@@ -113,8 +121,6 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
-  /// 3. SUPABASE REALTIME LISTENER
-  /// This handles local notifications when data changes in the DB
   void _setupSupabaseListener() {
     final supabase = Supabase.instance.client;
     if (_realtimeChannel != null) return;
@@ -157,7 +163,6 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
-  // Connectivity and Overlay Logic...
   Future<void> _initConnectivity() async {
     final result = await Connectivity().checkConnectivity();
     _checkStatus(result);
@@ -213,15 +218,13 @@ class _MyAppState extends State<MyApp> {
         '/register': (_) => const RegisterPage(),
         '/home': (_) => const CustomNavbar(),
       },
-      themeMode:
-          ThemeMode.system, // Automatically switches based on phone settings
+      themeMode: ThemeMode.system,
       theme: ThemeData(
         brightness: Brightness.light,
         appBarTheme: const AppBarTheme(
           systemOverlayStyle: SystemUiOverlayStyle(
-            statusBarIconBrightness:
-                Brightness.dark, // Dark icons for light theme
-            statusBarBrightness: Brightness.light, // For iOS
+            statusBarIconBrightness: Brightness.dark,
+            statusBarBrightness: Brightness.light,
           ),
         ),
       ),
@@ -229,9 +232,8 @@ class _MyAppState extends State<MyApp> {
         brightness: Brightness.dark,
         appBarTheme: const AppBarTheme(
           systemOverlayStyle: SystemUiOverlayStyle(
-            statusBarIconBrightness:
-                Brightness.light, // White icons for dark theme
-            statusBarBrightness: Brightness.dark, // For iOS
+            statusBarIconBrightness: Brightness.light,
+            statusBarBrightness: Brightness.dark,
           ),
         ),
       ),
@@ -239,7 +241,6 @@ class _MyAppState extends State<MyApp> {
   }
 }
 
-// SplashOverlay and MainStackHandler classes remain as they were...
 class MainStackHandler extends StatefulWidget {
   const MainStackHandler({super.key});
 
@@ -321,19 +322,22 @@ class _SplashOverlayState extends State<SplashOverlay>
   Future<void> _startSequence() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
 
+    // 1. Wait for critical data to load while logo is static
     await Future.wait([
       userProvider.loadUser(),
-      Future.delayed(const Duration(milliseconds: 800)),
+      // Adding a slight delay so it doesn't flicker on fast connections
+      Future.delayed(const Duration(seconds: 1)),
     ]);
 
     if (mounted) {
       setState(() {
-        _isDataReady = true;
+        _isDataReady = true; // Data is now loaded
       });
-    }
 
-    await _controller.forward();
-    widget.onAnimationComplete();
+      // 2. Start the animation only after data is ready
+      await _controller.forward();
+      widget.onAnimationComplete();
+    }
   }
 
   @override
@@ -351,20 +355,24 @@ class _SplashOverlayState extends State<SplashOverlay>
       animation: _controller,
       builder: (context, child) {
         return Opacity(
-          opacity: _opacityAnimation.value,
+          // Ensure opacity is 1.0 while data is loading
+          opacity: _isDataReady ? _opacityAnimation.value : 1.0,
           child: Container(
             color: isDark ? AppColors.darkbg : AppColors.lightcolor,
             child: Center(
               child: Transform.scale(
-                scale: _scaleAnimation.value,
+                // Ensure scale is 1.0 while data is loading
+                scale: _isDataReady ? _scaleAnimation.value : 1.0,
                 child: ClipRect(
                   child: Align(
                     alignment: Alignment.centerLeft,
-                    widthFactor: _cropAnimation.value,
+                    // Ensure widthFactor is 1.0 while data is loading
+                    widthFactor: _isDataReady ? _cropAnimation.value : 1.0,
                     child: Image.asset(
                       "assets/logo.png",
                       width: 400,
-                      color: _isDataReady ? null : Colors.transparent,
+                      // Note: No more 'transparent' color during loading
+                      // so the logo stays visible from the start
                     ),
                   ),
                 ),

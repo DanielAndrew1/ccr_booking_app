@@ -1,20 +1,7 @@
 // ignore_for_file: deprecated_member_use
 
-import 'dart:async';
-import 'package:ccr_booking/core/app_theme.dart';
-import 'package:ccr_booking/core/theme.dart';
-import 'package:ccr_booking/pages/product_page.dart';
-import 'package:ccr_booking/widgets/custom_appbar.dart';
-import 'package:ccr_booking/widgets/custom_bg_svg.dart';
-import 'package:ccr_booking/widgets/custom_internet_notification.dart';
-import 'package:ccr_booking/widgets/custom_loader.dart';
-import 'package:ccr_booking/widgets/custom_product_tile.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
+import '../core/imports.dart';
 
 class InventoryPage extends StatefulWidget {
   const InventoryPage({super.key});
@@ -27,7 +14,6 @@ class _InventoryPageState extends State<InventoryPage> {
   late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
   bool _hasConnection = true;
 
-  // --- Search Logic ---
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = "";
@@ -74,10 +60,7 @@ class _InventoryPageState extends State<InventoryPage> {
       ),
       child: Scaffold(
         backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
-        // This stops THIS scaffold from moving, but if your navbar is in a parent
-        // scaffold, you must apply this setting there as well.
         resizeToAvoidBottomInset: false,
-
         extendBodyBehindAppBar: true,
         appBar: CustomAppBar(
           text: _isSearching ? "" : 'Inventory',
@@ -105,7 +88,6 @@ class _InventoryPageState extends State<InventoryPage> {
                   autocorrect: false,
                   enableSuggestions: false,
                   autofocus: true,
-                  // FIX: Forces the keyboard to be dark or light based on your theme
                   keyboardAppearance: isDark
                       ? Brightness.dark
                       : Brightness.light,
@@ -116,40 +98,40 @@ class _InventoryPageState extends State<InventoryPage> {
                     hintStyle: TextStyle(color: Colors.white60),
                     border: InputBorder.none,
                   ),
-                  onChanged: (value) {
-                    setState(() {
-                      _searchQuery = value.toLowerCase();
-                    });
-                  },
+                  onChanged: (value) =>
+                      setState(() => _searchQuery = value.toLowerCase()),
                 ),
               ),
             ],
             Padding(
               padding: const EdgeInsets.only(right: 25),
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _isSearching
-                      ? Colors.transparent
-                      : AppColors.primary.withAlpha(70),
-                ),
-                child: IconButton(
-                  padding: EdgeInsets.zero,
-                  onPressed: () {
-                    if (_isSearching) {
-                      _searchController.clear();
-                      setState(() => _searchQuery = "");
-                    } else {
-                      setState(() => _isSearching = true);
-                    }
-                  },
-                  icon: Icon(
-                    _isSearching ? Icons.close : Icons.search,
-                    color: _isSearching ? Colors.red : AppColors.primary,
-                    size: _isSearching ? 30 : 25,
+              child: GestureDetector(
+                onTap: () {
+                  if (_isSearching) {
+                    _searchController.clear();
+                    setState(() => _searchQuery = "");
+                    FocusScope.of(context).unfocus();
+                  } else {
+                    setState(() => _isSearching = true);
+                  }
+                },
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _isSearching
+                        ? Colors.transparent
+                        : AppColors.primary.withAlpha(70),
                   ),
+                  child: _isSearching
+                      ? const Icon(Icons.close, color: Colors.red, size: 30)
+                      : IconHandler.buildIcon(
+                          imagePath: "assets/search-normal.svg",
+                          color: AppColors.primary,
+                          size: 22,
+                        ),
                 ),
               ),
             ),
@@ -173,21 +155,6 @@ class _InventoryPageState extends State<InventoryPage> {
                           setState(() => _streamKey = UniqueKey());
                           await Future.delayed(const Duration(seconds: 2));
                         },
-                        builder:
-                            (
-                              context,
-                              refreshState,
-                              pulledExtent,
-                              refreshTriggerPullDistance,
-                              refreshIndicatorExtent,
-                            ) {
-                              return const Center(
-                                child: Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 16),
-                                  child: CustomLoader(size: 24),
-                                ),
-                              );
-                            },
                       ),
                       StreamBuilder<List<Map<String, dynamic>>>(
                         key: _streamKey,
@@ -202,32 +169,19 @@ class _InventoryPageState extends State<InventoryPage> {
                               child: Center(child: CustomLoader()),
                             );
                           }
-
                           if (!snapshot.hasData || snapshot.data!.isEmpty) {
                             return const SliverFillRemaining(
                               child: Center(child: Text("No products yet.")),
                             );
                           }
-
-                          final allProducts = snapshot.data!;
-                          final filteredProducts = allProducts.where((product) {
-                            final name = (product['name'] ?? '')
-                                .toString()
-                                .toLowerCase();
-                            return name.contains(_searchQuery);
-                          }).toList();
-
-                          if (filteredProducts.isEmpty) {
-                            return SliverFillRemaining(
-                              child: Center(
-                                child: Text(
-                                  'No items match "${_searchController.text}"',
-                                  style: const TextStyle(color: Colors.grey),
-                                ),
-                              ),
-                            );
-                          }
-
+                          final filteredProducts = snapshot.data!
+                              .where(
+                                (p) => p['name']
+                                    .toString()
+                                    .toLowerCase()
+                                    .contains(_searchQuery),
+                              )
+                              .toList();
                           return SliverPadding(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 16,
@@ -255,13 +209,6 @@ class _InventoryPageState extends State<InventoryPage> {
                           );
                         },
                       ),
-                      // Optional: Add space at bottom if keyboard covers results
-                      if (_isSearching)
-                        SliverToBoxAdapter(
-                          child: SizedBox(
-                            height: MediaQuery.of(context).viewInsets.bottom,
-                          ),
-                        ),
                     ],
                   ),
                 ),

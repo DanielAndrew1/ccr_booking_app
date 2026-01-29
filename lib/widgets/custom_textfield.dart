@@ -1,7 +1,4 @@
-import 'package:ccr_booking/core/theme.dart';
-import 'package:flutter/material.dart';
-import 'package:ccr_booking/core/app_theme.dart';
-import 'package:provider/provider.dart';
+import '../core/imports.dart';
 
 class CustomTextfield extends StatelessWidget {
   final TextEditingController textEditingController;

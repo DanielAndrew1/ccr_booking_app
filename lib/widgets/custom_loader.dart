@@ -1,9 +1,5 @@
-import 'dart:io';
-import 'package:ccr_booking/core/theme.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../core/app_theme.dart';
+import '../core/imports.dart';
 
 class CustomLoader extends StatelessWidget {
   final double size;

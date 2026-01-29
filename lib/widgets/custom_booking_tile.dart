@@ -1,5 +1,4 @@
-import 'package:ccr_booking/core/app_theme.dart';
-import 'package:flutter/material.dart';
+import '../core/imports.dart';
 
 class CustomBookingTile extends StatelessWidget {
   final String productName;

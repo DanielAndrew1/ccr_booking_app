@@ -1,27 +1,10 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously
 
-import 'dart:async';
 import 'dart:ui';
-import 'package:ccr_booking/core/theme.dart';
-import 'package:ccr_booking/core/user_provider.dart';
-import 'package:ccr_booking/main.dart';
-import 'package:ccr_booking/pages/clients_page.dart';
-import 'package:ccr_booking/pages/employees_page.dart';
-import 'package:ccr_booking/widgets/custom_bg_svg.dart';
-import 'package:ccr_booking/widgets/custom_internet_notification.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
+
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import '../core/app_theme.dart';
-import '../pages/edit_info_page.dart';
-import '../pages/login_page.dart';
-import '../widgets/custom_button.dart';
-import '../widgets/custom_loader.dart';
-import '../widgets/custom_pfp.dart';
-import '../widgets/custom_tile.dart';
+
+import '../core/imports.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -289,7 +272,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           CustomTile(
                             title: "Dark Mode",
                             overlayColor: false,
-                            icon: Icons.dark_mode_rounded,
+                            icon: Icons.dark_mode_outlined,
                             trailing: CupertinoSwitch(
                               value: isDark,
                               activeTrackColor: AppColors.primary,
@@ -299,20 +282,20 @@ class _ProfilePageState extends State<ProfilePage> {
                           ),
                           const SizedBox(height: 6),
                           CustomTile(
-                            icon: Icons.person_rounded,
+                            imagePath: "assets/user.svg",
                             title: 'Edit Info',
                             onTap: () => _editProfile(context),
                           ),
                           const SizedBox(height: 6),
                           if (currentUser.role == 'Owner') ...[
                             CustomTile(
-                              icon: Icons.manage_accounts_rounded,
+                              imagePath: "assets/user-search.svg",
                               title: 'Employee Management',
                               route: const UsersPage(),
                             ),
                             const SizedBox(height: 6),
                             CustomTile(
-                              icon: Icons.people_alt_rounded,
+                              imagePath: "assets/profile-2user.svg",
                               title: 'Client Management',
                               route: const ClientsPage(),
                             ),
@@ -328,9 +311,9 @@ class _ProfilePageState extends State<ProfilePage> {
                           const SizedBox(height: 20),
                           CustomButton(
                             onPressed: _confirmDeleteAccount,
-                            icon: Icons.delete_rounded,
+                            imagePath: "assets/trash.svg",
                             height: 50,
-                            text: "Delete account",
+                            text: "Delete Account",
                             color: WidgetStateProperty.all(
                               const Color(0xFFFF1100),
                             ),

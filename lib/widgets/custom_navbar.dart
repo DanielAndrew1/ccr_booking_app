@@ -1,22 +1,32 @@
-// ignore_for_file: deprecated_member_use
+// ignore_for_file: deprecated_member_use, unused_element_parameter
 
-import 'package:ccr_booking/core/theme.dart';
-import 'package:ccr_booking/core/user_provider.dart';
-import 'package:ccr_booking/pages/add/add_booking.dart';
-import 'package:ccr_booking/pages/add/add_client.dart';
-import 'package:ccr_booking/pages/add/add_product.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
-import '../core/app_theme.dart';
-import '../pages/home_page.dart';
-import '../pages/calendar_page.dart';
-import '../pages/inventory_page.dart';
-import '../pages/profile_page.dart';
+import '../core/imports.dart';
 
 class CustomNavbar extends StatefulWidget {
   final int initialIndex;
   const CustomNavbar({super.key, this.initialIndex = 0});
+
+  static Widget buildIcon({
+    String? imagePath,
+    IconData? icon,
+    required Color color,
+    double size = 26,
+    bool isAdd = false,
+  }) {
+    if (imagePath != null) {
+      if (imagePath.toLowerCase().endsWith('.svg')) {
+        return SvgPicture.asset(
+          imagePath,
+          width: size,
+          height: size,
+          colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+        );
+      } else {
+        return Image.asset(imagePath, width: size, height: size, color: color);
+      }
+    }
+    return Icon(icon, color: color, size: size);
+  }
 
   @override
   State<CustomNavbar> createState() => _CustomNavbarState();
@@ -24,8 +34,9 @@ class CustomNavbar extends StatefulWidget {
 
 class _CustomNavbarState extends State<CustomNavbar> {
   late int _currentIndex;
+  // Track the last tapped index to trigger the bounce
+  int? _tappedIndex;
 
-  // GlobalKey to access Calendar reset logic
   final GlobalKey<CalendarPageState> _calendarKey =
       GlobalKey<CalendarPageState>();
 
@@ -36,13 +47,26 @@ class _CustomNavbarState extends State<CustomNavbar> {
   }
 
   void _onTap(int pageIndex, bool isAddButton) {
-    HapticFeedback.lightImpact();
+    HapticFeedback.mediumImpact(); // Slightly stronger feedback for the bounce
+
+    // Trigger the bounce animation
+    setState(() {
+      _tappedIndex = pageIndex;
+    });
+
+    // Reset the bounce scale after a short delay
+    Future.delayed(const Duration(milliseconds: 150), () {
+      if (mounted) {
+        setState(() {
+          _tappedIndex = null;
+        });
+      }
+    });
 
     if (isAddButton) {
       _showAddBottomSheet();
     } else {
-      // Logic for Calendar tab reset
-      if (pageIndex == 1) {
+      if (pageIndex == 1 && _currentIndex == 1) {
         _calendarKey.currentState?.resetToToday();
       }
       setState(() => _currentIndex = pageIndex);
@@ -60,42 +84,57 @@ class _CustomNavbarState extends State<CustomNavbar> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (_) => SizedBox(
-        height: 230,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
+        height: 250,
+        child: Column(
           children: [
-            _AddListTile(
-              icon: Icons.calendar_month_rounded,
-              title: 'Add Booking',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AddBooking()),
-                );
-              },
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[600],
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-            _AddListTile(
-              icon: Icons.inventory_2_outlined,
-              title: 'Add Product',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AddProduct()),
-                );
-              },
-            ),
-            _AddListTile(
-              icon: Icons.person_add_alt_1_rounded,
-              title: 'Add Client',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AddClient()),
-                );
-              },
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  _AddListTile(
+                    imagePath: "assets/calendar.svg",
+                    title: 'Add Booking',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const AddBooking()),
+                      );
+                    },
+                  ),
+                  _AddListTile(
+                    imagePath: "assets/box.svg",
+                    title: 'Add Product',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const AddProduct()),
+                      );
+                    },
+                  ),
+                  _AddListTile(
+                    imagePath: "assets/profile-2user.svg",
+                    title: 'Add Client',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const AddClient()),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -118,9 +157,9 @@ class _CustomNavbarState extends State<CustomNavbar> {
     ];
 
     final List<_NavItemData> navItems = [
-      _NavItemData(icon: Icons.home_rounded, label: 'Home', pageIndex: 0),
+      _NavItemData(imagePath: "assets/home-2.svg", label: 'Home', pageIndex: 0),
       _NavItemData(
-        icon: Icons.calendar_month_rounded,
+        imagePath: "assets/calendar.svg",
         label: 'Calendar',
         pageIndex: 1,
       ),
@@ -129,7 +168,7 @@ class _CustomNavbarState extends State<CustomNavbar> {
     if (currentUser?.role == 'Admin' || currentUser?.role == 'Owner') {
       navItems.add(
         _NavItemData(
-          icon: Icons.add_rounded,
+          imagePath: "assets/add-square.svg",
           label: 'Add',
           isAddButton: true,
           pageIndex: -1,
@@ -139,33 +178,30 @@ class _CustomNavbarState extends State<CustomNavbar> {
 
     navItems.add(
       _NavItemData(
-        icon: Icons.inventory_2_outlined,
+        imagePath: "assets/box.svg",
         label: 'Inventory',
         pageIndex: 2,
       ),
     );
     navItems.add(
-      _NavItemData(icon: Icons.person_rounded, label: 'Profile', pageIndex: 3),
+      _NavItemData(
+        imagePath: "assets/user.svg",
+        label: 'Profile',
+        pageIndex: 3,
+      ),
     );
 
-    // --- STATUS BAR LOGIC ---
-    // Rule: Icons are always white (Brightness.light)
-    // EXCEPT when on Profile (index 3) AND the app is in light mode.
     final bool shouldShowBlackIcons = (_currentIndex == 3 && !isDark);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        // Brightness.dark for icons actually means "Icons for dark backgrounds" (which are white)
-        // Brightness.light for icons actually means "Icons for light backgrounds" (which are black)
-        // Note: Flutter's terminology can be confusing, but setting brightness to
-        // light results in dark icons on Android and vice versa.
         statusBarIconBrightness: shouldShowBlackIcons
             ? Brightness.dark
             : Brightness.light,
         statusBarBrightness: shouldShowBlackIcons
             ? Brightness.light
-            : Brightness.dark, // iOS
+            : Brightness.dark,
       ),
       child: Scaffold(
         resizeToAvoidBottomInset: false,
@@ -230,6 +266,12 @@ class _CustomNavbarState extends State<CustomNavbar> {
                           mainAxisAlignment: MainAxisAlignment.spaceAround,
                           children: navItems.map((data) {
                             final isActive = data.pageIndex == _currentIndex;
+                            final activeColor = isActive
+                                ? AppColors.primary
+                                : (isDark ? Colors.grey[400]! : Colors.grey);
+
+                            // The bounce happens if this item is currently being tapped
+                            final isTapped = _tappedIndex == data.pageIndex;
 
                             return Expanded(
                               child: GestureDetector(
@@ -240,25 +282,26 @@ class _CustomNavbarState extends State<CustomNavbar> {
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     const SizedBox(height: 6),
-                                    Icon(
-                                      data.icon,
-                                      color: isActive
-                                          ? AppColors.primary
-                                          : (isDark
-                                                ? Colors.grey[400]
-                                                : Colors.grey),
-                                      size: 28,
+                                    // AnimatedScale provides the bounce effect
+                                    AnimatedScale(
+                                      scale: isTapped ? 0.88 : 1.0,
+                                      duration: const Duration(
+                                        milliseconds: 100,
+                                      ),
+                                      curve: Curves.easeInOut,
+                                      child: CustomNavbar.buildIcon(
+                                        imagePath: data.imagePath,
+                                        icon: data.icon,
+                                        color: activeColor,
+                                        isAdd: data.isAddButton,
+                                      ),
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
                                       data.label,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
-                                        color: isActive
-                                            ? AppColors.primary
-                                            : (isDark
-                                                  ? Colors.grey[400]
-                                                  : Colors.grey),
+                                        color: activeColor,
                                         fontWeight: isActive
                                             ? FontWeight.bold
                                             : FontWeight.normal,
@@ -285,13 +328,15 @@ class _CustomNavbarState extends State<CustomNavbar> {
 }
 
 class _NavItemData {
-  final IconData icon;
+  final IconData? icon;
+  final String? imagePath;
   final String label;
   final bool isAddButton;
   final int pageIndex;
 
   _NavItemData({
-    required this.icon,
+    this.icon,
+    this.imagePath,
     required this.label,
     this.isAddButton = false,
     required this.pageIndex,
@@ -299,14 +344,16 @@ class _NavItemData {
 }
 
 class _AddListTile extends StatelessWidget {
-  final IconData icon;
+  final IconData? icon;
+  final String? imagePath;
   final String title;
   final VoidCallback onTap;
 
   const _AddListTile({
-    required this.icon,
+    this.icon,
     required this.title,
     required this.onTap,
+    this.imagePath,
   });
 
   @override
@@ -315,7 +362,12 @@ class _AddListTile extends StatelessWidget {
     final isDark = themeProvider.isDarkMode;
 
     return ListTile(
-      leading: Icon(icon, color: AppColors.primary),
+      leading: CustomNavbar.buildIcon(
+        imagePath: imagePath,
+        icon: icon,
+        color: AppColors.primary,
+        size: 24,
+      ),
       title: Text(
         title,
         style: TextStyle(
@@ -325,7 +377,7 @@ class _AddListTile extends StatelessWidget {
       ),
       trailing: Icon(
         Icons.arrow_forward_ios,
-        size: 16,
+        size: 14,
         color: isDark ? Colors.white54 : Colors.grey,
       ),
       onTap: () {

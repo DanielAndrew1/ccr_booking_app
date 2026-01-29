@@ -1,10 +1,6 @@
 // ignore_for_file: deprecated_member_use
 
-import 'package:ccr_booking/core/app_theme.dart';
-import 'package:ccr_booking/core/theme.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
-import 'package:provider/provider.dart';
+import '../core/imports.dart';
 
 class CustomBgSvg extends StatelessWidget {
   const CustomBgSvg({super.key});

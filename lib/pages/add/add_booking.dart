@@ -1,14 +1,8 @@
-// ignore_for_file: deprecated_member_use, use_build_context_synchronously, unnecessary_underscores
-import 'package:ccr_booking/core/app_theme.dart';
-import 'package:ccr_booking/core/theme.dart';
-import 'package:ccr_booking/widgets/custom_appbar.dart';
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously, unnecessary_underscores, unused_element_parameter
 import 'package:ccr_booking/widgets/custom_search.dart';
-import 'package:ccr_booking/widgets/custom_bg_svg.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../core/imports.dart';
 
 class AddBooking extends StatefulWidget {
   const AddBooking({super.key});
@@ -207,19 +201,7 @@ class _AddBookingState extends State<AddBooking> {
                     final imageUrl = product['image_url'] ?? product['image'];
 
                     return ListTile(
-                      leading: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: imageUrl != null
-                            ? Image.network(
-                                imageUrl,
-                                width: 50,
-                                height: 50,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    _buildPlaceholderIcon(isDark),
-                              )
-                            : _buildPlaceholderIcon(isDark),
-                      ),
+                      leading: _buildImageOrIcon(imageUrl, isDark),
                       title: Text(
                         product['name'],
                         style: TextStyle(
@@ -251,17 +233,62 @@ class _AddBookingState extends State<AddBooking> {
     );
   }
 
+  /// Refined helper to handle Network, SVGs, and PNG assets correctly
+  Widget _buildImageOrIcon(
+    String? imagePath,
+    bool isDark, {
+    double size = 40,
+    Color? tintColor,
+  }) {
+    if (imagePath != null) {
+      // 1. Check for Network Image
+      if (imagePath.startsWith('http')) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.network(
+            imagePath,
+            width: size,
+            height: size,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) =>
+                _buildPlaceholderIcon(isDark),
+          ),
+        );
+      }
+
+      // 2. Check for local SVG
+      if (imagePath.toLowerCase().endsWith('.svg')) {
+        return SvgPicture.asset(
+          imagePath,
+          width: size,
+          height: size,
+          colorFilter: tintColor != null
+              ? ColorFilter.mode(tintColor, BlendMode.srcIn)
+              : null,
+        );
+      }
+
+      // 3. Check for local PNG/JPG
+      return Image.asset(
+        imagePath,
+        width: size,
+        height: size,
+        color: tintColor,
+      );
+    }
+
+    // 4. Fallback to default placeholder
+    return _buildPlaceholderIcon(isDark);
+  }
+
   Widget _buildPlaceholderIcon(bool isDark) {
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white10 : Colors.black12,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Icon(
-        Icons.inventory_2_outlined,
-        color: isDark ? Colors.white70 : Colors.black54,
+    return SvgPicture.asset(
+      "assets/box.svg",
+      width: 32,
+      height: 32,
+      colorFilter: ColorFilter.mode(
+        isDark ? Colors.white70 : Colors.black54,
+        BlendMode.srcIn,
       ),
     );
   }
@@ -319,7 +346,7 @@ class _AddBookingState extends State<AddBooking> {
                             product?['image_url'] ?? product?['image'];
 
                         return Padding(
-                          padding: const EdgeInsets.only(bottom: 12.0),
+                          padding: const EdgeInsets.only(bottom: 6.0),
                           child: Row(
                             children: [
                               Expanded(
@@ -328,8 +355,8 @@ class _AddBookingState extends State<AddBooking> {
                                   borderRadius: BorderRadius.circular(12),
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 15,
+                                      horizontal: 12,
+                                      vertical: 12,
                                     ),
                                     decoration: BoxDecoration(
                                       color: isDark
@@ -339,28 +366,7 @@ class _AddBookingState extends State<AddBooking> {
                                     ),
                                     child: Row(
                                       children: [
-                                        ClipRRect(
-                                          borderRadius: BorderRadius.circular(
-                                            4,
-                                          ),
-                                          child: imageUrl != null
-                                              ? Image.network(
-                                                  imageUrl,
-                                                  width: 40,
-                                                  height: 40,
-                                                  fit: BoxFit.cover,
-                                                  errorBuilder:
-                                                      (
-                                                        context,
-                                                        error,
-                                                        stackTrace,
-                                                      ) =>
-                                                          _buildPlaceholderIcon(
-                                                            isDark,
-                                                          ),
-                                                )
-                                              : _buildPlaceholderIcon(isDark),
-                                        ),
+                                        _buildImageOrIcon(imageUrl, isDark),
                                         const SizedBox(width: 12),
                                         Expanded(
                                           child: Column(
@@ -403,18 +409,19 @@ class _AddBookingState extends State<AddBooking> {
                                         )
                                       : null,
                                   child: Container(
-                                    width: 45,
-                                    height: 45,
+                                    width: 50,
+                                    height: 50,
                                     decoration: BoxDecoration(
-                                      color: selectedProducts[index] != null
-                                          ? AppColors.primary
-                                          : AppColors.primary.withOpacity(0.9),
                                       shape: BoxShape.circle,
+                                      color: AppColors.primary
                                     ),
-                                    child: const Center(
-                                      child: Icon(
-                                        Icons.add,
-                                        color: Colors.white,
+                                    child: Center(
+                                      // FIXED: Uses the helper to support both SVG and PNG
+                                      child: _buildImageOrIcon(
+                                        "assets/add-square.svg",
+                                        isDark,
+                                        size: 28,
+                                        tintColor: Colors.white,
                                       ),
                                     ),
                                   ),
@@ -425,6 +432,8 @@ class _AddBookingState extends State<AddBooking> {
                                     () => selectedProducts.removeAt(index),
                                   ),
                                   child: Container(
+                                    width: 50,
+                                    height: 50,
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
                                       color: Colors.red.withOpacity(0.3),
@@ -433,7 +442,7 @@ class _AddBookingState extends State<AddBooking> {
                                     child: const Icon(
                                       Icons.close,
                                       color: Colors.red,
-                                      size: 20,
+                                      size: 26,
                                     ),
                                   ),
                                 ),
@@ -452,7 +461,7 @@ class _AddBookingState extends State<AddBooking> {
                     ),
                     const SizedBox(height: 10),
                     _PickerTile(
-                      icon: Icons.calendar_today,
+                      imagePath: "assets/calendar.svg",
                       label: pickupDate == null
                           ? "Select Pickup Date"
                           : DateFormat('MMM dd, yyyy').format(pickupDate!),
@@ -470,7 +479,7 @@ class _AddBookingState extends State<AddBooking> {
                     ),
                     const SizedBox(height: 10),
                     _PickerTile(
-                      icon: Icons.event_available,
+                      imagePath: "assets/calendar.svg",
                       label: returnDate == null
                           ? "Select Return Date"
                           : DateFormat('MMM dd, yyyy').format(returnDate!),
@@ -511,16 +520,18 @@ class _AddBookingState extends State<AddBooking> {
 }
 
 class _PickerTile extends StatelessWidget {
-  final IconData icon;
+  final IconData? icon;
+  final String? imagePath;
   final String label;
   final VoidCallback onTap;
   final bool isDark;
 
   const _PickerTile({
-    required this.icon,
+    this.icon,
     required this.label,
     required this.onTap,
     required this.isDark,
+    this.imagePath,
   });
 
   @override
@@ -535,7 +546,12 @@ class _PickerTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: AppColors.primary),
+          CustomNavbar.buildIcon(
+            imagePath: imagePath,
+            icon: icon,
+            color: AppColors.primary,
+            size: 20,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(

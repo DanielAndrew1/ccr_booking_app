@@ -1,12 +1,4 @@
-import 'package:ccr_booking/core/app_theme.dart';
-import 'package:ccr_booking/core/theme.dart';
-import 'package:ccr_booking/pages/login_page.dart';
-import 'package:ccr_booking/widgets/custom_button.dart';
-import 'package:ccr_booking/widgets/custom_loader.dart';
-import 'package:ccr_booking/widgets/custom_textfield.dart';
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../services/auth_service.dart';
+import '../core/imports.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
