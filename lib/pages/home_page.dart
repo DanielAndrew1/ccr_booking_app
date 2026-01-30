@@ -649,8 +649,35 @@ class _HomePageState extends State<HomePage>
           const SizedBox(height: 30),
         ] else if (role == 'Owner') ...[
           _buildOwnerStatsView(isDark),
-          const SizedBox(height: 30),
+          const SizedBox(height: 22),
         ],
+        Row(
+          children: [
+            const Expanded(
+              child: Divider(
+                thickness: 1,
+                // Optional: match your theme colors
+                color: Colors.grey,
+                endIndent: 10, // Adds a small gap before the text
+              ),
+            ),
+            Text(
+              "Quick Actions",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white70 : Colors.black54,
+              ),
+            ),
+            const Expanded(
+              child: Divider(
+                thickness: 1,
+                color: Colors.grey,
+                indent: 10, // Adds a small gap after the text
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 22,),
         if (role == 'Admin' || role == 'Owner') ...[
           _buildActionButton(
             title: "Add New Client",
