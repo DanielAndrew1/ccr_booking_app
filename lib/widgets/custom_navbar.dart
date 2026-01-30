@@ -54,18 +54,31 @@ class _CustomNavbarState extends State<CustomNavbar> {
   }
 
   void _onTap(int pageIndex, bool isAddButton) {
-    HapticFeedback.mediumImpact();
-    _triggerBounce(pageIndex);
+    // Determine if this is a "new" selection
+    // For AddButton, we check if we are currently in any of the "Add" sub-pages (4, 5, or 6)
+    bool isAlreadySelected = isAddButton
+        ? (_currentIndex == 4 || _currentIndex == 5 || _currentIndex == 6)
+        : (_currentIndex == pageIndex);
 
+    // ONLY trigger haptic and bounce if it's NOT already selected
+    if (!isAlreadySelected) {
+      HapticFeedback.selectionClick();
+      _triggerBounce(pageIndex);
+    }
+
+    // Logic for the Add Button
     if (isAddButton) {
       setState(() {
         _currentIndex = 4; // Default to Add Booking
         _isMenuOpen = false;
       });
     } else {
+      // Specific logic for Calendar: reset to today even if already selected
       if (pageIndex == 1 && _currentIndex == 1) {
         _calendarKey.currentState?.resetToToday();
       }
+
+      // Update the index
       setState(() {
         _currentIndex = pageIndex;
         _isMenuOpen = false;
@@ -75,7 +88,7 @@ class _CustomNavbarState extends State<CustomNavbar> {
 
   void _onLongPress(bool isAddButton) {
     if (isAddButton) {
-      HapticFeedback.heavyImpact();
+      HapticFeedback.lightImpact();
       setState(() => _isMenuOpen = !_isMenuOpen);
     }
   }
@@ -87,11 +100,10 @@ class _CustomNavbarState extends State<CustomNavbar> {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
 
-    // Passing isRoot: true so the AppBar knows it's being shown in the Navbar
     final List<Widget> pages = [
       const HomePage(), // 0
       CalendarPage(key: _calendarKey), // 1
-      const InventoryPage(), // 2
+      const BookingsPage(), // 2
       const ProfilePage(), // 3
       const AddBooking(isRoot: true), // 4
       const AddClient(isRoot: true), // 5
@@ -120,8 +132,8 @@ class _CustomNavbarState extends State<CustomNavbar> {
 
     navItems.add(
       _NavItemData(
-        imagePath: "assets/box.svg",
-        label: 'Inventory',
+        imagePath: "assets/booking.svg",
+        label: 'Bookings',
         pageIndex: 2,
       ),
     );
@@ -135,12 +147,14 @@ class _CustomNavbarState extends State<CustomNavbar> {
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
+      backgroundColor: AppColors.lightcolor,
       body: Stack(
         children: [
-          IndexedStack(index: _currentIndex, children: pages),
+          Container(
+            color: AppColors.lightcolor,
+            child: IndexedStack(index: _currentIndex, children: pages),
+          ),
 
-          // 1. Dimmer
           IgnorePointer(
             ignoring: !_isMenuOpen,
             child: GestureDetector(
@@ -156,10 +170,8 @@ class _CustomNavbarState extends State<CustomNavbar> {
             ),
           ),
 
-          // 2. Navbar Base
           _buildBottomNavbar(navItems, isDark),
 
-          // 3. Popup Menu
           AnimatedPositioned(
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeOutQuart,
@@ -214,7 +226,7 @@ class _CustomNavbarState extends State<CustomNavbar> {
                               ),
                               _buildDivider(isDark),
                               _MenuEntry(
-                                imagePath: "assets/calendar.svg",
+                                imagePath: "assets/calendar-add.svg",
                                 title: "Add Booking",
                                 onTap: () => setState(() {
                                   _currentIndex = 4;
@@ -238,7 +250,6 @@ class _CustomNavbarState extends State<CustomNavbar> {
             ),
           ),
 
-          // 4. Overlay Navbar
           if (_isMenuOpen)
             _buildBottomNavbar(navItems, isDark, isOpaqueLayer: true),
         ],
@@ -288,8 +299,8 @@ class _CustomNavbarState extends State<CustomNavbar> {
                     });
                     if (activeIndex == -1) activeIndex = 0;
                     return AnimatedPositioned(
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeInOut,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOutCubic,
                       left: activeIndex * itemWidth + (itemWidth - 24) / 2,
                       top: 0,
                       child: Container(
@@ -315,9 +326,11 @@ class _CustomNavbarState extends State<CustomNavbar> {
                               _currentIndex == 6)
                         : (data.pageIndex == _currentIndex);
 
-                    final activeColor = isSectionActive
-                        ? AppColors.primary
-                        : (isDark ? Colors.grey[400]! : Colors.grey);
+                    final Color activeColor = AppColors.primary;
+                    final Color inactiveColor = isDark
+                        ? Colors.grey[400]!
+                        : Colors.grey;
+
                     final isTapped = _tappedIndex == data.pageIndex;
 
                     return Expanded(
@@ -330,24 +343,39 @@ class _CustomNavbarState extends State<CustomNavbar> {
                           children: [
                             const SizedBox(height: 6),
                             AnimatedScale(
-                              scale: isTapped ? 0.88 : 1.0,
-                              duration: const Duration(milliseconds: 100),
+                              scale: isTapped ? 1.15 : 1.0,
+                              duration: const Duration(milliseconds: 300),
                               curve: Curves.easeInOut,
-                              child: CustomNavbar.buildIcon(
-                                imagePath: data.imagePath,
-                                color: activeColor,
+                              child: TweenAnimationBuilder<Color?>(
+                                duration: const Duration(milliseconds: 300),
+                                tween: ColorTween(
+                                  begin: inactiveColor,
+                                  end: isSectionActive
+                                      ? activeColor
+                                      : inactiveColor,
+                                ),
+                                builder: (context, color, child) {
+                                  return CustomNavbar.buildIcon(
+                                    imagePath: data.imagePath,
+                                    color: color ?? inactiveColor,
+                                  );
+                                },
                               ),
                             ),
                             const SizedBox(height: 4),
-                            Text(
-                              data.label,
+                            AnimatedDefaultTextStyle(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
                               style: TextStyle(
-                                color: activeColor,
+                                color: isSectionActive
+                                    ? activeColor
+                                    : inactiveColor,
                                 fontWeight: isSectionActive
                                     ? FontWeight.bold
                                     : FontWeight.normal,
                                 fontSize: 11,
                               ),
+                              child: Text(data.label),
                             ),
                           ],
                         ),

@@ -1,7 +1,7 @@
-// ignore_for_file: deprecated_member_use, use_build_context_synchronously
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously, unused_field
 
 import 'package:flutter/cupertino.dart';
-
+import 'package:flutter/services.dart';
 import '../core/imports.dart';
 
 class ClientsPage extends StatefulWidget {
@@ -24,6 +24,7 @@ class _ClientsPageState extends State<ClientsPage> {
   void _fetchClients() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<UserProvider>(context, listen: false).fetchAllClients();
+      Provider.of<BookingProvider>(context, listen: false).fetchAllBookings();
     });
   }
 
@@ -36,25 +37,51 @@ class _ClientsPageState extends State<ClientsPage> {
     return nameParts[0][0].toUpperCase();
   }
 
+  Map<String, dynamic> _calculateClientStats(
+    String clientName,
+    List<dynamic> allBookings,
+  ) {
+    // Normalize the target name for comparison
+    final normalizedTargetName = clientName.trim().toLowerCase();
+
+    // Filter by name (case-insensitive & trimmed) and ensure status isn't canceled or deleted
+    final clientBookings = allBookings.where((b) {
+      final bName = (b.clientName ?? "").toString().trim().toLowerCase();
+      final bStatus = (b.status ?? "").toString().toLowerCase();
+
+      return bName == normalizedTargetName &&
+          bStatus != 'canceled' &&
+          bStatus != 'deleted';
+    }).toList();
+
+    double totalRevenue = 0.0;
+    for (var booking in clientBookings) {
+      // Force conversion to double to handle potential int values from DB
+      final amount = booking.total;
+      if (amount != null) {
+        totalRevenue += double.tryParse(amount.toString()) ?? 0.0;
+      }
+    }
+
+    return {'count': clientBookings.length, 'revenue': totalRevenue};
+  }
+
+  Future<void> _executeDelete(String clientId, String clientName) async {
+    HapticFeedback.selectionClick();
+    await Provider.of<UserProvider>(
+      context,
+      listen: false,
+    ).deleteClient(clientId);
+    CustomSnackBar.show(context, "$clientName removed", color: AppColors.red);
+  }
+
   void _removeClient(String clientId, String clientName) {
-    HapticFeedback.heavyImpact();
+    HapticFeedback.selectionClick();
     showCupertinoDialog(
       context: context,
       builder: (context) => CupertinoAlertDialog(
         title: const Text("Delete Client"),
-        content: Column(
-          children: [
-            const Text('Are you sure you want to delete'),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text('"'),
-                Text(clientName, style: const TextStyle(color: AppColors.red)),
-                const Text('" ?'),
-              ],
-            ),
-          ],
-        ),
+        content: Text("Are you sure you want to remove $clientName?"),
         actions: [
           CupertinoDialogAction(
             child: const Text(
@@ -66,13 +93,10 @@ class _ClientsPageState extends State<ClientsPage> {
           CupertinoDialogAction(
             isDestructiveAction: true,
             onPressed: () {
-              Provider.of<UserProvider>(
-                context,
-                listen: false,
-              ).deleteClient(clientId);
               Navigator.pop(context);
+              _executeDelete(clientId, clientName);
             },
-            child: const Text("Delete"),
+            child: const Text("Delete", style: TextStyle(color: AppColors.red)),
           ),
         ],
       ),
@@ -82,137 +106,131 @@ class _ClientsPageState extends State<ClientsPage> {
   void _editClientDialog(dynamic client) {
     final nameController = TextEditingController(text: client.name);
     final emailController = TextEditingController(text: client.email);
-    // Accessing .phone now works after updating the model
     final phoneController = TextEditingController(text: client.phone ?? "");
-
     final isDark = Provider.of<ThemeProvider>(
       context,
       listen: false,
     ).isDarkMode;
 
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          top: 20,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 50,
-        ),
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.darkbg : AppColors.lightcolor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 50,
-              height: 5,
-              decoration: BoxDecoration(
-                color: Colors.grey.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              "Edit Client Info",
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.black,
-              ),
-            ),
-            const SizedBox(height: 20),
-            TextField(
-              controller: nameController,
-              style: TextStyle(color: isDark ? Colors.white : Colors.black),
-              decoration: InputDecoration(
-                labelText: "Full Name",
-                labelStyle: const TextStyle(color: Colors.grey),
-                enabledBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
-                ),
-                focusedBorder: const UnderlineInputBorder(
-                  borderSide: BorderSide(color: AppColors.primary, width: 2),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Container(
+          width: 350,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkbg : AppColors.lightcolor,
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                "Edit Client Info",
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black,
                 ),
               ),
-            ),
-            const SizedBox(height: 15),
-            TextField(
-              controller: emailController,
-              keyboardType: TextInputType.emailAddress,
-              style: TextStyle(color: isDark ? Colors.white : Colors.black),
-              decoration: InputDecoration(
-                labelText: "Email Address",
-                labelStyle: const TextStyle(color: Colors.grey),
-                enabledBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
-                ),
-                focusedBorder: const UnderlineInputBorder(
-                  borderSide: BorderSide(color: AppColors.primary, width: 2),
-                ),
+              const SizedBox(height: 24),
+              TextField(
+                controller: nameController,
+                style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                decoration: _inputDeco("Full Name"),
               ),
-            ),
-            const SizedBox(height: 15),
-            TextField(
-              controller: phoneController,
-              keyboardType: TextInputType.phone,
-              style: TextStyle(color: isDark ? Colors.white : Colors.black),
-              decoration: InputDecoration(
-                labelText: "Phone Number",
-                labelStyle: const TextStyle(color: Colors.grey),
-                enabledBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
-                ),
-                focusedBorder: const UnderlineInputBorder(
-                  borderSide: BorderSide(color: AppColors.primary, width: 2),
-                ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: emailController,
+                keyboardType: TextInputType.emailAddress,
+                style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                decoration: _inputDeco("Email Address"),
               ),
-            ),
-            const SizedBox(height: 30),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              const SizedBox(height: 16),
+              TextField(
+                controller: phoneController,
+                keyboardType: TextInputType.phone,
+                style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                decoration: _inputDeco("Phone Number"),
+              ),
+              const SizedBox(height: 32),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: Text(
+                        "Cancel",
+                        style: TextStyle(
+                          color: isDark ? Colors.white70 : Colors.black54,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-                onPressed: () {
-                  // TODO: Add update logic in UserProvider
-                  Navigator.pop(context);
-                },
-                child: const Text(
-                  "Save Changes",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildActionButton(
+                      "Save",
+                      "assets/message-edit.svg",
+                      isDark,
+                      () async {
+                        final updatedData = {
+                          'name': nameController.text.trim(),
+                          'email': emailController.text.trim(),
+                          'phone': phoneController.text.trim(),
+                        };
+                        await Provider.of<UserProvider>(
+                          context,
+                          listen: false,
+                        ).updateClient(client.id, updatedData);
+                        Navigator.pop(context);
+                        CustomSnackBar.show(
+                          context,
+                          "Client updated successfully!",
+                          color: AppColors.green,
+                        );
+                      },
+                    ),
                   ),
-                ),
+                ],
               ),
-            ),
-          ],
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  InputDecoration _inputDeco(String label) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: const TextStyle(color: Colors.grey, fontSize: 14),
+      enabledBorder: UnderlineInputBorder(
+        borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
+      ),
+      focusedBorder: const UnderlineInputBorder(
+        borderSide: BorderSide(color: AppColors.primary, width: 2),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
     final userProvider = Provider.of<UserProvider>(context);
+    final bookingProvider = Provider.of<BookingProvider>(context);
+
+    final allBookings = bookingProvider.allBookings;
     final clients = userProvider.allClients;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
         statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
         statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+        statusBarColor: Colors.transparent,
       ),
       child: Container(
         color: isDark ? AppColors.darkbg : AppColors.lightcolor,
@@ -236,11 +254,11 @@ class _ClientsPageState extends State<ClientsPage> {
                     CupertinoSliverRefreshControl(
                       onRefresh: () async {
                         _fetchClients();
-                        await Future.delayed(const Duration(seconds: 2));
+                        await Future.delayed(const Duration(seconds: 1));
                         if (mounted) setState(() => _refreshKey = UniqueKey());
                       },
                     ),
-                    userProvider.isLoading
+                    userProvider.isLoading || bookingProvider.isLoading
                         ? const SliverFillRemaining(
                             child: Center(child: CustomLoader()),
                           )
@@ -248,9 +266,11 @@ class _ClientsPageState extends State<ClientsPage> {
                         ? SliverFillRemaining(
                             child: Center(
                               child: Text(
-                                "No clients found",
+                                "No clients yet.",
                                 style: TextStyle(
-                                  color: isDark ? Colors.white70 : Colors.black54,
+                                  color: isDark
+                                      ? Colors.white70
+                                      : Colors.black54,
                                 ),
                               ),
                             ),
@@ -267,8 +287,16 @@ class _ClientsPageState extends State<ClientsPage> {
                                 context,
                                 index,
                               ) {
-                                final client = clients[index];
-                                return _buildClientCard(client, isDark, index);
+                                final stats = _calculateClientStats(
+                                  clients[index].name,
+                                  allBookings,
+                                );
+                                return _buildClientCard(
+                                  clients[index],
+                                  isDark,
+                                  stats['count'],
+                                  stats['revenue'],
+                                );
                               }, childCount: clients.length),
                             ),
                           ),
@@ -282,75 +310,177 @@ class _ClientsPageState extends State<ClientsPage> {
     );
   }
 
-  Widget _buildClientCard(dynamic client, bool isDark, int index) {
-    final bool isExpanded = _expandedIndex == index;
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        setState(() => _expandedIndex = isExpanded ? null : index);
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF2C2C2C) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            ListTile(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 8,
-              ),
-              leading: CircleAvatar(
-                backgroundColor: isDark
-                    ? AppColors.primary.withOpacity(0.2)
-                    : AppColors.secondary.withOpacity(0.2),
+  Widget _buildClientCard(
+    dynamic client,
+    bool isDark,
+    int bookings,
+    double revenue,
+  ) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark
+            ? const Color(0xFF2C2C2C).withOpacity(0.75)
+            : Colors.white.withOpacity(0.75),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 28,
+                backgroundColor: AppColors.primary,
                 child: Text(
                   _getInitials(client.name),
-                  style: TextStyle(
-                    color: isDark ? AppColors.primary : AppColors.secondary,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
-              title: Text(
-                client.name,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.black,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      client.name,
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    _buildContactRow(
+                      "assets/call.svg",
+                      client.phone ?? "No phone",
+                      isDark,
+                    ),
+                  ],
                 ),
               ),
-              subtitle: Text(
-                client.email ?? "No email provided",
-                style: TextStyle(
-                  color: isDark ? Colors.white70 : Colors.black54,
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              _buildStatBox(
+                "Total Bookings",
+                "$bookings",
+                "assets/medal.svg",
+                isDark,
+                borderColor: AppColors.secondary,
+              ),
+              const SizedBox(width: 10),
+              _buildStatBox(
+                "Total Revenue",
+                "$revenue EGP",
+                "assets/wallet.svg",
+                isDark,
+                borderColor: AppColors.primary,
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: _buildActionButton(
+                  "Edit Client",
+                  "assets/message-edit.svg",
+                  isDark,
+                  () => _editClientDialog(client),
                 ),
               ),
-              trailing: AnimatedRotation(
-                duration: const Duration(milliseconds: 300),
-                turns: isExpanded ? 0.5 : 0,
-                child: const Icon(
-                  Icons.keyboard_arrow_down,
-                  color: Colors.grey,
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildActionButton(
+                  "Delete",
+                  "assets/trash.svg",
+                  isDark,
+                  () => _removeClient(client.id, client.name),
+                  isDelete: true,
                 ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContactRow(String imagePath, String text, bool isDark) {
+    return Row(
+      children: [
+        SvgPicture.asset(
+          imagePath,
+          width: 18,
+          color: isDark ? Colors.white60 : Colors.black45,
+        ),
+        const SizedBox(width: 6),
+        Text(
+          text,
+          style: TextStyle(
+            color: isDark ? Colors.white60 : Colors.black54,
+            fontSize: 13,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatBox(
+    String label,
+    String value,
+    String imagePath,
+    bool isDark, {
+    Color? borderColor,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: borderColor?.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: borderColor ?? Colors.grey),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SvgPicture.asset(
+              imagePath,
+              width: 18,
+              color: isDark ? Colors.white70 : Colors.black87,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                color: isDark ? Colors.white54 : Colors.black54,
+                height: 1.1,
               ),
             ),
-            AnimatedSize(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-              child: isExpanded
-                  ? _buildActionButtons(client)
-                  : const SizedBox(width: double.infinity, height: 0),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : Colors.black,
+              ),
             ),
           ],
         ),
@@ -358,66 +488,44 @@ class _ClientsPageState extends State<ClientsPage> {
     );
   }
 
-  Widget _buildActionButtons(dynamic client) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 20, right: 20, bottom: 20),
-      child: Column(
-        children: [
-          const Divider(),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => _editClientDialog(client),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.primary),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Center(
-                      child: Text(
-                        "Edit Info",
-                        style: TextStyle(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => _removeClient(client.id, client.name),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFF1100),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SvgPicture.asset("assets/trash.svg", color: Colors.white,),
-                        SizedBox(width: 8),
-                        Text(
-                          "Delete",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
+  Widget _buildActionButton(
+    String label,
+    String imagePath,
+    bool isDark,
+    VoidCallback onTap, {
+    bool isDelete = false,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isDelete ? AppColors.red.withOpacity(0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDelete ? AppColors.red : AppColors.primary,
           ),
-        ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SvgPicture.asset(
+              imagePath,
+              width: 18,
+              color: isDelete ? AppColors.red : AppColors.primary,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: isDelete ? AppColors.red : AppColors.primary,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

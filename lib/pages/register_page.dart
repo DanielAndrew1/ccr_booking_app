@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously, deprecated_member_use
+
 import '../core/imports.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -13,62 +15,66 @@ class _RegisterPageState extends State<RegisterPage> {
   final _passwordController = TextEditingController();
   final _authService = AuthService();
 
-  bool _loading = false;
+  bool _isLoading = false;
 
-  Future<void> _register() async {
-    setState(() => _loading = true);
+  // Fixed the non-nullable error by returning the Future chain directly
+  Future<void> _register() {
+    setState(() => _isLoading = true);
 
-    try {
-      await _authService.register(
-        name: _nameController.text.trim(),
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
+    return _authService
+        .register(
+          name: _nameController.text.trim(),
+          email: _emailController.text.trim(),
+          password: _passwordController.text.trim(),
+        )
+        .then((_) {
+          if (!mounted) return;
 
-      if (!mounted) return;
-      Navigator.pushNamedAndRemoveUntil(context, '/home', (_) => false);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.toString())));
-    }
+          CustomSnackBar.show(
+            context,
+            "Account Created Successfully!",
+            color: AppColors.green,
+          );
 
-    if (mounted) {
-      setState(() => _loading = false);
-    }
+          // Using the same navigation style as login
+          Navigator.pushNamedAndRemoveUntil(context, '/home', (_) => false);
+        })
+        .catchError((e) {
+          if (mounted) {
+            CustomSnackBar.show(
+              context,
+              "Registration Failed: ${e.toString()}",
+            );
+          }
+        })
+        .whenComplete(() {
+          if (mounted) setState(() => _isLoading = false);
+        });
   }
 
   @override
   Widget build(BuildContext context) {
-    // Detect dark mode
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
-    
+
     return Scaffold(
-      // Toggle background color
       backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
       body: Padding(
         padding: const EdgeInsets.all(24),
-        child: SingleChildScrollView(
-          // Added to prevent overflow when keyboard appears
-          child: SizedBox(
-            height: MediaQuery.of(context).size.height - 48,
+        child: Center(
+          child: SingleChildScrollView(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Image.asset('assets/logo.png'),
-
                 const SizedBox(height: 16),
                 Text(
                   'Create Account',
                   style: AppFontStyle.titleMedium().copyWith(
-                    // Toggle title color
                     color: isDark ? Colors.white : AppColors.darkcolor,
                   ),
                 ),
                 const SizedBox(height: 24),
-
                 CustomTextfield(
                   textEditingController: _nameController,
                   keyboardType: TextInputType.text,
@@ -76,9 +82,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   labelText: 'Name',
                   textCapitalization: TextCapitalization.words,
                 ),
-
                 const SizedBox(height: 12),
-
                 CustomTextfield(
                   textEditingController: _emailController,
                   keyboardType: TextInputType.emailAddress,
@@ -86,9 +90,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   labelText: 'Email',
                   textCapitalization: TextCapitalization.none,
                 ),
-
                 const SizedBox(height: 12),
-
                 CustomTextfield(
                   textEditingController: _passwordController,
                   keyboardType: TextInputType.visiblePassword,
@@ -96,22 +98,14 @@ class _RegisterPageState extends State<RegisterPage> {
                   labelText: 'Password',
                   textCapitalization: TextCapitalization.none,
                 ),
-
                 const SizedBox(height: 32),
-
                 CustomButton(
-                  onPressed: _loading ? null : _register,
+                  // Pass null when loading to let the button handle the loader UI
+                  onPressed: _isLoading ? null : _register,
+                  text: 'Create Account',
                   color: WidgetStateProperty.all(AppColors.primary),
-                  child: _loading
-                      ? const CustomLoader(size: 24, color: AppColors.secondary)
-                      : const Text(
-                          'Create Account',
-                          style: TextStyle(color: Colors.white),
-                        ),
                 ),
-
                 const SizedBox(height: 12),
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -119,14 +113,15 @@ class _RegisterPageState extends State<RegisterPage> {
                       "Already have an account? ",
                       style: TextStyle(
                         color: isDark ? Colors.white70 : AppColors.darkcolor,
-                      ).copyWith(fontSize: 14),
+                        fontSize: 14,
+                      ),
                     ),
                     TextButton(
                       onPressed: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => LoginPage(),
+                            builder: (context) => const LoginPage(),
                           ),
                         );
                       },

@@ -26,50 +26,58 @@ class CustomButton extends StatefulWidget {
 }
 
 class _CustomButtonState extends State<CustomButton> {
-  bool _loading = false;
+  bool _internalLoading = false;
 
   Future<void> _handlePress() async {
-    if (widget.onPressed == null || _loading) return;
-    setState(() => _loading = true);
+    if (widget.onPressed == null || _internalLoading) return;
+    setState(() => _internalLoading = true);
     try {
       await widget.onPressed!();
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) setState(() => _internalLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     final effectiveColor =
-        widget.color ??
-        WidgetStateProperty.all(
-          isDark ? AppColors.primary : AppColors.secondary,
-        );
+        widget.color ?? WidgetStateProperty.all(AppColors.primary);
+
+    // Determine if we are loading (externally via null onPressed or internally)
+    final bool isLoading = widget.onPressed == null || _internalLoading;
+
+    // Helper to get text even if passed as a child
+    String buttonText = widget.text ?? '';
+    if (buttonText.isEmpty && widget.child is Text) {
+      buttonText = (widget.child as Text).data ?? '';
+    }
 
     return SizedBox(
       width: double.infinity,
       height: widget.height,
       child: ElevatedButton(
-        onPressed: _loading ? null : _handlePress,
+        // If external logic says null, it's likely already loading/disabled
+        onPressed: isLoading ? null : _handlePress,
         style: ButtonStyle(
           backgroundColor: effectiveColor,
-          foregroundColor: WidgetStateProperty.all(AppColors.lightcolor),
+          foregroundColor: WidgetStateProperty.all(
+            Colors.black,
+          ), // Black for visibility on yellow
           shape: WidgetStateProperty.all(
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
           elevation: WidgetStateProperty.all(0),
         ),
-        child: _loading
+        child: isLoading
             ? Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const CustomLoader(size: 22, strokeWidth: 2),
-                  const SizedBox(width: 6),
+                  const CustomLoader(size: 20, color: Colors.white),
+                  const SizedBox(width: 8),
                   Text(
-                    widget.text ?? '',
+                    buttonText,
                     style: AppFontStyle.textMedium().copyWith(
-                      color: AppColors.lightcolor,
+                      color: Colors.white,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -83,15 +91,15 @@ class _CustomButtonState extends State<CustomButton> {
                         IconHandler.buildIcon(
                           imagePath: widget.imagePath,
                           icon: widget.icon,
-                          color: AppColors.lightcolor,
+                          color: Colors.white,
                           size: 20,
                         ),
                         const SizedBox(width: 8),
                       ],
                       Text(
-                        widget.text ?? '',
+                        buttonText,
                         style: AppFontStyle.textMedium().copyWith(
-                          color: AppColors.lightcolor,
+                          color: Colors.white,
                           fontWeight: FontWeight.w600,
                         ),
                       ),

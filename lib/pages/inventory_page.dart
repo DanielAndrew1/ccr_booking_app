@@ -1,4 +1,4 @@
-// ignore_for_file: deprecated_member_use
+// ignore_for_file: deprecated_member_use, unused_field
 
 import 'package:flutter/cupertino.dart';
 import '../core/imports.dart';
@@ -52,6 +52,9 @@ class _InventoryPageState extends State<InventoryPage> {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
 
+    // Determine the refresh indicator color based on your requirements
+    final Color refreshColor = isDark ? AppColors.primary : AppColors.secondary;
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarIconBrightness: Brightness.light,
@@ -64,7 +67,7 @@ class _InventoryPageState extends State<InventoryPage> {
         extendBodyBehindAppBar: true,
         appBar: CustomAppBar(
           text: _isSearching ? "" : 'Inventory',
-          showPfp: !_isSearching,
+          showPfp: false,
           hideLeading: _isSearching,
           actions: [
             if (_isSearching) ...[
@@ -143,7 +146,7 @@ class _InventoryPageState extends State<InventoryPage> {
             Column(
               children: [
                 const SizedBox(height: 140),
-                if (!_hasConnection) const NoInternetWidget(),
+                // Removed local NoInternetWidget because it is now managed globally by MyApp overlay
                 Expanded(
                   child: CustomScrollView(
                     physics: const BouncingScrollPhysics(
@@ -151,6 +154,22 @@ class _InventoryPageState extends State<InventoryPage> {
                     ),
                     slivers: [
                       CupertinoSliverRefreshControl(
+                        // Customizing the color of the spinner
+                        builder:
+                            (
+                              context,
+                              refreshState,
+                              pulledExtent,
+                              refreshTriggerPullDistance,
+                              refreshIndicatorExtent,
+                            ) {
+                              return Center(
+                                child: CupertinoActivityIndicator(
+                                  radius: 14,
+                                  color: refreshColor,
+                                ),
+                              );
+                            },
                         onRefresh: () async {
                           setState(() => _streamKey = UniqueKey());
                           await Future.delayed(const Duration(seconds: 2));

@@ -164,6 +164,8 @@ class _HomePageState extends State<HomePage>
         .from('bookings')
         .select('*')
         .eq('status', 'upcoming')
+        .neq('status', 'canceled')
+        .neq('status', 'deleted')
         .gte('pickup_datetime', range['start']!)
         .lte('pickup_datetime', range['end']!)
         .order('pickup_datetime', ascending: true);
@@ -176,6 +178,8 @@ class _HomePageState extends State<HomePage>
         .from('bookings')
         .select('*')
         .eq('status', 'returning')
+        .neq('status', 'canceled')
+        .neq('status', 'deleted')
         .gte('return_datetime', range['start']!)
         .lte('return_datetime', range['end']!)
         .order('return_datetime', ascending: true);
@@ -188,11 +192,15 @@ class _HomePageState extends State<HomePage>
       final pickups = await supabase
           .from('bookings')
           .select('id')
+          .neq('status', 'canceled')
+          .neq('status', 'deleted')
           .gte('pickup_datetime', range['start']!)
           .lte('pickup_datetime', range['end']!);
       final returns = await supabase
           .from('bookings')
           .select('id')
+          .neq('status', 'canceled')
+          .neq('status', 'deleted')
           .gte('return_datetime', range['start']!)
           .lte('return_datetime', range['end']!);
       final clients = await supabase.from('clients').select('id');
@@ -516,7 +524,7 @@ class _HomePageState extends State<HomePage>
     }
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
+      value: const SystemUiOverlayStyle(
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,
         statusBarColor: Colors.transparent,
@@ -669,7 +677,7 @@ class _HomePageState extends State<HomePage>
             body: "Notification triggered successfully",
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 120),
       ],
     );
   }
@@ -754,6 +762,8 @@ class _HomePageState extends State<HomePage>
                       supabase
                           .from('bookings')
                           .select()
+                          .neq('status', 'canceled')
+                          .neq('status', 'deleted')
                           .gte('pickup_datetime', range['start']!)
                           .lte('pickup_datetime', range['end']!),
                       isDark,
@@ -775,6 +785,8 @@ class _HomePageState extends State<HomePage>
                       supabase
                           .from('bookings')
                           .select()
+                          .neq('status', 'canceled')
+                          .neq('status', 'deleted')
                           .gte('return_datetime', range['start']!)
                           .lte('return_datetime', range['end']!),
                       isDark,
@@ -892,7 +904,6 @@ class _HomePageState extends State<HomePage>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // UPDATED: Directly using SvgPicture for SVGs to avoid Image.asset crashes
             mirrorIcon
                 ? Transform.flip(
                     flipX: true,
@@ -927,7 +938,6 @@ class _HomePageState extends State<HomePage>
         : Expanded(child: card);
   }
 
-  // New helper to handle SVG vs IconData properly
   Widget _buildIconHelper(String? imagePath, IconData? icon, Color color) {
     if (imagePath != null && imagePath.endsWith('.svg')) {
       return SvgPicture.asset(
@@ -945,8 +955,8 @@ class _HomePageState extends State<HomePage>
   Widget _buildActionButton({
     required String title,
     required String subtitle,
-    IconData? icon, // Made optional
-    String? imagePath, // Added for SVG/Image support
+    IconData? icon,
+    String? imagePath,
     required Color color,
     required bool isDark,
     required VoidCallback onTap,
@@ -969,7 +979,6 @@ class _HomePageState extends State<HomePage>
         ),
         child: Row(
           children: [
-            // Container for the leading icon or image
             Container(
               width: 45,
               height: 45,
@@ -984,11 +993,7 @@ class _HomePageState extends State<HomePage>
                         color: color,
                         size: 24,
                       )
-                    : Icon(
-                        icon ?? Icons.help_outline, // Fallback icon
-                        color: color,
-                        size: 24,
-                      ),
+                    : Icon(icon ?? Icons.help_outline, color: color, size: 24),
               ),
             ),
             const SizedBox(width: 15),
@@ -1004,7 +1009,7 @@ class _HomePageState extends State<HomePage>
                       color: isDark ? Colors.white : Colors.black,
                     ),
                   ),
-                  const SizedBox(height: 2), // Slight spacing improvement
+                  const SizedBox(height: 2),
                   Text(
                     subtitle,
                     style: TextStyle(

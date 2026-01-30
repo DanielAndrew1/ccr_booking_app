@@ -14,6 +14,10 @@ class AddBooking extends StatefulWidget {
 class _AddBookingState extends State<AddBooking> {
   final SupabaseClient supabase = Supabase.instance.client;
 
+  // Added key to control the CustomSearch state
+  final GlobalKey<CustomSearchState> _searchKey =
+      GlobalKey<CustomSearchState>();
+
   Map<String, dynamic>? selectedClient;
   DateTime? pickupDate;
   DateTime? returnDate;
@@ -21,7 +25,6 @@ class _AddBookingState extends State<AddBooking> {
 
   final NumberFormat _currencyFormat = NumberFormat("#,##0", "en_US");
 
-  // Logic: 29/1 to 29/1 = 0 days, 29/1 to 30/1 = 1 day
   int get totalDays {
     if (pickupDate == null || returnDate == null) return 0;
     final pDate = DateTime(
@@ -55,19 +58,19 @@ class _AddBookingState extends State<AddBooking> {
         pickupDate == null ||
         returnDate == null ||
         isProductsEmpty) {
-      _showSnackBar("Please fill in all details", AppColors.primary);
+      CustomSnackBar.show(context, "Please fill in all details");
       return;
     }
 
     if (returnDate!.isBefore(pickupDate!)) {
-      _showSnackBar("Return date must be after pickup date", Colors.red);
+      CustomSnackBar.show(context, "Return date must be after pickup date");
       return;
     }
 
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
+      builder: (_) => const Center(child: CustomLoader()),
     );
 
     try {
@@ -75,6 +78,57 @@ class _AddBookingState extends State<AddBooking> {
           .where((p) => p != null)
           .cast<Map<String, dynamic>>()
           .toList();
+
+      for (var product in validSelection) {
+        final String productId = product['id'].toString();
+        final int totalQuantity =
+            int.tryParse(product['quantity']?.toString() ?? '1') ?? 1;
+
+        int countInCurrent = validSelection
+            .where((p) => p['id'].toString() == productId)
+            .length;
+
+        if (countInCurrent > totalQuantity) {
+          Navigator.pop(context);
+          CustomSnackBar.show(
+            context,
+            "Out of stock: You selected $countInCurrent of '${product['name']}', but only $totalQuantity exist.",
+          );
+          return;
+        }
+
+        final List<dynamic> overlaps = await supabase
+            .from('bookings')
+            .select('client_name, product_ids')
+            .filter('status', 'neq', 'cancelled')
+            .lt('pickup_datetime', returnDate!.toIso8601String())
+            .gt('return_datetime', pickupDate!.toIso8601String());
+
+        int countInOthers = 0;
+        List<String> holders = [];
+
+        for (var b in overlaps) {
+          final List<dynamic> pIds = b['product_ids'] ?? [];
+          int matchCount = pIds
+              .where((id) => id.toString() == productId)
+              .length;
+          if (matchCount > 0) {
+            countInOthers += matchCount;
+            holders.add("${b['client_name']} ($matchCount)");
+          }
+        }
+
+        if (countInCurrent + countInOthers > totalQuantity) {
+          Navigator.pop(context);
+          CustomSnackBar.show(
+            context,
+            "Unavailable: '${product['name']}' is currently with: ${holders.join(", ")}",
+            icon: Icons.warning_amber_rounded,
+          );
+          return;
+        }
+      }
+
       final List<String> productIds = validSelection
           .map((p) => p['id'].toString())
           .toList();
@@ -95,29 +149,36 @@ class _AddBookingState extends State<AddBooking> {
 
       if (!mounted) return;
       Navigator.pop(context);
-      _showSnackBar("Booking Saved Successfully!", Colors.green);
+
+      // RESET EVERYTHING
+      setState(() {
+        selectedClient = null;
+        pickupDate = null;
+        returnDate = null;
+        selectedProducts = [null];
+      });
+
+      // Explicitly clear the CustomSearch internal state
+      _searchKey.currentState?.clear();
+
+      CustomSnackBar.show(
+        context,
+        "Booking Created Successfully!",
+        color: AppColors.green,
+        icon: Icons.check_circle_outline,
+      );
+
+      if (!widget.isRoot) Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
       Navigator.pop(context);
-      _showSnackBar("Error: ${e.toString()}", Colors.red);
+      CustomSnackBar.show(context, "Error: ${e.toString()}");
     }
-  }
-
-  void _showSnackBar(String message, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: color,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
   }
 
   void _showCustomDatePicker({required bool isPickup}) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-
-    // Pickup min is Today. Return min is day after Pickup (or Tomorrow if Pickup not set).
     DateTime minSelectable = isPickup
         ? today
         : (pickupDate?.add(const Duration(days: 1)) ??
@@ -136,7 +197,6 @@ class _AddBookingState extends State<AddBooking> {
           setState(() {
             if (isPickup) {
               pickupDate = selectedDate;
-              // DEFAULT LOGIC: Set return date to the day after pickup automatically
               returnDate = selectedDate.add(const Duration(days: 1));
             } else {
               returnDate = selectedDate;
@@ -225,7 +285,6 @@ class _AddBookingState extends State<AddBooking> {
                   itemBuilder: (context, i) {
                     final product = allProducts[i];
                     final imageUrl = product['image_url'] ?? product['image'];
-
                     return ListTile(
                       leading: _buildImageOrIcon(imageUrl, isDark),
                       title: Text(
@@ -333,6 +392,7 @@ class _AddBookingState extends State<AddBooking> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     CustomSearch(
+                      key: _searchKey, // Applied the key here
                       onClientSelected: (client) =>
                           setState(() => selectedClient = client),
                     ),
@@ -355,7 +415,6 @@ class _AddBookingState extends State<AddBooking> {
                         final product = selectedProducts[index];
                         final imageUrl =
                             product?['image_url'] ?? product?['image'];
-
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 12.0),
                           child: Row(
@@ -388,7 +447,7 @@ class _AddBookingState extends State<AddBooking> {
                                                   fontSize: 16,
                                                   color: isDark
                                                       ? Colors.white
-                                                      : Color(0xFF6A6A6A),
+                                                      : const Color(0xFF6A6A6A),
                                                   fontWeight: FontWeight.w500,
                                                 ),
                                               ),
@@ -622,7 +681,6 @@ class _CustomDatePickerSheetState extends State<_CustomDatePickerSheet> {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
     final primaryRed = AppColors.primary;
-
     final daysInMonth = DateTime(
       _displayedMonth.year,
       _displayedMonth.month + 1,
@@ -729,13 +787,11 @@ class _CustomDatePickerSheetState extends State<_CustomDatePickerSheet> {
                   _displayedMonth.month,
                   day,
                 );
-
                 bool isPast = checkDate.isBefore(widget.minDate);
                 bool isSelected =
                     _selectedDay.day == day &&
                     _selectedDay.month == _displayedMonth.month &&
                     _selectedDay.year == _displayedMonth.year;
-
                 return GestureDetector(
                   onTap: isPast
                       ? null

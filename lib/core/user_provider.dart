@@ -103,6 +103,35 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
+  // UPDATED: Now creates a new instance to bypass final field restrictions
+  Future<void> updateClient(
+    String clientId,
+    Map<String, dynamic> updatedData,
+  ) async {
+    try {
+      await _supabase.from('clients').update(updatedData).eq('id', clientId);
+
+      int index = _allClients.indexWhere((c) => c.id == clientId);
+      if (index != -1) {
+        final existingClient = _allClients[index];
+
+        // We create a new instance using the constructor since fields are final
+        _allClients[index] = AppClient(
+          id: existingClient.id,
+          name: updatedData['name'] ?? existingClient.name,
+          email: updatedData['email'] ?? existingClient.email,
+          phone: updatedData['phone'] ?? existingClient.phone,
+          // If you have other fields like createdAt, pass them here too
+        );
+
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint("Update Client Error: $e");
+      rethrow;
+    }
+  }
+
   Future<void> deleteClient(String clientId) async {
     try {
       await _supabase.from('clients').delete().eq('id', clientId);

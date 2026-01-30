@@ -8,56 +8,59 @@ class NoInternetWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4,),
+      // Increased horizontal padding for better spacing from screen edges
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: const Color(0xFFFF3B3B),
+          color: AppColors.red,
           borderRadius: BorderRadius.circular(
             50,
-          ), // Fully rounded like the screenshot
+          ), // Slightly less rounded for multi-line
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 15,
-              offset: const Offset(0, 8),
+              color: AppColors.red.withOpacity(0.5),
+              blurRadius: 18,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Container(
               width: 32,
               height: 32,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2.5),
+                border: Border.all(color: Colors.white, width: 2),
               ),
               child: const Center(
                 child: Text(
                   '!',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 20,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12),
             const Expanded(
               child: Text(
-                'No internet connection - Please check your network',
+                'No internet connection.\nPlease check your network and try again.',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
+                  height: 1.2, // Tighter line height for 2 rows
                 ),
+                textAlign: TextAlign.center,
               ),
             ),
-            const SizedBox(width: 12),
-            const Icon(Icons.wifi_off_rounded, color: Colors.white, size: 28),
+            const SizedBox(width: 8),
+            const Icon(Icons.wifi_off_rounded, color: Colors.white, size: 24),
           ],
         ),
       ),

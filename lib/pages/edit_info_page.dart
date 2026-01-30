@@ -38,27 +38,22 @@ class _EditInfoPageState extends State<EditInfoPage> {
             ? null
             : _passwordController.text.trim(),
       );
+
+      // Refresh the user data in the provider
       await Provider.of<UserProvider>(context, listen: false).refreshUser();
-      widget.onSaved?.call();
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profile updated'),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        Navigator.pop(context, true);
+        CustomSnackBar.show(context, "Profile Updated", color: AppColors.green);
+
+        // EXECUTION FIX:
+        // We only trigger the onSaved callback.
+        // In your ProfilePage, the onSaved callback already handles the Navigator.pop.
+        // If we pop here AND there, it pops twice, leading to a black screen.
+        widget.onSaved?.call();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Update failed: $e'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        CustomSnackBar.show(context, "Update failed: $e", color: AppColors.red);
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -83,7 +78,7 @@ class _EditInfoPageState extends State<EditInfoPage> {
       child: Stack(
         children: [
           // The background SVG pinned to the top/fill
-          CustomBgSvg(),
+          const CustomBgSvg(),
           Scaffold(
             // Make Scaffold transparent so the Stack background and SVG show through
             backgroundColor: Colors.transparent,
@@ -103,7 +98,6 @@ class _EditInfoPageState extends State<EditInfoPage> {
                     builder: (context, value, child) {
                       return Hero(
                         tag: 'profile_image',
-                        // Material wrapper removes the yellow underline during transition
                         child: Material(
                           type: MaterialType.transparency,
                           child: CustomPfp(
@@ -140,21 +134,32 @@ class _EditInfoPageState extends State<EditInfoPage> {
                     textCapitalization: TextCapitalization.none,
                   ),
                   const SizedBox(height: 32),
-                  CustomButton(
-                    color: WidgetStateProperty.all(
-                      isDark ? AppColors.primary : AppColors.secondary,
-                    ),
-                    onPressed: _loading ? null : _saveChanges,
-                    height: 55,
-                    child: _loading
-                        ? const CustomLoader(size: 24)
-                        : Text(
-                            'Save Changes',
-                            style: AppFontStyle.textMedium().copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
+                  SizedBox(
+                    width: double.infinity,
+                    child: CustomButton(
+                      color: WidgetStateProperty.all(AppColors.primary),
+                      onPressed: _loading ? null : _saveChanges,
+                      height: 45,
+                      child: _loading
+                          ? CustomLoader(
+                              size: 24,
+                              color: AppColors.secondary,
+                            )
+                          : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SvgPicture.asset("assets/folder-2.svg", color: Colors.white, width: 22,),
+                              SizedBox(width: 4,),
+                              Text(
+                                  'Save Changes',
+                                  style: AppFontStyle.textMedium().copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                            ],
                           ),
+                    ),
                   ),
                 ],
               ),

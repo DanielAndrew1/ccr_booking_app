@@ -1,5 +1,6 @@
-// ignore_for_file: deprecated_member_use
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously
 
+import 'package:flutter/cupertino.dart';
 import '../core/imports.dart';
 
 class UsersPage extends StatefulWidget {
@@ -29,47 +30,87 @@ class _UsersPageState extends State<UsersPage> {
     return nameParts[0][0].toUpperCase();
   }
 
+  // Updated to use CustomSnackBar
   void _changeRole(String userId, String newRole) {
-    HapticFeedback.mediumImpact();
+    HapticFeedback.selectionClick();
     Provider.of<UserProvider>(
       context,
       listen: false,
     ).updateUserRole(userId, newRole);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("Role changed to $newRole"),
-        backgroundColor: AppColors.primary,
-        behavior: SnackBarBehavior.floating,
-      ),
+
+    CustomSnackBar.show(
+      context,
+      "Role changed to $newRole",
+      color: AppColors.primary,
     );
   }
 
-  void _removeUser(String userId, String userName) {
+  // Logic to handle the actual deletion and snackbar response
+  Future<void> _executeDelete(String userId, String userName) async {
+    try {
+      await Provider.of<UserProvider>(
+        context,
+        listen: false,
+      ).deleteUser(userId);
+      if (mounted) {
+        CustomSnackBar.show(
+          context,
+          "$userName removed successfully",
+          color: AppColors.green,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomSnackBar.show(
+          context,
+          "Error deleting user: ${e.toString()}",
+          color: AppColors.red,
+        );
+      }
+    }
+  }
+
+  // Cupertino deletion dialog (Fixed logic and text)
+  Future<void> _confirmDeleteUser(String userId, String userName) async {
     HapticFeedback.heavyImpact();
-    showDialog(
+    final bool? confirm = await showCupertinoDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("Confirm Delete"),
-        content: Text("Are you sure you want to remove $userName?"),
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text("Delete Employee"),
+        content: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('Are you sure you want to remove'),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(' "'),
+                Text(userName, style: TextStyle(color: AppColors.red),), 
+                Text('" ?'),
+              ],
+            ),
+          ],
+        ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
+          CupertinoDialogAction(
+            child: Text(
+              "Cancel",
+              style: TextStyle(color: AppColors.secondary.withBlue(240)),
+            ),
+            onPressed: () => Navigator.pop(context, false),
           ),
-          TextButton(
-            onPressed: () {
-              Provider.of<UserProvider>(
-                context,
-                listen: false,
-              ).deleteUser(userId);
-              Navigator.pop(context);
-            },
-            child: const Text("Delete", style: TextStyle(color: Colors.red)),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            child: const Text("Delete"),
+            onPressed: () => Navigator.pop(context, true),
           ),
         ],
       ),
     );
+
+    if (confirm == true) {
+      _executeDelete(userId, userName);
+    }
   }
 
   @override
@@ -79,21 +120,32 @@ class _UsersPageState extends State<UsersPage> {
     final userProvider = Provider.of<UserProvider>(context);
 
     final String? currentUserId = Supabase.instance.client.auth.currentUser?.id;
-
     final allUsers = userProvider.allUsers;
-    final otherUsers = allUsers.where((u) => u.id != currentUserId).toList();
+
     final currentUserData = allUsers
         .where((u) => u.id == currentUserId)
         .firstOrNull;
+
+    List<dynamic> otherUsers = allUsers
+        .where((u) => u.id != currentUserId)
+        .toList();
+    otherUsers.sort((a, b) {
+      if (a.name == "Daniel Andrew") return -1;
+      if (b.name == "Daniel Andrew") return 1;
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
 
     return Container(
       color: isDark ? AppColors.darkbg : AppColors.lightcolor,
       child: Stack(
         children: [
-          const CustomBgSvg(), // Decoration layer pinned to top
+          const CustomBgSvg(),
           Scaffold(
-            backgroundColor: Colors.transparent, // Reveal Container color & SVG
-            appBar: const CustomAppBar(text: 'Manage Employees', showPfp: false),
+            backgroundColor: Colors.transparent,
+            appBar: const CustomAppBar(
+              text: 'Manage Employees',
+              showPfp: false,
+            ),
             body: userProvider.isLoading
                 ? const Center(child: CustomLoader())
                 : AnimatedSwitcher(
@@ -107,7 +159,6 @@ class _UsersPageState extends State<UsersPage> {
                             ),
                             physics: const BouncingScrollPhysics(),
                             children: [
-                              // --- SECTION: CURRENT USER ---
                               if (currentUserData != null) ...[
                                 _buildSectionHeader("You", isDark),
                                 _buildUserCard(
@@ -117,8 +168,6 @@ class _UsersPageState extends State<UsersPage> {
                                 ),
                                 const SizedBox(height: 20),
                               ],
-
-                              // --- SECTION: OTHER USERS ---
                               if (otherUsers.isNotEmpty) ...[
                                 _buildSectionHeader("Others", isDark),
                                 ...otherUsers.asMap().entries.map((entry) {
@@ -163,6 +212,8 @@ class _UsersPageState extends State<UsersPage> {
     bool isExpanded = false,
     required bool isCurrentUser,
   }) {
+    final bool isDaniel = user.name == "Daniel Andrew";
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
@@ -186,92 +237,97 @@ class _UsersPageState extends State<UsersPage> {
           ),
         ],
       ),
-      child: Theme(
-        data: Theme.of(context).copyWith(
-          splashColor: Colors.transparent,
-          highlightColor: Colors.transparent,
-        ),
-        child: Column(
-          children: [
-            ListTile(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 8,
+      child: Column(
+        children: [
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 20,
+              vertical: 8,
+            ),
+            leading: CircleAvatar(
+              backgroundColor: isDark
+                  ? AppColors.primary.withOpacity(0.2)
+                  : AppColors.secondary.withOpacity(0.2),
+              child: Text(
+                _getInitials(user.name),
+                style: TextStyle(
+                  color: isDark ? AppColors.primary : AppColors.secondary,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              leading: CircleAvatar(
-                backgroundColor: isDark
-                    ? AppColors.primary.withOpacity(0.2)
-                    : AppColors.secondary.withOpacity(0.2),
-                child: Text(
-                  _getInitials(user.name),
+            ),
+            title: Row(
+              children: [
+                Text(
+                  user.name,
                   style: TextStyle(
-                    color: isDark ? AppColors.primary : AppColors.secondary,
                     fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black,
                   ),
                 ),
-              ),
-              title: Text(
-                user.name,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.black,
-                ),
-              ),
-              subtitle: Text(
-                user.role,
-                style: TextStyle(
-                  color: isDark ? Colors.white70 : Colors.black54,
-                ),
-              ),
-              trailing: isCurrentUser
-                  ? Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? AppColors.primary.withOpacity(0.1)
-                            : AppColors.secondary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        "Me",
-                        style: TextStyle(
-                          color: isDark
-                              ? AppColors.primary
-                              : AppColors.secondary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    )
-                  : AnimatedRotation(
-                      duration: const Duration(milliseconds: 300),
-                      turns: isExpanded ? 0.5 : 0,
-                      child: const Icon(
-                        Icons.keyboard_arrow_down,
-                        color: Colors.grey,
-                      ),
-                    ),
-              onTap: isCurrentUser
-                  ? null
-                  : () {
-                      HapticFeedback.selectionClick();
-                      setState(() {
-                        _expandedIndex = isExpanded ? null : index;
-                      });
-                    },
+                if (isDaniel) ...[
+                  const SizedBox(width: 6),
+                  SvgPicture.asset(
+                    "assets/verify.svg",
+                    width: 16,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
+                ],
+              ],
             ),
-            if (!isCurrentUser)
-              AnimatedSize(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
-                child: isExpanded
-                    ? _buildActionButtons(user)
-                    : const SizedBox(width: double.infinity, height: 0),
-              ),
-          ],
+            subtitle: Text(
+              user.role,
+              style: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
+            ),
+            trailing: isCurrentUser
+                ? _buildBadge("Me", isDark)
+                : isDaniel
+                ? null
+                : AnimatedRotation(
+                    duration: const Duration(milliseconds: 300),
+                    turns: isExpanded ? 0.5 : 0,
+                    child: const Icon(
+                      Icons.keyboard_arrow_down,
+                      color: Colors.grey,
+                    ),
+                  ),
+            onTap: (isCurrentUser || isDaniel)
+                ? null
+                : () {
+                    HapticFeedback.selectionClick();
+                    setState(() {
+                      _expandedIndex = isExpanded ? null : index;
+                    });
+                  },
+          ),
+          if (!isCurrentUser && !isDaniel)
+            AnimatedSize(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+              child: isExpanded
+                  ? _buildActionButtons(user)
+                  : const SizedBox(width: double.infinity, height: 0),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBadge(String text, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: isDark
+            ? AppColors.primary.withOpacity(0.1)
+            : AppColors.secondary.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: isDark ? AppColors.primary : AppColors.secondary,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
         ),
       ),
     );
@@ -291,7 +347,10 @@ class _UsersPageState extends State<UsersPage> {
                   offset: const Offset(0, 45),
                   onSelected: (role) => _changeRole(user.id, role),
                   itemBuilder: (context) => [
-                    const PopupMenuItem(value: "Warehouse", child: Text("Warehouse")),
+                    const PopupMenuItem(
+                      value: "Warehouse",
+                      child: Text("Warehouse"),
+                    ),
                     const PopupMenuItem(value: "Admin", child: Text("Admin")),
                     const PopupMenuItem(value: "Owner", child: Text("Owner")),
                   ],
@@ -325,8 +384,13 @@ class _UsersPageState extends State<UsersPage> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  onPressed: () => _removeUser(user.id, user.name),
-                  icon: SvgPicture.asset("assets/trash.svg", color: Colors.white,),
+                  // Switching this to the Cupertino style version as an example
+                  // or keep _removeUser if you prefer Material.
+                  onPressed: () => _confirmDeleteUser(user.id, user.name),
+                  icon: SvgPicture.asset(
+                    "assets/trash.svg",
+                    color: Colors.white,
+                  ),
                   label: const Text(
                     "Delete Employee",
                     style: TextStyle(fontWeight: FontWeight.bold),

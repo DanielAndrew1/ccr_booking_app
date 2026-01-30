@@ -15,7 +15,7 @@ class IconHandler {
     double size = 24,
     bool isAdd = false,
   }) {
-    final double finalSize = isAdd ? 30 : size;
+    final double finalSize = isAdd ? 24 : size;
     if (imagePath != null) {
       if (imagePath.toLowerCase().contains('.svg')) {
         return SvgPicture.asset(
@@ -51,13 +51,11 @@ void main() async {
     databaseFactory = databaseFactoryFfi;
   }
 
-  // Initialize Supabase
   await Supabase.initialize(
     url: SupbaseService.url,
     anonKey: SupbaseService.annonKey,
   );
 
-  // Initialize Firebase
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
@@ -67,7 +65,6 @@ void main() async {
     debugPrint("Firebase init error: $e");
   }
 
-  // Initialize notification service and setup foreground listeners
   await NotificationService().initNotification();
 
   runApp(
@@ -75,6 +72,7 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => BookingProvider()),
       ],
       child: const MyApp(),
     ),
@@ -88,16 +86,23 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
+class _MyAppState extends State<MyApp> with TickerProviderStateMixin {
   late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
   OverlayEntry? _networkOverlayEntry;
   bool _isShowingError = false;
   RealtimeChannel? _realtimeChannel;
 
+  late AnimationController _slideController;
+
   @override
   void initState() {
     super.initState();
     _initConnectivity();
+
+    _slideController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
 
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
       List<ConnectivityResult> result,
@@ -107,15 +112,21 @@ class _MyAppState extends State<MyApp> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final bookingProvider = Provider.of<BookingProvider>(
+        context,
+        listen: false,
+      );
 
       Supabase.instance.client.auth.onAuthStateChange.listen((event) {
         final sessionUser = event.session?.user;
         if (sessionUser != null) {
           userProvider.refreshUser();
+          bookingProvider.fetchAllBookings();
           _setupSupabaseListener();
           NotificationService().getAndSaveToken();
         } else {
           userProvider.clearUser();
+          bookingProvider.clearBookings();
           _stopSupabaseListener();
         }
       });
@@ -135,6 +146,11 @@ class _MyAppState extends State<MyApp> {
           callback: (payload) {
             final newRecord = payload.newRecord;
             final eventType = payload.eventType.name.toUpperCase();
+
+            Provider.of<BookingProvider>(
+              context,
+              listen: false,
+            ).fetchAllBookings();
 
             String title = "Booking $eventType";
             String body =
@@ -180,23 +196,35 @@ class _MyAppState extends State<MyApp> {
   void _showNoInternetOverlay() {
     if (_isShowingError) return;
     _isShowingError = true;
+
     _networkOverlayEntry = OverlayEntry(
-      builder: (context) => Positioned(
-        top: MediaQuery.of(context).padding.top + 10,
-        left: 15,
-        right: 15,
-        child: const Material(
-          color: Colors.transparent,
-          child: NoInternetWidget(),
+      builder: (context) => SlideTransition(
+        position: Tween<Offset>(begin: const Offset(0, -1), end: Offset.zero)
+            .animate(
+              CurvedAnimation(
+                parent: _slideController,
+                curve: Curves.elasticOut,
+              ),
+            ),
+        child: Positioned(
+          top: MediaQuery.of(context).padding.top + 10,
+          width: MediaQuery.of(context).size.width,
+          child: const Material(
+            color: Colors.transparent,
+            child: NoInternetWidget(),
+          ),
         ),
       ),
     );
+
     Overlay.of(context).insert(_networkOverlayEntry!);
+    _slideController.forward();
   }
 
-  void _hideNoInternetOverlay() {
+  void _hideNoInternetOverlay() async {
     if (!_isShowingError) return;
     _isShowingError = false;
+    await _slideController.reverse();
     _networkOverlayEntry?.remove();
     _networkOverlayEntry = null;
   }
@@ -206,36 +234,46 @@ class _MyAppState extends State<MyApp> {
     _connectivitySubscription.cancel();
     _stopSupabaseListener();
     _hideNoInternetOverlay();
+    _slideController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: const MainStackHandler(),
-      routes: {
-        '/login': (_) => const LoginPage(),
-        '/register': (_) => const RegisterPage(),
-        '/home': (_) => const CustomNavbar(),
-      },
-      themeMode: ThemeMode.system,
-      theme: ThemeData(
-        brightness: Brightness.light,
-        appBarTheme: const AppBarTheme(
-          systemOverlayStyle: SystemUiOverlayStyle(
-            statusBarIconBrightness: Brightness.dark,
-            statusBarBrightness: Brightness.light,
-          ),
-        ),
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+
+    // GLOBAL STATUS BAR CONTROL
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+        systemNavigationBarColor: isDark
+            ? AppColors.darkbg
+            : AppColors.lightcolor,
+        systemNavigationBarIconBrightness: isDark
+            ? Brightness.light
+            : Brightness.dark,
       ),
-      darkTheme: ThemeData(
-        brightness: Brightness.dark,
-        appBarTheme: const AppBarTheme(
-          systemOverlayStyle: SystemUiOverlayStyle(
-            statusBarIconBrightness: Brightness.light,
-            statusBarBrightness: Brightness.dark,
-          ),
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: const MainStackHandler(),
+        routes: {
+          '/login': (_) => const LoginPage(),
+          '/register': (_) => const RegisterPage(),
+          '/home': (_) => const CustomNavbar(),
+        },
+        themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
+        theme: ThemeData(
+          brightness: Brightness.light,
+          // We set systemOverlayStyle to null in the theme to prevent
+          // AppBars in other files from overriding our global setting.
+          appBarTheme: const AppBarTheme(systemOverlayStyle: null),
+        ),
+        darkTheme: ThemeData(
+          brightness: Brightness.dark,
+          appBarTheme: const AppBarTheme(systemOverlayStyle: null),
         ),
       ),
     );
@@ -323,7 +361,6 @@ class _SplashOverlayState extends State<SplashOverlay>
   Future<void> _startSequence() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
 
-    // 1. Wait for critical data to load while logo is static
     await Future.wait([
       userProvider.loadUser(),
       Future.delayed(const Duration(seconds: 1)),

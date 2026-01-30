@@ -1,4 +1,4 @@
-// ignore_for_file: use_build_context_synchronously
+// ignore_for_file: use_build_context_synchronously, deprecated_member_use
 
 import '../core/imports.dart';
 
@@ -13,40 +13,53 @@ class _LoginPageState extends State<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _authService = AuthService();
-  bool _loading = false;
+  bool _isLoading = false;
 
-  Future<void> _login() async {
-    setState(() => _loading = true);
+  Future<void> _login() {
+    setState(() => _isLoading = true);
 
-    try {
-      await _authService.login(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
+    return _authService
+        .login(
+          email: _emailController.text.trim(),
+          password: _passwordController.text.trim(),
+        )
+        .then((_) {
+          return Provider.of<UserProvider>(context, listen: false).loadUser();
+        })
+        .then((_) {
+          if (!mounted) return;
 
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
-      await userProvider.loadUser();
+          CustomSnackBar.show(
+            context,
+            "Login Successful!",
+            color: AppColors.green,
+          );
 
-      if (!mounted) return;
-      Navigator.pushReplacementNamed(context, '/home');
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.toString())));
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const CustomNavbar()),
+          );
+        })
+        .catchError((e) {
+          if (mounted) {
+            CustomSnackBar.show(
+              context,
+              "Login Failed: ${e.toString()}",
+              color: AppColors.red,
+            );
+          }
+        })
+        .whenComplete(() {
+          if (mounted) setState(() => _isLoading = false);
+        });
   }
 
   @override
   Widget build(BuildContext context) {
-    // Detect dark mode
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
 
     return Scaffold(
-      // Toggle background color
       backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
       body: Padding(
         padding: const EdgeInsets.all(24),
@@ -58,11 +71,10 @@ class _LoginPageState extends State<LoginPage> {
             Text(
               'Login',
               style: AppFontStyle.titleMedium().copyWith(
-                // Ensure text is visible in dark mode
                 color: isDark ? Colors.white : AppColors.darkcolor,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 14),
             CustomTextfield(
               textEditingController: _emailController,
               keyboardType: TextInputType.emailAddress,
@@ -80,10 +92,11 @@ class _LoginPageState extends State<LoginPage> {
             ),
             const SizedBox(height: 36),
             CustomButton(
-              onPressed: _loading ? null : _login,
-              child: _loading
-                  ? const CustomLoader(size: 24,)
-                  : const Text('Login', style: TextStyle(color: Colors.white)),
+              // Pass the external loading state to the button
+              onPressed: _isLoading ? null : _login,
+              text: 'Login', // Passing text here ensures the loader finds it
+              imagePath: "assets/login.svg",
+              color: WidgetStateProperty.all(AppColors.primary),
             ),
             const SizedBox(height: 12),
             Row(
@@ -93,13 +106,16 @@ class _LoginPageState extends State<LoginPage> {
                   "Don't have an account? ",
                   style: TextStyle(
                     color: isDark ? Colors.white70 : AppColors.darkcolor,
-                  ).copyWith(fontSize: 14),
+                    fontSize: 14,
+                  ),
                 ),
                 TextButton(
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => RegisterPage()),
+                      MaterialPageRoute(
+                        builder: (context) => const RegisterPage(),
+                      ),
                     );
                   },
                   style: TextButton.styleFrom(

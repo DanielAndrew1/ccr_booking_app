@@ -23,6 +23,12 @@ export 'package:ccr_booking/core/theme.dart';
 export 'package:ccr_booking/core/app_theme.dart';
 export 'package:ccr_booking/core/user_provider.dart';
 
+// Providers
+export 'package:ccr_booking/providers/booking_provider.dart';
+
+// Models
+export 'package:ccr_booking/models/user_model.dart';
+
 // Services
 export 'package:ccr_booking/services/supbase_service.dart';
 export 'package:ccr_booking/services/notification_service.dart';
@@ -37,6 +43,8 @@ export 'package:ccr_booking/pages/home_page.dart';
 export 'package:ccr_booking/pages/calendar_page.dart';
 export 'package:ccr_booking/pages/inventory_page.dart';
 export 'package:ccr_booking/pages/profile_page.dart';
+export 'package:ccr_booking/pages/bookings_page.dart';
+export 'package:ccr_booking/pages/about_page.dart';
 
 // Pages - Management & Details
 export 'package:ccr_booking/pages/clients_page.dart';
@@ -63,3 +71,4 @@ export '../widgets/custom_pfp.dart';
 export '../widgets/custom_tile.dart';
 export 'package:ccr_booking/widgets/custom_product_tile.dart';
 export 'package:ccr_booking/widgets/custom_search.dart';
+export 'package:ccr_booking/widgets/custom_snackbar.dart';

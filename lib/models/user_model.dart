@@ -29,30 +29,60 @@ class AppClient {
   final String id;
   final String name;
   final String? email;
-  final String? phone; // Add this line
+  final String? phone;
 
-  AppClient({
-    required this.id,
-    required this.name,
-    this.email,
-    this.phone, // Add this line
-  });
+  AppClient({required this.id, required this.name, this.email, this.phone});
 
   factory AppClient.fromJson(Map<String, dynamic> json) {
     return AppClient(
       id: json['id'],
       name: json['name'],
       email: json['email'],
-      phone: json['phone'], // Add this line
+      phone: json['phone'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {'id': id, 'name': name, 'email': email, 'phone': phone};
+  }
+}
+
+// ADDED: AppBooking model for statistics and revenue tracking
+class AppBooking {
+  final String id;
+  final String clientName;
+  final double total; // Used for Revenue calculation
+  final String status; // e.g., 'confirmed', 'pending', 'canceled', 'deleted'
+  final DateTime? createdAt;
+
+  AppBooking({
+    required this.id,
+    required this.clientName,
+    required this.total,
+    required this.status,
+    this.createdAt,
+  });
+
+  factory AppBooking.fromJson(Map<String, dynamic> json) {
+    return AppBooking(
+      id: json['id'] ?? '',
+      clientName: json['client_name'] ?? 'Unknown',
+      // Handles both int and double from Supabase
+      total: (json['total'] ?? 0).toDouble(),
+      status: json['status'] ?? 'pending',
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'])
+          : null,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'name': name,
-      'email': email,
-      'phone': phone, // Add this line
+      'client_name': clientName,
+      'total': total,
+      'status': status,
+      'created_at': createdAt?.toIso8601String(),
     };
   }
 }

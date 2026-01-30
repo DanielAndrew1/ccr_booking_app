@@ -8,16 +8,25 @@ class CustomSearch extends StatefulWidget {
   const CustomSearch({super.key, required this.onClientSelected});
 
   @override
-  State<CustomSearch> createState() => _CustomSearchState();
+  State<CustomSearch> createState() => CustomSearchState(); // Removed underscore
 }
 
-class _CustomSearchState extends State<CustomSearch> {
+class CustomSearchState extends State<CustomSearch> {
+  // Removed underscore
   final SupabaseClient supabase = Supabase.instance.client;
 
   String selectedClientName = '';
   List<Map<String, dynamic>> allClients = [];
   List<Map<String, dynamic>> filteredClients = [];
   bool isLoading = false;
+
+  // Added this method to be called from the parent
+  void clear() {
+    setState(() {
+      selectedClientName = '';
+      filteredClients = allClients;
+    });
+  }
 
   @override
   void initState() {
@@ -72,7 +81,6 @@ class _CustomSearchState extends State<CustomSearch> {
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
             child: Column(
               children: [
-                // Handle bar
                 Container(
                   width: 40,
                   height: 4,
@@ -91,7 +99,6 @@ class _CustomSearchState extends State<CustomSearch> {
                   ),
                 ),
                 const SizedBox(height: 15),
-                // Search Field
                 TextField(
                   autofocus: true,
                   textCapitalization: TextCapitalization.words,
@@ -101,7 +108,6 @@ class _CustomSearchState extends State<CustomSearch> {
                     hintStyle: TextStyle(
                       color: isDark ? Colors.white38 : Colors.grey,
                     ),
-                    // FIXED: Changed Image.asset to SvgPicture.asset
                     prefixIcon: Padding(
                       padding: const EdgeInsets.all(12.0),
                       child: SvgPicture.asset(
@@ -129,7 +135,6 @@ class _CustomSearchState extends State<CustomSearch> {
                   },
                 ),
                 const SizedBox(height: 15),
-                // Results List
                 Expanded(
                   child: isLoading
                       ? const Center(child: CustomLoader())
@@ -152,7 +157,6 @@ class _CustomSearchState extends State<CustomSearch> {
                           itemBuilder: (context, index) {
                             final client = filteredClients[index];
 
-                            // Generate initials
                             String initials = '';
                             if (client['name'] != null) {
                               final names = client['name'].toString().split(
@@ -260,7 +264,7 @@ class _CustomSearchState extends State<CustomSearch> {
                         : selectedClientName,
                     style: TextStyle(
                       color: selectedClientName.isEmpty
-                          ? Color(0xFF6A6A6A)
+                          ? const Color(0xFF6A6A6A)
                           : (isDark ? Colors.white : Colors.black),
                       fontSize: 16,
                     ),
