@@ -33,7 +33,6 @@ class CustomNavbar extends StatefulWidget {
 }
 
 class _CustomNavbarState extends State<CustomNavbar> {
-  late int _currentIndex;
   int? _tappedIndex;
   bool _isMenuOpen = false;
 
@@ -43,8 +42,13 @@ class _CustomNavbarState extends State<CustomNavbar> {
   @override
   void initState() {
     super.initState();
-    _currentIndex = widget.initialIndex;
-    
+    // Initialize the provider with the initial index if needed
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<NavbarProvider>(
+        context,
+        listen: false,
+      ).setIndex(widget.initialIndex);
+    });
   }
 
   void _triggerBounce(int pageIndex) {
@@ -55,35 +59,27 @@ class _CustomNavbarState extends State<CustomNavbar> {
   }
 
   void _onTap(int pageIndex, bool isAddButton) {
-    // Determine if this is a "new" selection
-    // For AddButton, we check if we are currently in any of the "Add" sub-pages (4, 5, or 6)
-    bool isAlreadySelected = isAddButton
-        ? (_currentIndex == 4 || _currentIndex == 5 || _currentIndex == 6)
-        : (_currentIndex == pageIndex);
+    final navProvider = Provider.of<NavbarProvider>(context, listen: false);
+    final int currentIndex = navProvider.selectedIndex;
 
-    // ONLY trigger haptic and bounce if it's NOT already selected
+    bool isAlreadySelected = isAddButton
+        ? (currentIndex == 4 || currentIndex == 5 || currentIndex == 6)
+        : (currentIndex == pageIndex);
+
     if (!isAlreadySelected) {
       HapticFeedback.selectionClick();
       _triggerBounce(pageIndex);
     }
 
-    // Logic for the Add Button
     if (isAddButton) {
-      setState(() {
-        _currentIndex = 4; // Default to Add Booking
-        _isMenuOpen = false;
-      });
+      navProvider.setIndex(4);
+      setState(() => _isMenuOpen = false);
     } else {
-      // Specific logic for Calendar: reset to today even if already selected
-      if (pageIndex == 1 && _currentIndex == 1) {
+      if (pageIndex == 1 && currentIndex == 1) {
         _calendarKey.currentState?.resetToToday();
       }
-
-      // Update the index
-      setState(() {
-        _currentIndex = pageIndex;
-        _isMenuOpen = false;
-      });
+      navProvider.setIndex(pageIndex);
+      setState(() => _isMenuOpen = false);
     }
   }
 
@@ -97,34 +93,53 @@ class _CustomNavbarState extends State<CustomNavbar> {
   @override
   Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context);
+    final navProvider = Provider.of<NavbarProvider>(context); // Listen to index
+    final bookingProvider = Provider.of<BookingProvider>(
+      context,
+    ); // Listen to edit mode
+
+    final int currentIndex = navProvider.selectedIndex;
+    final bool isEditing = bookingProvider.editingBooking != null;
     final currentUser = userProvider.currentUser;
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
-    
 
     final List<Widget> pages = [
-      const HomePage(), // 0
-      CalendarPage(key: _calendarKey), // 1
-      const BookingsPage(), // 2
-      const ProfilePage(), // 3
-      const AddBooking(isRoot: true), // 4
-      const AddClient(isRoot: true), // 5
-      const AddProduct(isRoot: true), // 6
+      const HomePage(),
+      CalendarPage(key: _calendarKey),
+      const BookingsPage(),
+      const ProfilePage(),
+      isEditing ? const EditBooking() : const AddBooking(isRoot: true),
+      const AddClient(isRoot: true),
+      const AddProduct(isRoot: true),
     ];
 
     final List<_NavItemData> navItems = [
       _NavItemData(imagePath: AppIcons.home, label: 'Home', pageIndex: 0),
-      _NavItemData(imagePath: AppIcons.calendar, label: 'Calendar', pageIndex: 1),
+      _NavItemData(
+        imagePath: AppIcons.calendar,
+        label: 'Calendar',
+        pageIndex: 1,
+      ),
     ];
 
     if (currentUser?.role == 'Admin' || currentUser?.role == 'Owner') {
       navItems.add(
-        _NavItemData(imagePath: AppIcons.add, label: 'Add', isAddButton: true, pageIndex: 4),
+        _NavItemData(
+          imagePath: AppIcons.add,
+          label: 'Add',
+          isAddButton: true,
+          pageIndex: 4,
+        ),
       );
     }
 
     navItems.add(
-      _NavItemData(imagePath: AppIcons.booking, label: 'Bookings', pageIndex: 2),
+      _NavItemData(
+        imagePath: AppIcons.booking,
+        label: 'Bookings',
+        pageIndex: 2,
+      ),
     );
     navItems.add(
       _NavItemData(imagePath: AppIcons.profile, label: 'Profile', pageIndex: 3),
@@ -137,7 +152,7 @@ class _CustomNavbarState extends State<CustomNavbar> {
         children: [
           Container(
             color: AppColors.lightcolor,
-            child: IndexedStack(index: _currentIndex, children: pages),
+            child: IndexedStack(index: currentIndex, children: pages),
           ),
 
           IgnorePointer(
@@ -155,7 +170,7 @@ class _CustomNavbarState extends State<CustomNavbar> {
             ),
           ),
 
-          _buildBottomNavbar(navItems, isDark),
+          _buildBottomNavbar(navItems, isDark, currentIndex),
 
           AnimatedPositioned(
             duration: const Duration(milliseconds: 300),
@@ -193,30 +208,21 @@ class _CustomNavbarState extends State<CustomNavbar> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               _MenuEntry(
-                                imagePath: "assets/user-add.svg",
+                                imagePath: AppIcons.userAdd,
                                 title: "Add Client",
-                                onTap: () => setState(() {
-                                  _currentIndex = 5;
-                                  _isMenuOpen = false;
-                                }),
+                                onTap: () => _onTap(5, false),
                               ),
                               _buildDivider(isDark),
                               _MenuEntry(
-                                imagePath: "assets/box.svg",
+                                imagePath: AppIcons.inventory,
                                 title: "Add Product",
-                                onTap: () => setState(() {
-                                  _currentIndex = 6;
-                                  _isMenuOpen = false;
-                                }),
+                                onTap: () => _onTap(6, false),
                               ),
                               _buildDivider(isDark),
                               _MenuEntry(
-                                imagePath: "assets/calendar-add.svg",
+                                imagePath: AppIcons.calendarAdd,
                                 title: "Add Booking",
-                                onTap: () => setState(() {
-                                  _currentIndex = 4;
-                                  _isMenuOpen = false;
-                                }),
+                                onTap: () => _onTap(4, false),
                               ),
                             ],
                           ),
@@ -236,7 +242,12 @@ class _CustomNavbarState extends State<CustomNavbar> {
           ),
 
           if (_isMenuOpen)
-            _buildBottomNavbar(navItems, isDark, isOpaqueLayer: true),
+            _buildBottomNavbar(
+              navItems,
+              isDark,
+              currentIndex,
+              isOpaqueLayer: true,
+            ),
         ],
       ),
     );
@@ -244,7 +255,8 @@ class _CustomNavbarState extends State<CustomNavbar> {
 
   Widget _buildBottomNavbar(
     List<_NavItemData> navItems,
-    bool isDark, {
+    bool isDark,
+    int currentIndex, {
     bool isOpaqueLayer = false,
   }) {
     return Positioned(
@@ -276,11 +288,11 @@ class _CustomNavbarState extends State<CustomNavbar> {
                   builder: (context) {
                     int activeIndex = navItems.indexWhere((item) {
                       if (item.isAddButton) {
-                        return _currentIndex == 4 ||
-                            _currentIndex == 5 ||
-                            _currentIndex == 6;
+                        return currentIndex == 4 ||
+                            currentIndex == 5 ||
+                            currentIndex == 6;
                       }
-                      return item.pageIndex == _currentIndex;
+                      return item.pageIndex == currentIndex;
                     });
                     if (activeIndex == -1) activeIndex = 0;
                     return AnimatedPositioned(
@@ -306,16 +318,15 @@ class _CustomNavbarState extends State<CustomNavbar> {
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: navItems.map((data) {
                     final bool isSectionActive = data.isAddButton
-                        ? (_currentIndex == 4 ||
-                              _currentIndex == 5 ||
-                              _currentIndex == 6)
-                        : (data.pageIndex == _currentIndex);
+                        ? (currentIndex == 4 ||
+                              currentIndex == 5 ||
+                              currentIndex == 6)
+                        : (data.pageIndex == currentIndex);
 
                     final Color activeColor = AppColors.primary;
                     final Color inactiveColor = isDark
                         ? Colors.grey[400]!
                         : Colors.grey;
-
                     final isTapped = _tappedIndex == data.pageIndex;
 
                     return Expanded(

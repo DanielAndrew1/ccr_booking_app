@@ -349,7 +349,7 @@ class _EditBookingState extends State<EditBooking> {
 
   Widget _buildPlaceholderIcon(bool isDark) {
     return SvgPicture.asset(
-      "assets/box.svg",
+      AppIcons.inventory,
       width: 32,
       height: 32,
       colorFilter: ColorFilter.mode(
@@ -484,7 +484,7 @@ class _EditBookingState extends State<EditBooking> {
                                     ),
                                     child: Center(
                                       child: _buildImageOrIcon(
-                                        "assets/add-square.svg",
+                                        AppIcons.add,
                                         isDark,
                                         size: 28,
                                         tintColor: Colors.white,
@@ -526,7 +526,7 @@ class _EditBookingState extends State<EditBooking> {
                     ),
                     const SizedBox(height: 6),
                     _PickerTile(
-                      imagePath: "assets/calendar.svg",
+                      imagePath: AppIcons.calendar,
                       label: pickupDate == null
                           ? "Select Pickup Date"
                           : DateFormat('dd/MM/yyyy').format(pickupDate!),
@@ -544,7 +544,7 @@ class _EditBookingState extends State<EditBooking> {
                     ),
                     const SizedBox(height: 6),
                     _PickerTile(
-                      imagePath: "assets/calendar.svg",
+                      imagePath: AppIcons.calendar,
                       label: returnDate == null
                           ? "Select Return Date"
                           : DateFormat('dd/MM/yyyy').format(returnDate!),

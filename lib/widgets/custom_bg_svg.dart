@@ -13,7 +13,7 @@ class CustomBgSvg extends StatelessWidget {
       top: 0,
       right: 0,
       child: SvgPicture.asset(
-        'assets/bg-decoration.svg',
+        AppIcons.bg,
         width: 250,
         color: isDark ? AppColors.primary : AppColors.secondary,
       ),

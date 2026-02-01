@@ -1,6 +1,5 @@
-// ignore_for_file: deprecated_member_use
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously
 
-import 'package:ccr_booking/pages/edit_booking.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import '../core/imports.dart';
@@ -196,7 +195,7 @@ class _BookingsPageState extends State<BookingsPage> {
                               shape: BoxShape.circle,
                             ),
                             child: SvgPicture.asset(
-                              "assets/message-edit.svg",
+                              AppIcons.edit,
                               colorFilter: ColorFilter.mode(
                                 isDark ? Colors.white : Colors.black,
                                 BlendMode.srcIn,
@@ -214,13 +213,13 @@ class _BookingsPageState extends State<BookingsPage> {
                   _detailRow(
                     "Client",
                     booking['client_name'] ?? "N/A",
-                    "assets/profile-2user.svg",
+                    AppIcons.client,
                     isDark,
                   ),
                   _detailRow(
                     "Products",
                     (booking['product_names'] as List? ?? []).join(", "),
-                    "assets/box.svg",
+                    AppIcons.inventory,
                     isDark,
                   ),
                   _detailRow(
@@ -228,7 +227,7 @@ class _BookingsPageState extends State<BookingsPage> {
                     DateFormat(
                       'dd MMM yyyy',
                     ).format(DateTime.parse(booking['pickup_datetime'])),
-                    "assets/send-square.svg",
+                    AppIcons.pickUp,
                     isDark,
                   ),
                   _detailRow(
@@ -236,13 +235,13 @@ class _BookingsPageState extends State<BookingsPage> {
                     DateFormat(
                       'dd MMM yyyy',
                     ).format(DateTime.parse(booking['return_datetime'])),
-                    "assets/vuesax.svg",
+                    AppIcons.returns,
                     isDark,
                   ),
                   _detailRow(
                     "Total Price",
                     "${currencyFormat.format(booking['total_price'])} EGP",
-                    "assets/wallet.svg",
+                    AppIcons.wallet,
                     isDark,
                     valueColor: isDark
                         ? AppColors.primary
@@ -577,7 +576,7 @@ class _BookingsPageState extends State<BookingsPage> {
         child: Column(
           children: [
             SvgPicture.asset(
-              isPickup ? "assets/send-square.svg" : "assets/vuesax.svg",
+              isPickup ? AppIcons.pickUp : AppIcons.returns,
               width: 40,
               color: isDark ? Colors.white70 : Colors.black54,
             ),
@@ -622,7 +621,7 @@ class _BookingsPageState extends State<BookingsPage> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         SvgPicture.asset(
-                          "assets/trash.svg",
+                          AppIcons.trash,
                           height: 22,
                           colorFilter: const ColorFilter.mode(
                             Colors.white,
@@ -667,8 +666,8 @@ class _BookingsPageState extends State<BookingsPage> {
                         ),
                         child: SvgPicture.asset(
                           isPickup
-                              ? "assets/send-square.svg"
-                              : "assets/vuesax.svg",
+                              ? AppIcons.phone
+                              : AppIcons.returns,
                           width: 26,
                           color: accentColor,
                         ),

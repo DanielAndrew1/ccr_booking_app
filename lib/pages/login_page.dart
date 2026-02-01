@@ -66,7 +66,7 @@ class _LoginPageState extends State<LoginPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset('assets/logo.png'),
+            Image.asset(AppImages.logo),
             const SizedBox(height: 16),
             Text(
               'Login',
@@ -95,7 +95,7 @@ class _LoginPageState extends State<LoginPage> {
               // Pass the external loading state to the button
               onPressed: _isLoading ? null : _login,
               text: 'Login', // Passing text here ensures the loader finds it
-              imagePath: "assets/login.svg",
+              imagePath: AppIcons.login,
               color: WidgetStateProperty.all(AppColors.primary),
             ),
             const SizedBox(height: 12),

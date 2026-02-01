@@ -6,12 +6,14 @@ class CustomSnackBar extends StatelessWidget {
   final String message;
   final Color backgroundColor;
   final IconData icon;
+  final bool isSuccess; // New bool to handle icon logic
 
   const CustomSnackBar({
     super.key,
     required this.message,
     this.backgroundColor = AppColors.red,
     this.icon = Icons.info_outline_rounded,
+    this.isSuccess = false, // Default to false
   });
 
   // Global static method to show the snackbar from anywhere
@@ -20,6 +22,7 @@ class CustomSnackBar extends StatelessWidget {
     String message, {
     Color? color,
     IconData? icon,
+    bool isSuccess = false, // Pass the bool through here
   }) {
     late OverlayEntry overlayEntry;
     overlayEntry = OverlayEntry(
@@ -27,8 +30,14 @@ class CustomSnackBar extends StatelessWidget {
         onDismiss: () => overlayEntry.remove(),
         child: CustomSnackBar(
           message: message,
-          backgroundColor: color ?? AppColors.red,
-          icon: icon ?? Icons.info_outline_rounded,
+          // If color is null, default based on isSuccess
+          backgroundColor: color ?? (isSuccess ? Colors.green : AppColors.red),
+          icon:
+              icon ??
+              (isSuccess
+                  ? Icons.check_circle_outline
+                  : Icons.info_outline_rounded),
+          isSuccess: isSuccess,
         ),
       ),
     );
@@ -46,33 +55,17 @@ class CustomSnackBar extends StatelessWidget {
           borderRadius: BorderRadius.circular(50),
           boxShadow: [
             BoxShadow(
-              color: backgroundColor,
+              color: backgroundColor.withOpacity(0.4),
               blurRadius: 12,
-              offset: const Offset(0, 0),
+              offset: const Offset(0, 4),
             ),
           ],
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
-              ),
-              child: const Center(
-                child: Text(
-                  '!',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
+            // Logic: Show different icon/container based on isSuccess
+            SvgPicture.asset(isSuccess ? AppIcons.tick : AppIcons.info),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
@@ -117,13 +110,13 @@ class _TopSnackBarAnimatorState extends State<_TopSnackBarAnimator>
     );
     _offsetAnimation = Tween<Offset>(
       begin: const Offset(0, -1.5),
-      end: Offset(0, 0.2),
+      end: const Offset(0, 0.2),
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
 
     _controller.forward();
 
     // Auto dismiss after 3 seconds
-    Future.delayed(Duration(seconds: 3), () async {
+    Future.delayed(const Duration(seconds: 3), () async {
       if (mounted) {
         await _controller.reverse();
         widget.onDismiss();

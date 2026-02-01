@@ -121,7 +121,7 @@ class CustomSearchState extends State<CustomSearch> {
                     prefixIcon: Padding(
                       padding: const EdgeInsets.all(12.0),
                       child: SvgPicture.asset(
-                        "assets/search-normal.svg",
+                        AppIcons.search,
                         width: 20,
                         height: 20,
                         colorFilter: ColorFilter.mode(
@@ -263,7 +263,7 @@ class CustomSearchState extends State<CustomSearch> {
             child: Row(
               children: [
                 SvgPicture.asset(
-                  "assets/user-search.svg",
+                  AppIcons.userSearch,
                   color: selectedClientName.isEmpty
                       ? Colors.grey
                       : AppColors.primary,

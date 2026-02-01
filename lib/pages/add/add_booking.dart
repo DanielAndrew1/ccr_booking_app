@@ -1,6 +1,5 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously, unnecessary_underscores, unused_element_parameter
 import 'package:intl/intl.dart';
-import 'package:flutter/cupertino.dart';
 import '../../core/imports.dart';
 
 class AddBooking extends StatefulWidget {
@@ -350,7 +349,7 @@ class _AddBookingState extends State<AddBooking> {
 
   Widget _buildPlaceholderIcon(bool isDark) {
     return SvgPicture.asset(
-      "assets/box.svg",
+      AppIcons.inventory,
       width: 32,
       height: 32,
       colorFilter: ColorFilter.mode(
@@ -485,7 +484,7 @@ class _AddBookingState extends State<AddBooking> {
                                     ),
                                     child: Center(
                                       child: _buildImageOrIcon(
-                                        "assets/add-square.svg",
+                                        AppIcons.pickUp,
                                         isDark,
                                         size: 28,
                                         tintColor: Colors.white,
@@ -527,7 +526,7 @@ class _AddBookingState extends State<AddBooking> {
                     ),
                     const SizedBox(height: 6),
                     _PickerTile(
-                      imagePath: "assets/calendar.svg",
+                      imagePath: AppIcons.pickUp,
                       label: pickupDate == null
                           ? "Select Pickup Date"
                           : DateFormat('dd/MM/yyyy').format(pickupDate!),
@@ -545,7 +544,7 @@ class _AddBookingState extends State<AddBooking> {
                     ),
                     const SizedBox(height: 6),
                     _PickerTile(
-                      imagePath: "assets/calendar.svg",
+                      imagePath: AppIcons.returns,
                       label: returnDate == null
                           ? "Select Return Date"
                           : DateFormat('dd/MM/yyyy').format(returnDate!),

@@ -682,7 +682,7 @@ class _HomePageState extends State<HomePage>
           _buildActionButton(
             title: "Add New Client",
             subtitle: "Add a new client to your database",
-            imagePath: "assets/user-add.svg",
+            imagePath: AppIcons.userAdd,
             isFilled: true,
             color: isDark ? AppColors.primary : AppColors.secondary,
             isDark: isDark,
@@ -696,7 +696,7 @@ class _HomePageState extends State<HomePage>
         _buildActionButton(
           title: "Recieve a notification",
           subtitle: "Test the notification system",
-          imagePath: "assets/notification-bing.svg",
+          imagePath: AppIcons.notification,
           color: isDark ? AppColors.primary : AppColors.secondary,
           isDark: isDark,
           onTap: () => _notificationService.showNotification(
@@ -732,7 +732,7 @@ class _HomePageState extends State<HomePage>
                   "Clients",
                   "${stats['clients']}",
                   null,
-                  "assets/profile-2user.svg",
+                  AppIcons.client,
                   accent,
                   isDark,
                   onTap: () => _showDetailsDialog(
@@ -746,7 +746,7 @@ class _HomePageState extends State<HomePage>
                   "Employees",
                   "${stats['employees']}",
                   null,
-                  "assets/user-search.svg",
+                  AppIcons.userSearch,
                   accent,
                   isDark,
                   onTap: () => _showDetailsDialog(
@@ -762,7 +762,7 @@ class _HomePageState extends State<HomePage>
               "Products",
               "${stats['products']}",
               null,
-              "assets/box.svg",
+              AppIcons.inventory,
               accent,
               isDark,
               isFullWidth: true,
@@ -779,7 +779,7 @@ class _HomePageState extends State<HomePage>
                   "Today's Pickups",
                   "${stats['pickups']}",
                   null,
-                  "assets/send-square.svg",
+                  AppIcons.pickUp,
                   accent,
                   isDark,
                   mirrorIcon: true,
@@ -803,7 +803,7 @@ class _HomePageState extends State<HomePage>
                   "Today's Returns",
                   "${stats['returns']}",
                   null,
-                  "assets/vuesax.svg",
+                  AppIcons.returns,
                   accent,
                   isDark,
                   onTap: () {

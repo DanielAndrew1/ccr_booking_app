@@ -268,7 +268,7 @@ class _UsersPageState extends State<UsersPage> {
                 if (isDaniel) ...[
                   const SizedBox(width: 6),
                   SvgPicture.asset(
-                    "assets/verify.svg",
+                    AppIcons.verify,
                     width: 16,
                     color: isDark ? Colors.white : Colors.black,
                   ),
@@ -388,7 +388,7 @@ class _UsersPageState extends State<UsersPage> {
                   // or keep _removeUser if you prefer Material.
                   onPressed: () => _confirmDeleteUser(user.id, user.name),
                   icon: SvgPicture.asset(
-                    "assets/trash.svg",
+                    AppIcons.trash,
                     color: Colors.white,
                   ),
                   label: const Text(

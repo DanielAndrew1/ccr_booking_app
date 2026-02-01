@@ -1,4 +1,5 @@
-import 'package:ccr_booking/core/app_version_plus.dart';
+// ignore_for_file: deprecated_member_use
+
 import 'package:ccr_booking/core/imports.dart';
 
 class AboutPage extends StatelessWidget {
@@ -36,7 +37,7 @@ class AboutPage extends StatelessWidget {
                         shape: BoxShape.circle,
                       ),
                       child: Image.asset(
-                        "assets/icon.png",
+                        AppImages.icon,
                         width: 90,
                         color: AppColors.primary,
                       ),

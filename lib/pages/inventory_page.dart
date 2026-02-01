@@ -131,7 +131,7 @@ class _InventoryPageState extends State<InventoryPage> {
                   child: _isSearching
                       ? const Icon(Icons.close, color: Colors.red, size: 30)
                       : IconHandler.buildIcon(
-                          imagePath: "assets/search-normal.svg",
+                          imagePath: AppIcons.search,
                           color: AppColors.primary,
                           size: 22,
                         ),

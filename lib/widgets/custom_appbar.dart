@@ -1,4 +1,6 @@
 // lib/widgets/custom_app_bar.dart
+// ignore_for_file: deprecated_member_use
+
 import '../core/imports.dart';
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {

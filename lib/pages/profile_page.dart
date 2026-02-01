@@ -1,4 +1,4 @@
-// ignore_for_file: deprecated_member_use, use_build_context_synchronously, unused_field
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously, unused_field, non_constant_identifier_names
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import '../core/imports.dart';
@@ -15,18 +15,15 @@ class _ProfilePageState extends State<ProfilePage> {
   bool _hasConnection = true;
   final ScrollController _scrollController = ScrollController();
   bool _showCompactHeader = false;
- String  AppVersion ="";
-  // Track notification state locally or via a provider
+  String _appVersion = ""; // Use underscore for private
   bool _notificationsEnabled = true;
-  void appVersion() async {
-    AppVersion = await AppVersionPlus.appVersion();
-    print(AppVersion);
-  }
+
   @override
   void initState() {
     super.initState();
-    appVersion();
+    _loadInitialData(); // Load everything at once
     _initConnectivity();
+
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
       result,
     ) {
@@ -40,6 +37,37 @@ class _ProfilePageState extends State<ProfilePage> {
         setState(() => _showCompactHeader = false);
       }
     });
+  }
+
+  // Load App Version and Notification Preference
+  Future<void> _loadInitialData() async {
+    final version = await AppVersionPlus.appVersion();
+    final notifyStatus = await NotificationService.isEnabled(); // Static call
+    if (mounted) {
+      setState(() {
+        _appVersion = version;
+        _notificationsEnabled = notifyStatus;
+      });
+    }
+  }
+
+  // Functional toggle for notifications
+  Future<void> _handleNotificationToggle(bool value) async {
+    // Call service to handle logic (permissions + Supabase + SharedPreferences)
+    bool result = await NotificationService().toggleNotifications(value);
+
+    setState(() {
+      _notificationsEnabled = result;
+    });
+
+    if (value && !result) {
+      // User tried to turn it on but system permission is blocked
+      CustomSnackBar.show(
+        context,
+        "Notifications blocked in System Settings",
+        color: AppColors.red,
+      );
+    }
   }
 
   Future<void> _initConnectivity() async {
@@ -76,9 +104,7 @@ class _ProfilePageState extends State<ProfilePage> {
       context: context,
       builder: (context) => CupertinoAlertDialog(
         title: const Text("Delete Account"),
-        content: const Text(
-          "Are you sure you want to delete your account? This action is permanent and cannot be undone.",
-        ),
+        content: const Text("Are you sure? This action is permanent."),
         actions: [
           CupertinoDialogAction(
             child: Text(
@@ -95,7 +121,6 @@ class _ProfilePageState extends State<ProfilePage> {
         ],
       ),
     );
-
     if (confirm == true) _deleteAccount();
   }
 
@@ -120,7 +145,6 @@ class _ProfilePageState extends State<ProfilePage> {
         ],
       ),
     );
-
     if (confirm == true) _logout(context);
   }
 
@@ -158,7 +182,6 @@ class _ProfilePageState extends State<ProfilePage> {
           child: AppBar(
             backgroundColor: Colors.transparent,
             elevation: 0,
-            foregroundColor: AppColors.lightcolor,
             toolbarHeight: 80,
             automaticallyImplyLeading: false,
             title: Row(
@@ -207,16 +230,11 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   @override
-
-
   Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context);
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
     final currentUser = userProvider.currentUser;
-    
-
-  
 
     if (currentUser == null) {
       return const Scaffold(body: Center(child: CustomLoader()));
@@ -268,12 +286,10 @@ class _ProfilePageState extends State<ProfilePage> {
                                   color: isDark ? Colors.white : Colors.black,
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              if (currentUser.name == "Daniel Andrew" &&
-                                  currentUser.email ==
-                                      "danielandrew1207@gmail.com") ...{
+                              if (currentUser.name == "Daniel Andrew") ...{
+                                const SizedBox(width: 8),
                                 SvgPicture.asset(
-                                  "assets/verify.svg",
+                                  AppIcons.verify,
                                   width: 22,
                                   color: isDark ? Colors.white : Colors.black,
                                 ),
@@ -307,7 +323,6 @@ class _ProfilePageState extends State<ProfilePage> {
                           const Divider(thickness: 0.5),
                           const SizedBox(height: 10),
 
-
                           // DARK MODE TOGGLE
                           CustomTile(
                             title: "Dark Mode",
@@ -323,48 +338,45 @@ class _ProfilePageState extends State<ProfilePage> {
                           // NOTIFICATIONS TOGGLE
                           CustomTile(
                             title: "Notifications",
-                            imagePath: "assets/notification-bing.svg",
+                            imagePath: AppIcons.notification,
                             trailing: CupertinoSwitch(
                               value: _notificationsEnabled,
                               activeTrackColor: AppColors.primary,
-                              onChanged: (value) {
-                                setState(() {
-                                  _notificationsEnabled = value;
-                                });
-                              },
+                              onChanged:
+                                  _handleNotificationToggle, // Link to function
                             ),
                           ),
 
                           CustomTile(
-                            imagePath: "assets/user.svg",
+                            imagePath: AppIcons.profile,
                             title: 'Edit Info',
                             onTap: () => _editProfile(context),
                           ),
                           if (currentUser.role == 'Owner') ...[
-                            const CustomTile(
-                              imagePath: "assets/user-search.svg",
+                            CustomTile(
+                              imagePath: AppIcons.userSearch,
                               title: 'Employee Management',
                               route: UsersPage(),
                             ),
-                            const CustomTile(
-                              imagePath: "assets/profile-2user.svg",
+                            CustomTile(
+                              imagePath: AppIcons.client,
                               title: 'Client Management',
                               route: ClientsPage(),
                             ),
-                            const CustomTile(
-                              imagePath: "assets/box.svg",
+                            CustomTile(
+                              imagePath: AppIcons.inventory,
                               title: 'Inventory',
                               route: InventoryPage(),
                             ),
                           ],
-                          const CustomTile(
-                            imagePath: "assets/globe.svg",
+                          CustomTile(
+                            imagePath: AppIcons.globe,
                             title: 'About us',
                             route: AboutPage(),
                           ),
                           const SizedBox(height: 6),
                           CustomTile(
-                            imagePath: "assets/logout.svg",
+                            imagePath: AppIcons.logout,
                             title: 'Logout',
                             textColor: AppColors.red,
                             onTap: () => _confirmLogout(),
@@ -372,14 +384,14 @@ class _ProfilePageState extends State<ProfilePage> {
                           const SizedBox(height: 18),
                           CustomButton(
                             onPressed: _confirmDeleteAccount,
-                            imagePath: "assets/trash.svg",
+                            imagePath: AppIcons.trash,
                             height: 50,
                             text: "Delete Account",
                             color: WidgetStateProperty.all(AppColors.red),
                           ),
                           const SizedBox(height: 14),
                           Text(
-                          "App Version $AppVersion",
+                            "App Version $_appVersion",
                             style: TextStyle(
                               fontSize: 14,
                               color: isDark ? Colors.white54 : Colors.black54,

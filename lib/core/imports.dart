@@ -53,6 +53,7 @@ export 'package:ccr_booking/pages/about_page.dart';
 export 'package:ccr_booking/pages/clients_page.dart';
 export 'package:ccr_booking/pages/employees_page.dart';
 export 'package:ccr_booking/pages/product_page.dart';
+export 'package:ccr_booking/pages/edit_booking.dart';
 export '../pages/edit_info_page.dart';
 
 // Pages - Creation/Addition

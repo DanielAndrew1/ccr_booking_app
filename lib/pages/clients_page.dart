@@ -1,7 +1,6 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously, unused_field
 
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/services.dart';
 import '../core/imports.dart';
 
 class ClientsPage extends StatefulWidget {
@@ -173,7 +172,7 @@ class _ClientsPageState extends State<ClientsPage> {
                   Expanded(
                     child: _buildActionButton(
                       "Save",
-                      "assets/message-edit.svg",
+                      AppIcons.edit,
                       isDark,
                       () async {
                         final updatedData = {
@@ -364,7 +363,7 @@ class _ClientsPageState extends State<ClientsPage> {
                     ),
                     const SizedBox(height: 2),
                     _buildContactRow(
-                      "assets/call.svg",
+                      AppIcons.phone,
                       client.phone ?? "No phone",
                       isDark,
                     ),
@@ -379,7 +378,7 @@ class _ClientsPageState extends State<ClientsPage> {
               _buildStatBox(
                 "Total Bookings",
                 "$bookings",
-                "assets/medal.svg",
+                AppIcons.medal,
                 isDark,
                 borderColor: AppColors.secondary,
               ),
@@ -387,7 +386,7 @@ class _ClientsPageState extends State<ClientsPage> {
               _buildStatBox(
                 "Total Revenue",
                 "$revenue EGP",
-                "assets/wallet.svg",
+                AppIcons.wallet,
                 isDark,
                 borderColor: AppColors.primary,
               ),
@@ -399,7 +398,7 @@ class _ClientsPageState extends State<ClientsPage> {
               Expanded(
                 child: _buildActionButton(
                   "Edit Client",
-                  "assets/message-edit.svg",
+                  AppIcons.edit,
                   isDark,
                   () => _editClientDialog(client),
                 ),
@@ -408,7 +407,7 @@ class _ClientsPageState extends State<ClientsPage> {
               Expanded(
                 child: _buildActionButton(
                   "Delete",
-                  "assets/trash.svg",
+                  AppIcons.trash,
                   isDark,
                   () => _removeClient(client.id, client.name),
                   isDelete: true,

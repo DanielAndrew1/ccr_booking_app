@@ -1,6 +1,10 @@
+// ignore_for_file: avoid_print
+
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -12,9 +16,42 @@ class NotificationService {
   final _supabase = Supabase.instance.client;
   bool _isInitialized = false;
 
+  static const String _storageKey = "notifications_enabled";
+
+  /// 1. Static check for the toggle state (Used by UI and main.dart)
+  static Future<bool> isEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_storageKey) ?? true; // Default to true
+  }
+
+  /// 2. The toggle logic for the Profile Page
+  Future<bool> toggleNotifications(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    if (value) {
+      // User wants to enable: Check/Request system permissions
+      var status = await Permission.notification.status;
+      if (status.isDenied || status.isPermanentlyDenied) {
+        status = await Permission.notification.request();
+      }
+
+      if (status.isGranted) {
+        await prefs.setBool(_storageKey, true);
+        await getAndSaveToken(); // Re-sync token to Supabase
+        return true;
+      } else {
+        return false; // User denied system permissions
+      }
+    } else {
+      // User wants to disable: Save preference and wipe token from DB
+      await prefs.setBool(_storageKey, false);
+      await _removeTokenFromSupabase();
+      return false;
+    }
+  }
+
   Future<void> initNotification() async {
     if (!_isInitialized) {
-      // 1. Local Notification Setup (Required for Foreground popups)
       const initSettingsAndroid = AndroidInitializationSettings(
         '@mipmap/ic_launcher',
       );
@@ -31,66 +68,44 @@ class NotificationService {
 
       await notificationsPlugin.initialize(
         initSettings,
-        onDidReceiveNotificationResponse: (details) {
-          // Handle what happens when a user taps the notification
-          print("Notification tapped: ${details.payload}");
-        },
+        onDidReceiveNotificationResponse: (details) {},
       );
 
-      // 2. Firebase Messaging Permissions
-      await _fcm.requestPermission(alert: true, badge: true, sound: true);
-
-      // 3. Foreground Message Listener
-      // This makes notifications show up even when the app is OPEN
-      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        print("Received foreground message: ${message.notification?.title}");
-
-        RemoteNotification? notification = message.notification;
-        if (notification != null) {
-          showNotification(
-            id: notification.hashCode,
-            title: notification.title,
-            body: notification.body,
-          );
+      // Foreground Message Listener
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
+        // Gate: Only show if enabled in settings
+        if (await isEnabled()) {
+          RemoteNotification? notification = message.notification;
+          if (notification != null) {
+            showNotification(
+              id: notification.hashCode,
+              title: notification.title,
+              body: notification.body,
+            );
+          }
         }
       });
 
-      // 4. Background/Terminated Click Listener
-      // Handle when app is opened FROM a notification
-      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-        print("App opened via notification: ${message.data}");
-      });
-
-      // 5. iOS Specific: Show banner even when app is in foreground
-      await _fcm.setForegroundNotificationPresentationOptions(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
-
-      // 6. Token Refresh Listener
-      _fcm.onTokenRefresh.listen((newToken) {
-        print("FCM Token Refreshed: $newToken");
-        _saveTokenToSupabase(newToken);
+      _fcm.onTokenRefresh.listen((newToken) async {
+        if (await isEnabled()) {
+          _saveTokenToSupabase(newToken);
+        }
       });
 
       _isInitialized = true;
     }
 
-    // 7. FORCE REFRESH: Always fetch and sync token on every app open
-    await getAndSaveToken();
+    if (await isEnabled()) {
+      await getAndSaveToken();
+    }
   }
 
-  /// Fetches the current device token and saves it to Supabase
   Future<void> getAndSaveToken() async {
     try {
+      if (!(await isEnabled())) return;
+
       String? token = await _fcm.getToken();
-
       if (token != null) {
-        print("========================================");
-        print("FCM TOKEN: $token");
-        print("========================================");
-
         await _saveTokenToSupabase(token);
       }
     } catch (e) {
@@ -98,10 +113,8 @@ class NotificationService {
     }
   }
 
-  /// Saves or Updates the token in the 'fcm_tokens' table
   Future<void> _saveTokenToSupabase(String token) async {
     final userId = _supabase.auth.currentUser?.id;
-
     if (userId != null) {
       try {
         await _supabase.from('fcm_tokens').upsert({
@@ -109,13 +122,27 @@ class NotificationService {
           'token': token,
           'updated_at': DateTime.now().toIso8601String(),
         }, onConflict: 'user_id, token');
-
-        print("FCM Token synced to fcm_tokens table for user $userId");
       } catch (e) {
         print("Error saving token to Supabase: $e");
       }
-    } else {
-      print("No user logged in. Skipping token sync.");
+    }
+  }
+
+  /// Removes the token so the server stops sending pushes to this device
+  Future<void> _removeTokenFromSupabase() async {
+    final userId = _supabase.auth.currentUser?.id;
+    final token = await _fcm.getToken();
+
+    if (userId != null && token != null) {
+      try {
+        await _supabase.from('fcm_tokens').delete().match({
+          'user_id': userId,
+          'token': token,
+        });
+        print("FCM Token removed from Supabase.");
+      } catch (e) {
+        print("Error removing token: $e");
+      }
     }
   }
 

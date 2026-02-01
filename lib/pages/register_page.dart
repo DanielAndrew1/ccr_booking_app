@@ -66,7 +66,7 @@ class _RegisterPageState extends State<RegisterPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Image.asset('assets/logo.png'),
+                Image.asset(AppImages.logo),
                 const SizedBox(height: 16),
                 Text(
                   'Create Account',

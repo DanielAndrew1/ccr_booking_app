@@ -28,7 +28,7 @@ class NoInternetWidget extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            SvgPicture.asset("assets/info-circle.svg", color: Colors.white, width: 28),
+            SvgPicture.asset(AppIcons.info, color: Colors.white, width: 28),
             const SizedBox(width: 12),
             const Expanded(
               child: Text(

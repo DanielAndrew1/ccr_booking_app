@@ -141,24 +141,25 @@ class _EditInfoPageState extends State<EditInfoPage> {
                       onPressed: _loading ? null : _saveChanges,
                       height: 45,
                       child: _loading
-                          ? CustomLoader(
-                              size: 24,
-                              color: AppColors.secondary,
-                            )
+                          ? CustomLoader(size: 24, color: AppColors.secondary)
                           : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              SvgPicture.asset("assets/folder-2.svg", color: Colors.white, width: 22,),
-                              SizedBox(width: 4,),
-                              Text(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SvgPicture.asset(
+                                  AppIcons.save,
+                                  color: Colors.white,
+                                  width: 22,
+                                ),
+                                SizedBox(width: 4),
+                                Text(
                                   'Save Changes',
                                   style: AppFontStyle.textMedium().copyWith(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                            ],
-                          ),
+                              ],
+                            ),
                     ),
                   ),
                 ],

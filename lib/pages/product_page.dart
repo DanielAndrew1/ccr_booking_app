@@ -640,7 +640,7 @@ class _ProductPageState extends State<ProductPage> {
                           const SizedBox(height: 12),
                           CustomButton(
                             text: 'Delete Product',
-                            imagePath: "assets/trash.svg",
+                            imagePath: AppIcons.trash,
                             color: WidgetStateProperty.all(Colors.red),
                             onPressed: _confirmDelete,
                           ),

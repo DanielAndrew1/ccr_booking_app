@@ -3,7 +3,12 @@
 import 'core/imports.dart';
 import 'firebase_options.dart';
 
+// 1. Define a Global Key for the Navigator
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 class IconHandler {
+  // main.dart
+
   static Widget buildIcon({
     String? imagePath,
     IconData? icon,
@@ -11,14 +16,18 @@ class IconHandler {
     double size = 24,
     bool isAdd = false,
   }) {
-    final double finalSize = isAdd ? 24 : size;
-    if (imagePath != null) {
+    final double finalSize = size;
+
+    if (imagePath != null && imagePath.isNotEmpty) {
       if (imagePath.toLowerCase().contains('.svg')) {
         return SvgPicture.asset(
           imagePath,
           width: finalSize,
           height: finalSize,
           colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+          // THIS PREVENTS THE CRASH:
+          placeholderBuilder: (context) =>
+              Icon(icon ?? Icons.broken_image, color: color, size: finalSize),
         );
       } else {
         return Image.asset(
@@ -26,22 +35,23 @@ class IconHandler {
           width: finalSize,
           height: finalSize,
           color: color,
+          // FALLBACK FOR REGULAR IMAGES:
+          errorBuilder: (context, error, stackTrace) =>
+              Icon(icon ?? Icons.broken_image, color: color, size: finalSize),
         );
       }
     }
-    return Icon(icon, color: color, size: finalSize);
+    return Icon(icon ?? Icons.help_outline, color: color, size: finalSize);
   }
 }
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  print("Handling a background message: ${message.messageId}");
 }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
 
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
     sqfliteFfiInit();
@@ -109,13 +119,19 @@ class _MyAppState extends State<MyApp> with TickerProviderStateMixin {
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
-      final bookingProvider = Provider.of<BookingProvider>(
-        context,
-        listen: false,
-      );
-
       Supabase.instance.client.auth.onAuthStateChange.listen((event) {
+        if (!mounted) return;
+
+        // Use the global navigatorKey context to access providers if needed
+        final context = navigatorKey.currentContext;
+        if (context == null) return;
+
+        final userProvider = Provider.of<UserProvider>(context, listen: false);
+        final bookingProvider = Provider.of<BookingProvider>(
+          context,
+          listen: false,
+        );
+
         final sessionUser = event.session?.user;
         if (sessionUser != null) {
           userProvider.refreshUser();
@@ -132,6 +148,9 @@ class _MyAppState extends State<MyApp> with TickerProviderStateMixin {
   }
 
   void _setupSupabaseListener() {
+    final context = navigatorKey.currentContext;
+    if (context == null) return;
+
     final supabase = Supabase.instance.client;
     if (_realtimeChannel != null) return;
 
@@ -141,30 +160,33 @@ class _MyAppState extends State<MyApp> with TickerProviderStateMixin {
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'bookings',
-          callback: (payload) {
-            final newRecord = payload.newRecord;
-            final eventType = payload.eventType.name.toUpperCase();
+          callback: (payload) async {
+            if (!mounted) return;
 
             Provider.of<BookingProvider>(
               context,
               listen: false,
             ).fetchAllBookings();
 
-            String title = "Booking $eventType";
-            String body = "Booking created for ${newRecord['client_name'] ?? 'Unknown Client'}";
+            final newRecord = payload.newRecord;
+            String title = "Booking Update";
+            String body = "Changes detected in your bookings.";
 
             if (payload.eventType == PostgresChangeEvent.insert) {
-              title = "New Booking Created!";
+              title = "Booking Created";
+              body = "New booking for ${newRecord['client_name'] ?? 'Client'}";
             } else if (payload.eventType == PostgresChangeEvent.update) {
               title = "Booking Updated";
-              body = "Booking status is now: ${newRecord['status']}";
+              body = "Booking status: ${newRecord['status']}";
             }
 
-            NotificationService().showNotification(
-              id: DateTime.now().millisecond % 100000,
-              title: title,
-              body: body,
-            );
+            if (await NotificationService.isEnabled()) {
+              NotificationService().showNotification(
+                id: DateTime.now().millisecond % 100000,
+                title: title,
+                body: body,
+              );
+            }
           },
         )
         .subscribe();
@@ -192,29 +214,35 @@ class _MyAppState extends State<MyApp> with TickerProviderStateMixin {
 
   void _showNoInternetOverlay() {
     if (_isShowingError) return;
+
+    // Use navigatorKey to find the correct Overlay context
+    final overlayState = navigatorKey.currentState?.overlay;
+    if (overlayState == null) return;
+
     _isShowingError = true;
 
     _networkOverlayEntry = OverlayEntry(
-      builder: (context) => SlideTransition(
-        position: Tween<Offset>(begin: const Offset(0, -1), end: Offset.zero)
-            .animate(
-              CurvedAnimation(
-                parent: _slideController,
-                curve: Curves.elasticOut,
+      builder: (context) => Positioned(
+        top: 0,
+        left: 0,
+        right: 0,
+        child: SlideTransition(
+          position: Tween<Offset>(begin: const Offset(0, -1), end: Offset.zero)
+              .animate(
+                CurvedAnimation(
+                  parent: _slideController,
+                  curve: Curves.easeOutBack,
+                ),
               ),
-            ),
-        child: Positioned(
-          top: 50,
-          width: MediaQuery.of(context).size.width,
           child: const Material(
             color: Colors.transparent,
-            child: NoInternetWidget(),
+            child: SafeArea(child: NoInternetWidget()),
           ),
         ),
       ),
     );
 
-    Overlay.of(context).insert(_networkOverlayEntry!);
+    overlayState.insert(_networkOverlayEntry!);
     _slideController.forward();
   }
 
@@ -240,7 +268,6 @@ class _MyAppState extends State<MyApp> with TickerProviderStateMixin {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
 
-    // GLOBAL STATUS BAR CONTROL
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -254,6 +281,7 @@ class _MyAppState extends State<MyApp> with TickerProviderStateMixin {
             : Brightness.dark,
       ),
       child: MaterialApp(
+        navigatorKey: navigatorKey, // 2. Pass the key here
         debugShowCheckedModeBanner: false,
         home: const MainStackHandler(),
         routes: {
@@ -264,8 +292,6 @@ class _MyAppState extends State<MyApp> with TickerProviderStateMixin {
         themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
         theme: ThemeData(
           brightness: Brightness.light,
-          // We set systemOverlayStyle to null in the theme to prevent
-          // AppBars in other files from overriding our global setting.
           appBarTheme: const AppBarTheme(systemOverlayStyle: null),
         ),
         darkTheme: ThemeData(
@@ -289,18 +315,20 @@ class _MainStackHandlerState extends State<MainStackHandler> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        const RootPage(),
-        if (!_isSplashFinished)
-          SplashOverlay(
-            onAnimationComplete: () {
-              setState(() {
-                _isSplashFinished = true;
-              });
-            },
-          ),
-      ],
+    return Scaffold(
+      body: Stack(
+        children: [
+          const RootPage(),
+          if (!_isSplashFinished)
+            SplashOverlay(
+              onAnimationComplete: () {
+                setState(() {
+                  _isSplashFinished = true;
+                });
+              },
+            ),
+        ],
+      ),
     );
   }
 }
@@ -319,55 +347,44 @@ class _SplashOverlayState extends State<SplashOverlay>
   late Animation<double> _cropAnimation;
   late Animation<double> _scaleAnimation;
   late Animation<double> _opacityAnimation;
-
   bool _isDataReady = false;
 
   @override
   void initState() {
     super.initState();
-
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
     );
-
     _cropAnimation = Tween<double>(begin: 1.0, end: 0.45).animate(
       CurvedAnimation(
         parent: _controller,
         curve: const Interval(0.0, 0.5, curve: Curves.easeInOut),
       ),
     );
-
     _scaleAnimation = Tween<double>(begin: 1.0, end: 2.5).animate(
       CurvedAnimation(
         parent: _controller,
         curve: const Interval(0.5, 1.0, curve: Curves.easeOut),
       ),
     );
-
     _opacityAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
       CurvedAnimation(
         parent: _controller,
         curve: const Interval(0.6, 1.0, curve: Curves.linear),
       ),
     );
-
     _startSequence();
   }
 
   Future<void> _startSequence() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
-
     await Future.wait([
       userProvider.loadUser(),
       Future.delayed(const Duration(seconds: 1)),
     ]);
-
     if (mounted) {
-      setState(() {
-        _isDataReady = true;
-      });
-
+      setState(() => _isDataReady = true);
       await _controller.forward();
       widget.onAnimationComplete();
     }
@@ -381,9 +398,7 @@ class _SplashOverlayState extends State<SplashOverlay>
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDark = themeProvider.isDarkMode;
-
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
