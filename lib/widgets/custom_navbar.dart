@@ -44,6 +44,7 @@ class _CustomNavbarState extends State<CustomNavbar> {
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
+    
   }
 
   void _triggerBounce(int pageIndex) {
@@ -99,6 +100,7 @@ class _CustomNavbarState extends State<CustomNavbar> {
     final currentUser = userProvider.currentUser;
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
+    
 
     final List<Widget> pages = [
       const HomePage(), // 0
@@ -111,38 +113,21 @@ class _CustomNavbarState extends State<CustomNavbar> {
     ];
 
     final List<_NavItemData> navItems = [
-      _NavItemData(imagePath: "assets/home-2.svg", label: 'Home', pageIndex: 0),
-      _NavItemData(
-        imagePath: "assets/calendar.svg",
-        label: 'Calendar',
-        pageIndex: 1,
-      ),
+      _NavItemData(imagePath: AppIcons.home, label: 'Home', pageIndex: 0),
+      _NavItemData(imagePath: AppIcons.calendar, label: 'Calendar', pageIndex: 1),
     ];
 
     if (currentUser?.role == 'Admin' || currentUser?.role == 'Owner') {
       navItems.add(
-        _NavItemData(
-          imagePath: "assets/add-square.svg",
-          label: 'Add',
-          isAddButton: true,
-          pageIndex: 4,
-        ),
+        _NavItemData(imagePath: AppIcons.add, label: 'Add', isAddButton: true, pageIndex: 4),
       );
     }
 
     navItems.add(
-      _NavItemData(
-        imagePath: "assets/booking.svg",
-        label: 'Bookings',
-        pageIndex: 2,
-      ),
+      _NavItemData(imagePath: AppIcons.booking, label: 'Bookings', pageIndex: 2),
     );
     navItems.add(
-      _NavItemData(
-        imagePath: "assets/user.svg",
-        label: 'Profile',
-        pageIndex: 3,
-      ),
+      _NavItemData(imagePath: AppIcons.profile, label: 'Profile', pageIndex: 3),
     );
 
     return Scaffold(

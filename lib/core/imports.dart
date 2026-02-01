@@ -5,6 +5,8 @@ export 'package:flutter/material.dart';
 export 'package:flutter/services.dart';
 export 'package:flutter/scheduler.dart';
 export 'package:flutter_svg/flutter_svg.dart';
+export 'package:ccr_booking/core/app_images.dart';
+export 'package:ccr_booking/core/app_version_plus.dart';
 
 // Third-Party Packages
 export 'package:firebase_core/firebase_core.dart';
@@ -25,6 +27,7 @@ export 'package:ccr_booking/core/user_provider.dart';
 
 // Providers
 export 'package:ccr_booking/providers/booking_provider.dart';
+export '../providers/navbar_provider.dart';
 
 // Models
 export 'package:ccr_booking/models/user_model.dart';

@@ -1,37 +1,50 @@
 import '../core/imports.dart';
 
 class BookingProvider extends ChangeNotifier {
-  List<AppBooking> _allBookings = [];
+  final SupabaseClient supabase = Supabase.instance.client;
+
+  List<Map<String, dynamic>> _allBookings = [];
+  List<Map<String, dynamic>> get allBookings => _allBookings;
+
+  Map<String, dynamic>? _editingBooking;
+  Map<String, dynamic>? get editingBooking => _editingBooking;
+
   bool _isLoading = false;
-
-  final SupabaseClient _supabase = Supabase.instance.client;
-
-  List<AppBooking> get allBookings => _allBookings;
   bool get isLoading => _isLoading;
 
-  // This fetches the data from your Supabase 'bookings' table
+  void setEditingBooking(Map<String, dynamic>? booking) {
+    _editingBooking = booking;
+    notifyListeners();
+  }
+
+  void clearEditingBooking() {
+    _editingBooking = null;
+    notifyListeners();
+  }
+
+  void clearBookings() {
+    _allBookings = [];
+    _editingBooking = null;
+    _isLoading = false;
+    notifyListeners();
+  }
+
   Future<void> fetchAllBookings() async {
     _isLoading = true;
     notifyListeners();
+
     try {
-      final data = await _supabase
+      final data = await supabase
           .from('bookings')
           .select()
-          .order('created_at');
-      _allBookings = (data as List)
-          .map((json) => AppBooking.fromJson(json))
-          .toList();
+          .order('pickup_datetime', ascending: false);
+
+      _allBookings = List<Map<String, dynamic>>.from(data);
     } catch (e) {
-      debugPrint("Fetch Bookings Error: $e");
+      debugPrint("Error fetching bookings: $e");
     } finally {
       _isLoading = false;
       notifyListeners();
     }
-  }
-
-  // Optional: Add a method to clear data on logout
-  void clearBookings() {
-    _allBookings = [];
-    notifyListeners();
   }
 }

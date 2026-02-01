@@ -677,12 +677,13 @@ class _HomePageState extends State<HomePage>
             ),
           ],
         ),
-        SizedBox(height: 22,),
+        SizedBox(height: 22),
         if (role == 'Admin' || role == 'Owner') ...[
           _buildActionButton(
             title: "Add New Client",
             subtitle: "Add a new client to your database",
             imagePath: "assets/user-add.svg",
+            isFilled: true,
             color: isDark ? AppColors.primary : AppColors.secondary,
             isDark: isDark,
             onTap: () => Navigator.push(
@@ -778,7 +779,7 @@ class _HomePageState extends State<HomePage>
                   "Today's Pickups",
                   "${stats['pickups']}",
                   null,
-                  "assets/calendar.svg",
+                  "assets/send-square.svg",
                   accent,
                   isDark,
                   mirrorIcon: true,
@@ -802,7 +803,7 @@ class _HomePageState extends State<HomePage>
                   "Today's Returns",
                   "${stats['returns']}",
                   null,
-                  "assets/calendar.svg",
+                  "assets/vuesax.svg",
                   accent,
                   isDark,
                   onTap: () {
@@ -982,8 +983,8 @@ class _HomePageState extends State<HomePage>
   Widget _buildActionButton({
     required String title,
     required String subtitle,
-    IconData? icon,
     String? imagePath,
+    bool isFilled = false,
     required Color color,
     required bool isDark,
     required VoidCallback onTap,
@@ -993,9 +994,15 @@ class _HomePageState extends State<HomePage>
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF2C2C2C) : Colors.white,
+          color: isFilled
+              ? (isDark ? AppColors.primary : AppColors.secondary)
+              : (isDark ? Colors.transparent : Colors.transparent),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withOpacity(0.5)),
+          border: isFilled
+              ? Border.all(color: Colors.transparent)
+              : Border.all(
+                  color: isDark ? AppColors.primary : AppColors.secondary,
+                ),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.05),
@@ -1010,17 +1017,19 @@ class _HomePageState extends State<HomePage>
               width: 45,
               height: 45,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: isFilled
+                      ? Colors.transparent
+                      : (isDark ? AppColors.primary.withOpacity(0) : AppColors.secondary.withOpacity(0)),
                 shape: BoxShape.circle,
               ),
               child: Center(
-                child: imagePath != null
-                    ? IconHandler.buildIcon(
-                        imagePath: imagePath,
-                        color: color,
-                        size: 24,
-                      )
-                    : Icon(icon ?? Icons.help_outline, color: color, size: 24),
+                child: IconHandler.buildIcon(
+                  imagePath: imagePath,
+                  color: isFilled
+                      ? (isDark ? AppColors.secondary : AppColors.primary)
+                      : (isDark ? AppColors.primary : AppColors.secondary),
+                  size: 30,
+                ),
               ),
             ),
             const SizedBox(width: 15),
@@ -1033,14 +1042,18 @@ class _HomePageState extends State<HomePage>
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
-                      color: isDark ? Colors.white : Colors.black,
+                      color: isFilled
+                          ? Colors.white
+                          : (isDark ? Colors.white : Color(0xFF151515)),
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
                     style: TextStyle(
-                      color: isDark ? Colors.white70 : Colors.black54,
+                      color: isFilled
+                          ? Colors.white
+                          : (isDark ? Colors.white : Color(0xFF151515)),
                       fontSize: 12,
                     ),
                   ),

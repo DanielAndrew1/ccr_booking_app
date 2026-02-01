@@ -3,10 +3,6 @@
 import 'core/imports.dart';
 import 'firebase_options.dart';
 
-class AppVersion {
-  static const String version = "1.0.0";
-}
-
 class IconHandler {
   static Widget buildIcon({
     String? imagePath,
@@ -45,6 +41,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
 
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
     sqfliteFfiInit();
@@ -70,9 +67,10 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => BookingProvider()),
+        ChangeNotifierProvider(create: (_) => NavbarProvider()),
       ],
       child: const MyApp(),
     ),
@@ -153,13 +151,12 @@ class _MyAppState extends State<MyApp> with TickerProviderStateMixin {
             ).fetchAllBookings();
 
             String title = "Booking $eventType";
-            String body =
-                "Changes detected in booking for ${newRecord['client_name'] ?? 'Unknown Client'}";
+            String body = "Booking created for ${newRecord['client_name'] ?? 'Unknown Client'}";
 
             if (payload.eventType == PostgresChangeEvent.insert) {
-              title = "New Booking Created! 📅";
+              title = "New Booking Created!";
             } else if (payload.eventType == PostgresChangeEvent.update) {
-              title = "Booking Updated 🔄";
+              title = "Booking Updated";
               body = "Booking status is now: ${newRecord['status']}";
             }
 
@@ -207,7 +204,7 @@ class _MyAppState extends State<MyApp> with TickerProviderStateMixin {
               ),
             ),
         child: Positioned(
-          top: MediaQuery.of(context).padding.top + 10,
+          top: 50,
           width: MediaQuery.of(context).size.width,
           child: const Material(
             color: Colors.transparent,
@@ -401,7 +398,7 @@ class _SplashOverlayState extends State<SplashOverlay>
                   child: Align(
                     alignment: Alignment.centerLeft,
                     widthFactor: _isDataReady ? _cropAnimation.value : 1.0,
-                    child: Image.asset("assets/logo.png", width: 400),
+                    child: Image.asset(AppImages.logo, width: 400),
                   ),
                 ),
               ),

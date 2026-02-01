@@ -15,13 +15,17 @@ class _ProfilePageState extends State<ProfilePage> {
   bool _hasConnection = true;
   final ScrollController _scrollController = ScrollController();
   bool _showCompactHeader = false;
-
+ String  AppVersion ="";
   // Track notification state locally or via a provider
   bool _notificationsEnabled = true;
-
+  void appVersion() async {
+    AppVersion = await AppVersionPlus.appVersion();
+    print(AppVersion);
+  }
   @override
   void initState() {
     super.initState();
+    appVersion();
     _initConnectivity();
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
       result,
@@ -203,11 +207,16 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   @override
+
+
   Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context);
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
     final currentUser = userProvider.currentUser;
+    
+
+  
 
     if (currentUser == null) {
       return const Scaffold(body: Center(child: CustomLoader()));
@@ -370,7 +379,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           ),
                           const SizedBox(height: 14),
                           Text(
-                            "App Version ${AppVersion.version}",
+                          "App Version $AppVersion",
                             style: TextStyle(
                               fontSize: 14,
                               color: isDark ? Colors.white54 : Colors.black54,

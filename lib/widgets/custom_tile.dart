@@ -68,7 +68,7 @@ class CustomTile extends StatelessWidget {
             ),
             child: ListTile(
               leading: Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: iconContainerColor,
                   borderRadius: BorderRadius.circular(10),
@@ -77,7 +77,7 @@ class CustomTile extends StatelessWidget {
                   imagePath: imagePath,
                   icon: icon,
                   color: contentColor,
-                  size: 20,
+                  size: 26,
                 ),
               ),
               title: Text(

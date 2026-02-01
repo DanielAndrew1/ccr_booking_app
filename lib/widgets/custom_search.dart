@@ -8,11 +8,10 @@ class CustomSearch extends StatefulWidget {
   const CustomSearch({super.key, required this.onClientSelected});
 
   @override
-  State<CustomSearch> createState() => CustomSearchState(); // Removed underscore
+  State<CustomSearch> createState() => CustomSearchState();
 }
 
 class CustomSearchState extends State<CustomSearch> {
-  // Removed underscore
   final SupabaseClient supabase = Supabase.instance.client;
 
   String selectedClientName = '';
@@ -20,8 +19,9 @@ class CustomSearchState extends State<CustomSearch> {
   List<Map<String, dynamic>> filteredClients = [];
   bool isLoading = false;
 
-  // Added this method to be called from the parent
   void clear() {
+    // Added mounted check
+    if (!mounted) return;
     setState(() {
       selectedClientName = '';
       filteredClients = allClients;
@@ -35,9 +35,15 @@ class CustomSearchState extends State<CustomSearch> {
   }
 
   Future<void> _fetchClients() async {
+    // 1. Safe to call setState here because it's synchronous in initState
     setState(() => isLoading = true);
+
     try {
       final data = await supabase.from('clients').select();
+
+      // 2. IMPORTANT: Check if the widget is still in the tree after the await
+      if (!mounted) return;
+
       setState(() {
         allClients = List<Map<String, dynamic>>.from(data);
         filteredClients = allClients;
@@ -45,11 +51,15 @@ class CustomSearchState extends State<CustomSearch> {
     } catch (e) {
       debugPrint("Error fetching clients: $e");
     } finally {
-      setState(() => isLoading = false);
+      // 3. IMPORTANT: Check if the widget is still in the tree after the try/catch
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
     }
   }
 
   void _filterClients(String query) {
+    if (!mounted) return;
     setState(() {
       final searchLower = query.toLowerCase();
       filteredClients = allClients.where((client) {
@@ -204,9 +214,11 @@ class CustomSearchState extends State<CustomSearch> {
                                 color: Colors.grey,
                               ),
                               onTap: () {
-                                setState(
-                                  () => selectedClientName = client['name'],
-                                );
+                                if (mounted) {
+                                  setState(
+                                    () => selectedClientName = client['name'],
+                                  );
+                                }
                                 widget.onClientSelected(client);
                                 Navigator.pop(context);
                               },

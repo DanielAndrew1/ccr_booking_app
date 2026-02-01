@@ -1,8 +1,8 @@
 // ignore_for_file: deprecated_member_use
 
+import 'package:ccr_booking/pages/edit_booking.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../core/imports.dart';
 
 class BookingsPage extends StatefulWidget {
@@ -111,16 +111,13 @@ class _BookingsPageState extends State<BookingsPage> {
 
       _fetchDayBookings();
     } catch (e) {
-      CustomSnackBar.show(
-        context,
-        "Error deleting booking: $e",
-        color: AppColors.red,
-      );
+      CustomSnackBar.show(context, "Error deleting booking: $e");
     }
   }
 
   void _showBookingDetails(Map<String, dynamic> booking) {
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+
     final bool isDark = themeProvider.isDarkMode;
     final currencyFormat = NumberFormat("#,##0", "en_US");
 
@@ -160,11 +157,52 @@ class _BookingsPageState extends State<BookingsPage> {
                           color: isDark ? Colors.white : Colors.black,
                         ),
                       ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(dialogContext),
-                        icon: Icon(
-                          Icons.close,
-                          color: isDark ? Colors.white70 : Colors.black54,
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            indexPage = 4;
+                            
+
+                            // 1. Set the booking data for the Add/Edit page to read
+                            Provider.of<BookingProvider>(
+                              context,
+                              listen: false,
+                            ).setEditingBooking(booking);
+
+                            // 2. Tell the Navbar to enter "Edit Mode"
+                            Provider.of<NavbarProvider>(
+                              context,
+                              listen: false,
+                            ).setEditMode(true);
+
+                            // 3. Close the dialog
+                            Navigator.pop(dialogContext);
+
+                            // 4. Switch the Navbar index to the middle tab (index 2)
+                            Provider.of<NavbarProvider>(
+                              context,
+                              listen: false,
+                            ).setIndex(2);
+                          },
+                          borderRadius: BorderRadius.circular(50),
+                          child: Ink(
+                            padding: const EdgeInsets.all(10),
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Colors.grey.withOpacity(0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: SvgPicture.asset(
+                              "assets/message-edit.svg",
+                              colorFilter: ColorFilter.mode(
+                                isDark ? Colors.white : Colors.black,
+                                BlendMode.srcIn,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ],
@@ -186,17 +224,17 @@ class _BookingsPageState extends State<BookingsPage> {
                     isDark,
                   ),
                   _detailRow(
-                    "Pickup",
+                    "Pickup Date",
                     DateFormat(
-                      'dd MMM yyyy • HH:mm',
+                      'dd MMM yyyy',
                     ).format(DateTime.parse(booking['pickup_datetime'])),
                     "assets/send-square.svg",
                     isDark,
                   ),
                   _detailRow(
-                    "Return",
+                    "Return Date",
                     DateFormat(
-                      'dd MMM yyyy • HH:mm',
+                      'dd MMM yyyy',
                     ).format(DateTime.parse(booking['return_datetime'])),
                     "assets/vuesax.svg",
                     isDark,
@@ -301,7 +339,6 @@ class _BookingsPageState extends State<BookingsPage> {
       extendBodyBehindAppBar: true,
       backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
       appBar: CustomAppBar(
-        // The button inside CustomAppBar only functions/appears if this is not null
         onTodayPressed: isNotToday
             ? () {
                 setState(() => _selectedDate = DateTime.now());
@@ -412,22 +449,20 @@ class _BookingsPageState extends State<BookingsPage> {
                         color: AppColors.primary.withOpacity(0.5),
                         width: 2,
                       )
-                    : (!isSelected && !isDark
-                          ? Border.all(color: Colors.black.withOpacity(0.05))
-                          : null),
+                    : null,
                 boxShadow: isSelected
                     ? [
                         BoxShadow(
-                          color: AppColors.primary.withOpacity(0.3),
-                          blurRadius: 14,
+                          color: AppColors.primary.withOpacity(0.7),
+                          blurRadius: 4,
                           offset: const Offset(0, 0),
                         ),
                       ]
                     : [
                         BoxShadow(
-                          color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
-                          blurRadius: 5,
-                          offset: const Offset(0, 2),
+                          color: Colors.transparent,
+                          blurRadius: 0,
+                          offset: const Offset(0, 0),
                         ),
                       ],
               ),

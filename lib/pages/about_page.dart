@@ -1,3 +1,4 @@
+import 'package:ccr_booking/core/app_version_plus.dart';
 import 'package:ccr_booking/core/imports.dart';
 
 class AboutPage extends StatelessWidget {
@@ -7,7 +8,6 @@ class AboutPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
-
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
       extendBodyBehindAppBar: true,
@@ -63,7 +63,7 @@ class AboutPage extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        "App Version: ${AppVersion.version}",
+                        "App Version: ${AppVersionPlus.appVersion}",
                         style: AppFontStyle.textRegular().copyWith(
                           color: Colors.grey,
                           fontSize: 14,

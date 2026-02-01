@@ -28,28 +28,11 @@ class NoInternetWidget extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
-              ),
-              child: const Center(
-                child: Text(
-                  '!',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
+            SvgPicture.asset("assets/info-circle.svg", color: Colors.white, width: 28),
             const SizedBox(width: 12),
             const Expanded(
               child: Text(
-                'No internet connection.\nPlease check your network and try again.',
+                'No internet connection!\nPlease check your network and try again.',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 14,
