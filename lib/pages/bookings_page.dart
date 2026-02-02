@@ -1,4 +1,4 @@
-// ignore_for_file: deprecated_member_use, use_build_context_synchronously
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously, unnecessary_cast
 
 import 'package:flutter/cupertino.dart';
 import 'package:intl/intl.dart';
@@ -51,8 +51,7 @@ class BookingsPageState extends State<BookingsPage> {
           (index * itemWidth) - (screenWidth / 2) + 50;
       final double maxOffset =
           _calendarScrollController.position.maxScrollExtent;
-      final double offset =
-          targetCenterOffset.clamp(0.0, maxOffset) as double;
+      final double offset = targetCenterOffset.clamp(0.0, maxOffset) as double;
 
       if (animate) {
         _calendarScrollController.animateTo(
