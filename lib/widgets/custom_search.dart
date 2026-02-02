@@ -28,6 +28,13 @@ class CustomSearchState extends State<CustomSearch> {
     });
   }
 
+  void setSelectedClientName(String name) {
+    if (!mounted) return;
+    setState(() {
+      selectedClientName = name;
+    });
+  }
+
   @override
   void initState() {
     super.initState();

@@ -38,6 +38,8 @@ class _CustomNavbarState extends State<CustomNavbar> {
 
   final GlobalKey<CalendarPageState> _calendarKey =
       GlobalKey<CalendarPageState>();
+  final GlobalKey<BookingsPageState> _bookingsKey =
+      GlobalKey<BookingsPageState>();
 
   @override
   void initState() {
@@ -80,6 +82,11 @@ class _CustomNavbarState extends State<CustomNavbar> {
       }
       navProvider.setIndex(pageIndex);
       setState(() => _isMenuOpen = false);
+      if (pageIndex == 2) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _bookingsKey.currentState?.resetToToday();
+        });
+      }
     }
   }
 
@@ -103,11 +110,20 @@ class _CustomNavbarState extends State<CustomNavbar> {
     final currentUser = userProvider.currentUser;
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
+    final bool canUseAddMenu =
+        (currentUser?.role == 'Admin' || currentUser?.role == 'Owner') &&
+            !isEditing;
+
+    if (!canUseAddMenu && _isMenuOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _isMenuOpen = false);
+      });
+    }
 
     final List<Widget> pages = [
       const HomePage(),
       CalendarPage(key: _calendarKey),
-      const BookingsPage(),
+      BookingsPage(key: _bookingsKey),
       const ProfilePage(),
       isEditing ? const EditBooking() : const AddBooking(isRoot: true),
       const AddClient(isRoot: true),
@@ -126,9 +142,9 @@ class _CustomNavbarState extends State<CustomNavbar> {
     if (currentUser?.role == 'Admin' || currentUser?.role == 'Owner') {
       navItems.add(
         _NavItemData(
-          imagePath: AppIcons.add,
-          label: 'Add',
-          isAddButton: true,
+          imagePath: isEditing ? AppIcons.edit : AppIcons.add,
+          label: isEditing ? 'Edit' : 'Add',
+          isAddButton: !isEditing,
           pageIndex: 4,
         ),
       );
@@ -155,91 +171,94 @@ class _CustomNavbarState extends State<CustomNavbar> {
             child: IndexedStack(index: currentIndex, children: pages),
           ),
 
-          IgnorePointer(
-            ignoring: !_isMenuOpen,
-            child: GestureDetector(
-              onTap: () => setState(() => _isMenuOpen = false),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                width: double.infinity,
-                height: double.infinity,
-                color: _isMenuOpen
-                    ? Colors.black.withOpacity(0.35)
-                    : Colors.transparent,
-              ),
-            ),
-          ),
-
-          _buildBottomNavbar(navItems, isDark, currentIndex),
-
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOutQuart,
-            bottom: _isMenuOpen ? 115 : 70,
-            left: MediaQuery.of(context).size.width / 2 - 110,
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 200),
-              opacity: _isMenuOpen ? 1.0 : 0.0,
-              child: IgnorePointer(
-                ignoring: !_isMenuOpen,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      width: 220,
-                      height: _isMenuOpen ? 153 : 0,
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF2C2C2C) : Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
-                            blurRadius: 15,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: SingleChildScrollView(
-                          physics: const NeverScrollableScrollPhysics(),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _MenuEntry(
-                                imagePath: AppIcons.userAdd,
-                                title: "Add Client",
-                                onTap: () => _onTap(5, false),
-                              ),
-                              _buildDivider(isDark),
-                              _MenuEntry(
-                                imagePath: AppIcons.inventory,
-                                title: "Add Product",
-                                onTap: () => _onTap(6, false),
-                              ),
-                              _buildDivider(isDark),
-                              _MenuEntry(
-                                imagePath: AppIcons.calendarAdd,
-                                title: "Add Booking",
-                                onTap: () => _onTap(4, false),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    CustomPaint(
-                      size: const Size(20, 10),
-                      painter: _TrianglePainter(
-                        isDark ? const Color(0xFF2C2C2C) : Colors.white,
-                      ),
-                    ),
-                  ],
+          if (canUseAddMenu)
+            IgnorePointer(
+              ignoring: !_isMenuOpen,
+              child: GestureDetector(
+                onTap: () => setState(() => _isMenuOpen = false),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  width: double.infinity,
+                  height: double.infinity,
+                  color: _isMenuOpen
+                      ? Colors.black.withOpacity(0.35)
+                      : Colors.transparent,
                 ),
               ),
             ),
-          ),
+
+          _buildBottomNavbar(navItems, isDark, currentIndex),
+
+          if (canUseAddMenu)
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOutQuart,
+              bottom: _isMenuOpen ? 115 : 70,
+              left: MediaQuery.of(context).size.width / 2 - 110,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 200),
+                opacity: _isMenuOpen ? 1.0 : 0.0,
+                child: IgnorePointer(
+                  ignoring: !_isMenuOpen,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        width: 220,
+                        height: _isMenuOpen ? 153 : 0,
+                        decoration: BoxDecoration(
+                          color:
+                              isDark ? const Color(0xFF2C2C2C) : Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 15,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: SingleChildScrollView(
+                            physics: const NeverScrollableScrollPhysics(),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _MenuEntry(
+                                  imagePath: AppIcons.userAdd,
+                                  title: "Add Client",
+                                  onTap: () => _onTap(5, false),
+                                ),
+                                _buildDivider(isDark),
+                                _MenuEntry(
+                                  imagePath: AppIcons.inventory,
+                                  title: "Add Product",
+                                  onTap: () => _onTap(6, false),
+                                ),
+                                _buildDivider(isDark),
+                                _MenuEntry(
+                                  imagePath: AppIcons.calendarAdd,
+                                  title: "Add Booking",
+                                  onTap: () => _onTap(4, false),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      CustomPaint(
+                        size: const Size(20, 10),
+                        painter: _TrianglePainter(
+                          isDark ? const Color(0xFF2C2C2C) : Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
 
           if (_isMenuOpen)
             _buildBottomNavbar(

@@ -9,6 +9,8 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final List<Widget>? actions;
   final bool hideLeading;
   final VoidCallback? onTodayPressed;
+  final IconData? leadingIcon;
+  final VoidCallback? onLeadingPressed;
 
   const CustomAppBar({
     super.key,
@@ -17,6 +19,8 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.actions,
     this.hideLeading = false,
     this.onTodayPressed,
+    this.leadingIcon,
+    this.onLeadingPressed,
   });
 
   @override
@@ -41,20 +45,30 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
         shadowColor: AppColors.primary,
         leading: hideLeading
             ? null
-            : (showPfp
-                  ? Padding(
-                      padding: const EdgeInsets.only(left: 12),
-                      child: Center(
-                        child: CustomPfp(dimentions: 45, fontSize: 21),
+            : (leadingIcon != null || onLeadingPressed != null
+                  ? IconButton(
+                      onPressed:
+                          onLeadingPressed ?? () => Navigator.maybePop(context),
+                      icon: Icon(
+                        leadingIcon ?? Icons.adaptive.arrow_back_rounded,
+                        color: Colors.white,
+                        size: 30,
                       ),
                     )
-                  : IconButton(
-                      onPressed: () => Navigator.maybePop(context),
-                      icon: Icon(
-                        Icons.adaptive.arrow_back_rounded,
-                        color: Colors.white,
-                      ),
-                    )),
+                  : (showPfp
+                        ? Padding(
+                            padding: const EdgeInsets.only(left: 12),
+                            child: Center(
+                              child: CustomPfp(dimentions: 45, fontSize: 21),
+                            ),
+                          )
+                        : IconButton(
+                            onPressed: () => Navigator.maybePop(context),
+                            icon: Icon(
+                              Icons.adaptive.arrow_back_rounded,
+                              color: Colors.white,
+                            ),
+                          ))),
         centerTitle: true,
         title: Column(
           mainAxisSize: MainAxisSize.min,

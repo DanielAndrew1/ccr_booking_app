@@ -1,5 +1,6 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously
 
+import 'package:flutter/cupertino.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import '../core/imports.dart';
@@ -8,10 +9,10 @@ class BookingsPage extends StatefulWidget {
   const BookingsPage({super.key});
 
   @override
-  State<BookingsPage> createState() => _BookingsPageState();
+  State<BookingsPage> createState() => BookingsPageState();
 }
 
-class _BookingsPageState extends State<BookingsPage> {
+class BookingsPageState extends State<BookingsPage> {
   final SupabaseClient supabase = Supabase.instance.client;
   final ScrollController _calendarScrollController = ScrollController();
 
@@ -34,13 +35,24 @@ class _BookingsPageState extends State<BookingsPage> {
     });
   }
 
-  void _scrollToToday({bool animate = true}) {
+  int _indexForDate(DateTime date) {
+    final start = DateTime.now().subtract(Duration(days: daysBehind));
+    final startDay = DateTime(start.year, start.month, start.day);
+    final targetDay = DateTime(date.year, date.month, date.day);
+    return targetDay.difference(startDay).inDays;
+  }
+
+  void _scrollToDate(DateTime date, {bool animate = true}) {
     if (_calendarScrollController.hasClients) {
       const double itemWidth = 85.0;
       final double screenWidth = MediaQuery.of(context).size.width;
-
+      final int index = _indexForDate(date);
+      final double targetCenterOffset =
+          (index * itemWidth) - (screenWidth / 2) + 50;
+      final double maxOffset =
+          _calendarScrollController.position.maxScrollExtent;
       final double offset =
-          (daysBehind * itemWidth) - (screenWidth / 2) + (itemWidth / 2) + 7.5;
+          targetCenterOffset.clamp(0.0, maxOffset) as double;
 
       if (animate) {
         _calendarScrollController.animateTo(
@@ -51,7 +63,28 @@ class _BookingsPageState extends State<BookingsPage> {
       } else {
         _calendarScrollController.jumpTo(offset);
       }
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _scrollToDate(date, animate: animate);
+      });
     }
+  }
+
+  void _scrollToToday({bool animate = true}) {
+    _scrollToDate(DateTime.now(), animate: animate);
+  }
+
+  void resetToToday() {
+    final now = DateTime.now();
+    if (_selectedDate.year == now.year &&
+        _selectedDate.month == now.month &&
+        _selectedDate.day == now.day) {
+      return;
+    }
+    setState(() => _selectedDate = now);
+    _fetchDayBookings();
+    _scrollToToday();
   }
 
   Future<void> _fetchDayBookings() async {
@@ -114,7 +147,7 @@ class _BookingsPageState extends State<BookingsPage> {
     }
   }
 
-  void _showBookingDetails(Map<String, dynamic> booking) {
+  void _showBookingDetails(Map<String, dynamic> booking, {required bool isPickup}) {
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
 
     final bool isDark = themeProvider.isDarkMode;
@@ -156,54 +189,53 @@ class _BookingsPageState extends State<BookingsPage> {
                           color: isDark ? Colors.white : Colors.black,
                         ),
                       ),
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () {
-                            HapticFeedback.lightImpact();
-                            indexPage = 4;
-                            
+                      if (isPickup)
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () {
+                              HapticFeedback.lightImpact();
 
-                            // 1. Set the booking data for the Add/Edit page to read
-                            Provider.of<BookingProvider>(
-                              context,
-                              listen: false,
-                            ).setEditingBooking(booking);
+                              // 1. Set the booking data for the Add/Edit page to read
+                              Provider.of<BookingProvider>(
+                                context,
+                                listen: false,
+                              ).setEditingBooking(booking);
 
-                            // 2. Tell the Navbar to enter "Edit Mode"
-                            Provider.of<NavbarProvider>(
-                              context,
-                              listen: false,
-                            ).setEditMode(true);
+                              // 2. Tell the Navbar to enter "Edit Mode"
+                              Provider.of<NavbarProvider>(
+                                context,
+                                listen: false,
+                              ).setEditMode(true);
 
-                            // 3. Close the dialog
-                            Navigator.pop(dialogContext);
+                              // 3. Close the dialog
+                              Navigator.pop(dialogContext);
 
-                            // 4. Switch the Navbar index to the middle tab (index 2)
-                            Provider.of<NavbarProvider>(
-                              context,
-                              listen: false,
-                            ).setIndex(2);
-                          },
-                          borderRadius: BorderRadius.circular(50),
-                          child: Ink(
-                            padding: const EdgeInsets.all(10),
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: Colors.grey.withOpacity(0.2),
-                              shape: BoxShape.circle,
-                            ),
-                            child: SvgPicture.asset(
-                              AppIcons.edit,
-                              colorFilter: ColorFilter.mode(
-                                isDark ? Colors.white : Colors.black,
-                                BlendMode.srcIn,
+                              // 4. Switch the Navbar index to the Add/Edit page (index 4)
+                              Provider.of<NavbarProvider>(
+                                context,
+                                listen: false,
+                              ).setIndex(4);
+                            },
+                            borderRadius: BorderRadius.circular(50),
+                            child: Ink(
+                              padding: const EdgeInsets.all(10),
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: Colors.grey.withOpacity(0.2),
+                                shape: BoxShape.circle,
+                              ),
+                              child: SvgPicture.asset(
+                                AppIcons.edit,
+                                colorFilter: ColorFilter.mode(
+                                  isDark ? Colors.white : Colors.black,
+                                  BlendMode.srcIn,
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
                     ],
                   ),
                   Divider(
@@ -358,50 +390,70 @@ class _BookingsPageState extends State<BookingsPage> {
                 Expanded(
                   child: _isLoading
                       ? const Center(child: CustomLoader())
-                      : RefreshIndicator(
-                          onRefresh: _fetchDayBookings,
-                          color: AppColors.primary,
-                          backgroundColor: isDark
-                              ? const Color(0xFF2A2A2A)
-                              : Colors.white,
-                          child: SingleChildScrollView(
-                            physics: const AlwaysScrollableScrollPhysics(
-                              parent: BouncingScrollPhysics(),
-                            ),
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SizedBox(height: 10),
-                                _buildSectionHeader(
-                                  "Pickups",
-                                  _pickups.length,
-                                  AppColors.primary,
-                                  isDark,
-                                ),
-                                const SizedBox(height: 16),
-                                _buildBookingList(
-                                  _pickups,
-                                  isDark,
-                                  isPickup: true,
-                                ),
-                                const SizedBox(height: 32),
-                                _buildSectionHeader(
-                                  "Returns",
-                                  _returns.length,
-                                  AppColors.secondary,
-                                  isDark,
-                                ),
-                                const SizedBox(height: 16),
-                                _buildBookingList(
-                                  _returns,
-                                  isDark,
-                                  isPickup: false,
-                                ),
-                                const SizedBox(height: 120),
-                              ],
-                            ),
+                      : CustomScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(
+                            parent: BouncingScrollPhysics(),
                           ),
+                          slivers: [
+                            CupertinoSliverRefreshControl(
+                              onRefresh: _fetchDayBookings,
+                              builder: (
+                                context,
+                                refreshState,
+                                pulledExtent,
+                                refreshTriggerPullDistance,
+                                refreshIndicatorExtent,
+                              ) {
+                                final isActive =
+                                    refreshState == RefreshIndicatorMode.refresh;
+                                final shouldShow =
+                                    isActive || pulledExtent > 0;
+                                if (!shouldShow) return const SizedBox.shrink();
+                                return SizedBox(
+                                  height: refreshIndicatorExtent,
+                                  child: const Center(child: CustomLoader()),
+                                );
+                              },
+                            ),
+                            SliverPadding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 20),
+                              sliver: SliverToBoxAdapter(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const SizedBox(height: 10),
+                                    _buildSectionHeader(
+                                      "Pickups",
+                                      _pickups.length,
+                                      AppColors.primary,
+                                      isDark,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    _buildBookingList(
+                                      _pickups,
+                                      isDark,
+                                      isPickup: true,
+                                    ),
+                                    const SizedBox(height: 32),
+                                    _buildSectionHeader(
+                                      "Returns",
+                                      _returns.length,
+                                      AppColors.secondary,
+                                      isDark,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    _buildBookingList(
+                                      _returns,
+                                      isDark,
+                                      isPickup: false,
+                                    ),
+                                    const SizedBox(height: 120),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                 ),
               ],
@@ -433,6 +485,7 @@ class _BookingsPageState extends State<BookingsPage> {
               HapticFeedback.lightImpact();
               setState(() => _selectedDate = date);
               _fetchDayBookings();
+              _scrollToDate(date);
             },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
@@ -645,7 +698,7 @@ class _BookingsPageState extends State<BookingsPage> {
               child: InkWell(
                 onTap: () {
                   HapticFeedback.selectionClick();
-                  _showBookingDetails(booking);
+                  _showBookingDetails(booking, isPickup: isPickup);
                 },
                 child: Container(
                   padding: const EdgeInsets.all(16),
@@ -666,7 +719,7 @@ class _BookingsPageState extends State<BookingsPage> {
                         ),
                         child: SvgPicture.asset(
                           isPickup
-                              ? AppIcons.phone
+                              ? AppIcons.pickUp
                               : AppIcons.returns,
                           width: 26,
                           color: accentColor,

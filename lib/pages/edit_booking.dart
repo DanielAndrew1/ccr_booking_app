@@ -17,6 +17,7 @@ class _EditBookingState extends State<EditBooking> {
   final GlobalKey<CustomSearchState> _searchKey =
       GlobalKey<CustomSearchState>();
 
+  String? _bookingId;
   Map<String, dynamic>? selectedClient;
   DateTime? pickupDate;
   DateTime? returnDate;
@@ -50,8 +51,88 @@ class _EditBookingState extends State<EditBooking> {
     return sum * totalDays;
   }
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadExistingBooking();
+    });
+  }
+
+  Future<void> _loadExistingBooking() async {
+    final bookingProvider = Provider.of<BookingProvider>(
+      context,
+      listen: false,
+    );
+    final booking = bookingProvider.editingBooking;
+    if (booking == null) return;
+
+    final bookingId = booking['id']?.toString();
+    final clientId = booking['client_id'];
+    final clientName = booking['client_name']?.toString() ?? '';
+
+    DateTime? parsedPickup;
+    DateTime? parsedReturn;
+    try {
+      if (booking['pickup_datetime'] != null) {
+        parsedPickup = DateTime.parse(booking['pickup_datetime']);
+      }
+      if (booking['return_datetime'] != null) {
+        parsedReturn = DateTime.parse(booking['return_datetime']);
+      }
+    } catch (_) {}
+
+    List<Map<String, dynamic>?> prefilledProducts = [null];
+    final List<dynamic> productIds =
+        (booking['product_ids'] as List? ?? []).toList();
+    if (productIds.isNotEmpty) {
+      final uniqueIds = productIds.map((id) => id.toString()).toSet().toList();
+      try {
+        final productData = await supabase
+            .from('products')
+            .select()
+            .inFilter('id', uniqueIds);
+
+        final Map<String, Map<String, dynamic>> productMap = {
+          for (final p in productData)
+            p['id'].toString(): Map<String, dynamic>.from(p),
+        };
+
+        prefilledProducts = productIds
+            .map((id) => productMap[id.toString()])
+            .where((p) => p != null)
+            .cast<Map<String, dynamic>>()
+            .toList();
+
+        if (prefilledProducts.isEmpty) {
+          prefilledProducts = [null];
+        }
+      } catch (_) {
+        prefilledProducts = [null];
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _bookingId = bookingId;
+      selectedClient = {
+        'id': clientId,
+        'name': clientName,
+      };
+      pickupDate = parsedPickup;
+      returnDate = parsedReturn;
+      selectedProducts = prefilledProducts;
+    });
+    _searchKey.currentState?.setSelectedClientName(clientName);
+  }
+
   Future<void> _saveBooking() async {
     bool isProductsEmpty = !selectedProducts.any((p) => p != null);
+
+    if (_bookingId == null) {
+      CustomSnackBar.show(context, "Missing booking ID");
+      return;
+    }
 
     if (selectedClient == null ||
         pickupDate == null ||
@@ -96,12 +177,16 @@ class _EditBookingState extends State<EditBooking> {
           return;
         }
 
-        final List<dynamic> overlaps = await supabase
+        final overlapQuery = supabase
             .from('bookings')
-            .select('client_name, product_ids')
+            .select('id, client_name, product_ids')
             .filter('status', 'neq', 'cancelled')
             .lt('pickup_datetime', returnDate!.toIso8601String())
             .gt('return_datetime', pickupDate!.toIso8601String());
+        if (_bookingId != null) {
+          overlapQuery.neq('id', _bookingId!);
+        }
+        final List<dynamic> overlaps = await overlapQuery;
 
         int countInOthers = 0;
         List<String> holders = [];
@@ -135,7 +220,7 @@ class _EditBookingState extends State<EditBooking> {
           .map((p) => p['name'].toString())
           .toList();
 
-      await supabase.from('bookings').insert({
+      await supabase.from('bookings').update({
         'client_id': selectedClient!['id'].toString(),
         'client_name': selectedClient!['name'],
         'product_ids': productIds,
@@ -144,7 +229,7 @@ class _EditBookingState extends State<EditBooking> {
         'return_datetime': returnDate!.toIso8601String(),
         'status': 'upcoming',
         'total_price': totalPrice,
-      });
+      }).eq('id', _bookingId!);
 
       if (!mounted) return;
       Navigator.pop(context);
@@ -162,10 +247,15 @@ class _EditBookingState extends State<EditBooking> {
 
       CustomSnackBar.show(
         context,
-        "Booking Created Successfully!",
+        "Booking Updated Successfully!",
         color: AppColors.green,
         icon: Icons.check_circle_outline,
       );
+
+      Provider.of<BookingProvider>(context, listen: false)
+          .clearEditingBooking();
+      Provider.of<NavbarProvider>(context, listen: false).setEditMode(false);
+      Provider.of<NavbarProvider>(context, listen: false).setIndex(2);
 
       if (!widget.isRoot) Navigator.pop(context);
     } catch (e) {
@@ -363,6 +453,8 @@ class _EditBookingState extends State<EditBooking> {
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
+    final isEditing =
+        Provider.of<BookingProvider>(context).editingBooking != null;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -378,8 +470,16 @@ class _EditBookingState extends State<EditBooking> {
             Scaffold(
               backgroundColor: Colors.transparent,
               appBar: CustomAppBar(
-                text: "Add a Booking",
-                showPfp: widget.isRoot,
+                text: isEditing ? "Edit Booking" : "Add a Booking",
+                showPfp: false,
+                leadingIcon: Icons.close_rounded,
+                onLeadingPressed: () {
+                  Provider.of<BookingProvider>(context, listen: false)
+                      .clearEditingBooking();
+                  Provider.of<NavbarProvider>(context, listen: false)
+                      .setEditMode(false);
+                  Provider.of<NavbarProvider>(context, listen: false).setIndex(4);
+                },
               ),
               body: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
@@ -627,9 +727,9 @@ class _EditBookingState extends State<EditBooking> {
                             borderRadius: BorderRadius.circular(15),
                           ),
                         ),
-                        child: const Text(
-                          "Confirm Booking",
-                          style: TextStyle(
+                        child: Text(
+                          isEditing ? "Save Changes" : "Confirm Booking",
+                          style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
                             fontSize: 16,

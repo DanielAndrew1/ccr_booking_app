@@ -65,8 +65,8 @@ class CustomSnackBar extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // Logic: Show different icon/container based on isSuccess
-            SvgPicture.asset(isSuccess ? AppIcons.tick : AppIcons.info),
-            const SizedBox(width: 12),
+            SvgPicture.asset(isSuccess ? AppIcons.tick : AppIcons.info, color: Colors.white, width: 32),
+            const SizedBox(width: 4),
             Expanded(
               child: Text(
                 message,

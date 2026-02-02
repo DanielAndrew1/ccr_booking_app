@@ -1,4 +1,4 @@
-// ignore_for_file: deprecated_member_use
+// ignore_for_file: deprecated_member_use, no_leading_underscores_for_local_identifiers
 
 import 'package:ccr_booking/core/imports.dart';
 
@@ -19,12 +19,10 @@ class AboutPage extends StatelessWidget {
           const CustomBgSvg(),
 
           SafeArea(
+            bottom: false,
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24.0,
-                vertical: 20.0,
-              ),
+              padding: const EdgeInsets.fromLTRB(24.0, 20.0, 24.0, 0.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -60,17 +58,23 @@ class AboutPage extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        "App Version: ${AppVersionPlus.appVersion}",
-                        style: AppFontStyle.textRegular().copyWith(
-                          color: Colors.grey,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
+                  FutureBuilder<String>(
+                    future: AppVersionPlus.appVersion(),
+                    builder: (context, snapshot) {
+                      final version = snapshot.data ?? "...";
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            "App Version $version",
+                            style: AppFontStyle.textRegular().copyWith(
+                              color: Colors.grey,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
 
                   const SizedBox(height: 30),
@@ -132,27 +136,38 @@ class AboutPage extends StatelessWidget {
                       ),
                     ),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          "Need Support?",
-                          style: AppFontStyle.subTitleMedium().copyWith(
-                            color: isDark ? Colors.white : Colors.black,
+                        SizedBox(
+                          width: double.infinity,
+                          child: Text(
+                            "Contact us at:",
+                            style: AppFontStyle.textRegular().copyWith(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          "Contact us at support@ccrbooking.com",
-                          style: AppFontStyle.textRegular().copyWith(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        const SizedBox(height: 12),
+                        _buildContactRow(
+                          AppIcons.phone,
+                          "+20 120 7577739",
+                          isDark,
+                        ),
+                        _buildContactRow(
+                          AppIcons.email,
+                          "info@cairocamerarentals.com",
+                          isDark,
+                        ),
+                        _buildContactRow(
+                          AppIcons.globe,
+                          "www.cairocamerarentals.com",
+                          isDark,
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(
-                    height: 100,
-                  ), // Space for bottom navigation if applicable
+                  SizedBox(height: 50,),
                 ],
               ),
             ),
@@ -188,13 +203,42 @@ class AboutPage extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: AppColors.secondary),
-          const SizedBox(width: 12),
+          SvgPicture.asset(AppIcons.tick, width: 20, color: AppColors.primary,),
+          const SizedBox(width: 8),
           Text(
             text,
             style: AppFontStyle.textRegular().copyWith(
               color: isDark ? Colors.white : Colors.black,
               fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContactRow(String iconPath, String text, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          SvgPicture.asset(
+            iconPath,
+            width: 18,
+            height: 18,
+            colorFilter: ColorFilter.mode(
+              isDark ? Colors.white70 : Colors.black54,
+              BlendMode.srcIn,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              text,
+              style: AppFontStyle.textRegular().copyWith(
+                color: isDark ? Colors.white70 : Colors.black87,
+                fontSize: 14,
+              ),
             ),
           ),
         ],

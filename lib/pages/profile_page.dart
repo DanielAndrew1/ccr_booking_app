@@ -56,6 +56,7 @@ class _ProfilePageState extends State<ProfilePage> {
     // Call service to handle logic (permissions + Supabase + SharedPreferences)
     bool result = await NotificationService().toggleNotifications(value);
 
+    if (!mounted) return;
     setState(() {
       _notificationsEnabled = result;
     });

@@ -1,6 +1,6 @@
 abstract class AppIcons {
   static String add = "assets/svg/add-square.svg";
-  static String bg = "assets/svg/add-square.svg";
+  static String bg = "assets/svg/bg-decoration.svg";
   static String booking = "assets/svg/booking.svg";
   static String inventory = "assets/svg/box.svg";
   static String calendarAdd = "assets/svg/calendar-add.svg";
@@ -19,6 +19,7 @@ abstract class AppIcons {
   static String client = "assets/svg/profile-2user.svg";
   static String search = "assets/svg/search-normal.svg";
   static String pickUp = "assets/svg/send-square.svg";
+  static String email = "assets/svg/sms.svg";
   static String tick = "assets/svg/tick-circle.svg";
   static String trash = "assets/svg/trash.svg";
   static String userAdd = "assets/svg/user-add.svg";
@@ -30,8 +31,8 @@ abstract class AppIcons {
 }
 
 abstract class AppImages {
-  static String appIcon = "assets/png/App_Icon.svg";
-  static String darkAppIcon = "assets/png/Dark_App_Icon.svg";
-  static String icon = "assets/png/icon.svg";
-  static String logo = "assets/png/logo.svg";
+  static String appIcon = "assets/png/App_Icon.png";
+  static String darkAppIcon = "assets/png/Dark_App_Icon.png";
+  static String icon = "assets/png/icon.png";
+  static String logo = "assets/png/logo.png";
 }

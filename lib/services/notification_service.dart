@@ -29,19 +29,10 @@ class NotificationService {
     final prefs = await SharedPreferences.getInstance();
 
     if (value) {
-      // User wants to enable: Check/Request system permissions
-      var status = await Permission.notification.status;
-      if (status.isDenied || status.isPermanentlyDenied) {
-        status = await Permission.notification.request();
-      }
-
-      if (status.isGranted) {
-        await prefs.setBool(_storageKey, true);
-        await getAndSaveToken(); // Re-sync token to Supabase
-        return true;
-      } else {
-        return false; // User denied system permissions
-      }
+      // User wants to enable: Just update preference and sync token
+      await prefs.setBool(_storageKey, true);
+      await getAndSaveToken(); // Re-sync token to Supabase
+      return true;
     } else {
       // User wants to disable: Save preference and wipe token from DB
       await prefs.setBool(_storageKey, false);

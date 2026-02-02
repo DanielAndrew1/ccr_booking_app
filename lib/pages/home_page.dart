@@ -1026,13 +1026,13 @@ class _HomePageState extends State<HomePage>
                 child: IconHandler.buildIcon(
                   imagePath: imagePath,
                   color: isFilled
-                      ? (isDark ? AppColors.secondary : AppColors.primary)
+                      ? (isDark ? Colors.white : Colors.white)
                       : (isDark ? AppColors.primary : AppColors.secondary),
-                  size: 30,
+                  size: 35,
                 ),
               ),
             ),
-            const SizedBox(width: 15),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1044,7 +1044,7 @@ class _HomePageState extends State<HomePage>
                       fontSize: 16,
                       color: isFilled
                           ? Colors.white
-                          : (isDark ? Colors.white : Color(0xFF151515)),
+                          : (isDark ? AppColors.primary : AppColors.secondary),
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -1053,17 +1053,20 @@ class _HomePageState extends State<HomePage>
                     style: TextStyle(
                       color: isFilled
                           ? Colors.white
-                          : (isDark ? Colors.white : Color(0xFF151515)),
+                          : (isDark ? AppColors.primary : AppColors.secondary),
                       fontSize: 12,
+                      fontWeight: FontWeight.w600
                     ),
                   ),
                 ],
               ),
             ),
             Icon(
-              Icons.arrow_forward_ios,
-              size: 14,
-              color: isDark ? Colors.white38 : Colors.grey,
+              Icons.arrow_forward_ios_rounded,
+              size: 20,
+              color: isFilled
+                  ? Colors.white
+                  : (isDark ? AppColors.primary : AppColors.secondary),
             ),
           ],
         ),
