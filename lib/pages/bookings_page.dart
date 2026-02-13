@@ -17,7 +17,6 @@ class BookingsPageState extends State<BookingsPage> {
   final ScrollController _calendarScrollController = ScrollController();
 
   DateTime _selectedDate = DateTime.now();
-  bool _isLoading = false;
 
   List<Map<String, dynamic>> _pickups = [];
   List<Map<String, dynamic>> _returns = [];
@@ -88,7 +87,6 @@ class BookingsPageState extends State<BookingsPage> {
 
   Future<void> _fetchDayBookings() async {
     if (!mounted) return;
-    setState(() => _isLoading = true);
 
     final startOfDay = DateTime(
       _selectedDate.year,
@@ -126,8 +124,6 @@ class BookingsPageState extends State<BookingsPage> {
       }
     } catch (e) {
       if (mounted) CustomSnackBar.show(context, "Error loading bookings: $e");
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -146,11 +142,29 @@ class BookingsPageState extends State<BookingsPage> {
     }
   }
 
-  void _showBookingDetails(Map<String, dynamic> booking, {required bool isPickup}) {
+  Future<bool> _confirmDeleteBooking(String clientName) async {
+    HapticFeedback.selectionClick();
+    final bool? confirm = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (context) => CustomAlertDialogue(
+        icon: AppIcons.trash,
+        title: "Delete Booking",
+        body: 'Are you sure you want to delete booking for "$clientName"?',
+        confirm: "Delete",
+      ),
+    );
+    return confirm == true;
+  }
+
+  void _showBookingDetails(
+    Map<String, dynamic> booking, {
+    required bool isPickup,
+  }) {
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
 
     final bool isDark = themeProvider.isDarkMode;
     final currencyFormat = NumberFormat("#,##0", "en_US");
+    final accentColor = isPickup ? AppColors.primary : AppColors.secondary;
 
     showDialog(
       context: context,
@@ -246,12 +260,14 @@ class BookingsPageState extends State<BookingsPage> {
                     booking['client_name'] ?? "N/A",
                     AppIcons.client,
                     isDark,
+                    accentColor: accentColor,
                   ),
                   _detailRow(
                     "Products",
-                    (booking['product_names'] as List? ?? []).join(", "),
+                    _formatProductsList(booking['product_names'] as List?),
                     AppIcons.inventory,
                     isDark,
+                    accentColor: accentColor,
                   ),
                   _detailRow(
                     "Pickup Date",
@@ -260,6 +276,7 @@ class BookingsPageState extends State<BookingsPage> {
                     ).format(DateTime.parse(booking['pickup_datetime'])),
                     AppIcons.pickUp,
                     isDark,
+                    accentColor: accentColor,
                   ),
                   _detailRow(
                     "Return Date",
@@ -268,15 +285,15 @@ class BookingsPageState extends State<BookingsPage> {
                     ).format(DateTime.parse(booking['return_datetime'])),
                     AppIcons.returns,
                     isDark,
+                    accentColor: accentColor,
                   ),
                   _detailRow(
                     "Total Price",
                     "${currencyFormat.format(booking['total_price'])} EGP",
                     AppIcons.wallet,
                     isDark,
-                    valueColor: isDark
-                        ? AppColors.primary
-                        : AppColors.secondary,
+                    valueColor: accentColor,
+                    accentColor: accentColor,
                   ),
                   const SizedBox(height: 32),
                   SizedBox(
@@ -284,9 +301,7 @@ class BookingsPageState extends State<BookingsPage> {
                     child: CustomButton(
                       text: "Done",
                       onPressed: () async => Navigator.pop(dialogContext),
-                      color: WidgetStateProperty.all(
-                        isDark ? AppColors.primary : AppColors.secondary,
-                      ),
+                      color: WidgetStateProperty.all(accentColor),
                     ),
                   ),
                 ],
@@ -304,7 +319,10 @@ class BookingsPageState extends State<BookingsPage> {
     String imagePath,
     bool isDark, {
     Color? valueColor,
+    Color? accentColor,
   }) {
+    final Color effectiveAccent =
+        accentColor ?? (isDark ? AppColors.primary : AppColors.secondary);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10.0),
       child: Row(
@@ -313,15 +331,13 @@ class BookingsPageState extends State<BookingsPage> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: isDark
-                  ? AppColors.primary.withOpacity(0.1)
-                  : AppColors.secondary.withOpacity(0.1),
+              color: effectiveAccent.withOpacity(0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: SvgPicture.asset(
               imagePath,
               width: 22,
-              color: isDark ? AppColors.primary : AppColors.secondary,
+              color: effectiveAccent,
             ),
           ),
           const SizedBox(width: 16),
@@ -387,73 +403,75 @@ class BookingsPageState extends State<BookingsPage> {
               children: [
                 _buildCalendarStrip(isDark),
                 Expanded(
-                  child: _isLoading
-                      ? const Center(child: CustomLoader())
-                      : CustomScrollView(
-                          physics: const AlwaysScrollableScrollPhysics(
-                            parent: BouncingScrollPhysics(),
-                          ),
-                          slivers: [
-                            CupertinoSliverRefreshControl(
-                              onRefresh: _fetchDayBookings,
-                              builder: (
-                                context,
-                                refreshState,
-                                pulledExtent,
-                                refreshTriggerPullDistance,
-                                refreshIndicatorExtent,
-                              ) {
-                                final isActive =
-                                    refreshState == RefreshIndicatorMode.refresh;
-                                final shouldShow =
-                                    isActive || pulledExtent > 0;
-                                if (!shouldShow) return const SizedBox.shrink();
-                                return SizedBox(
-                                  height: refreshIndicatorExtent,
-                                  child: const Center(child: CustomLoader()),
-                                );
-                              },
-                            ),
-                            SliverPadding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 20),
-                              sliver: SliverToBoxAdapter(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const SizedBox(height: 10),
-                                    _buildSectionHeader(
-                                      "Pickups",
-                                      _pickups.length,
-                                      AppColors.primary,
-                                      isDark,
-                                    ),
-                                    const SizedBox(height: 16),
-                                    _buildBookingList(
-                                      _pickups,
-                                      isDark,
-                                      isPickup: true,
-                                    ),
-                                    const SizedBox(height: 32),
-                                    _buildSectionHeader(
-                                      "Returns",
-                                      _returns.length,
-                                      AppColors.secondary,
-                                      isDark,
-                                    ),
-                                    const SizedBox(height: 16),
-                                    _buildBookingList(
-                                      _returns,
-                                      isDark,
-                                      isPickup: false,
-                                    ),
-                                    const SizedBox(height: 120),
-                                  ],
+                  child: CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: BouncingScrollPhysics(),
+                    ),
+                    slivers: [
+                      CupertinoSliverRefreshControl(
+                        onRefresh: _fetchDayBookings,
+                        builder:
+                            (
+                              context,
+                              refreshState,
+                              pulledExtent,
+                              refreshTriggerPullDistance,
+                              refreshIndicatorExtent,
+                            ) {
+                              final isActive =
+                                  refreshState ==
+                                  RefreshIndicatorMode.refresh;
+                              final shouldShow = isActive || pulledExtent > 0;
+                              if (!shouldShow) {
+                                return const SizedBox.shrink();
+                              }
+                              return SizedBox(
+                                height: refreshIndicatorExtent,
+                                child: const Center(
+                                  child: CustomLoader(),
                                 ),
+                              );
+                            },
+                      ),
+                      SliverPadding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        sliver: SliverToBoxAdapter(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 10),
+                              _buildSectionHeader(
+                                "Pickups",
+                                _pickups.length,
+                                AppColors.primary,
+                                isDark,
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 16),
+                              _buildBookingList(
+                                _pickups,
+                                isDark,
+                                isPickup: true,
+                              ),
+                              const SizedBox(height: 32),
+                              _buildSectionHeader(
+                                "Returns",
+                                _returns.length,
+                                AppColors.secondary,
+                                isDark,
+                              ),
+                              const SizedBox(height: 16),
+                              _buildBookingList(
+                                _returns,
+                                isDark,
+                                isPickup: false,
+                              ),
+                              const SizedBox(height: 120),
+                            ],
+                          ),
                         ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -654,105 +672,138 @@ class BookingsPageState extends State<BookingsPage> {
         final booking = bookings[index];
         final accentColor = isPickup ? AppColors.primary : AppColors.secondary;
 
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: Slidable(
-              key: ValueKey(booking['id']),
-              endActionPane: ActionPane(
-                motion: const ScrollMotion(),
-                extentRatio: 0.28,
-                children: [
-                  CustomSlidableAction(
-                    onPressed: (context) =>
-                        _deleteBooking(booking['id'].toString()),
-                    backgroundColor: AppColors.red,
-                    foregroundColor: Colors.white,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SvgPicture.asset(
-                          AppIcons.trash,
-                          height: 22,
-                          colorFilter: const ColorFilter.mode(
-                            Colors.white,
-                            BlendMode.srcIn,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Delete',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              child: InkWell(
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  _showBookingDetails(booking, isPickup: isPickup);
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(16),
+        Widget bookingTile = GestureDetector(
+          onTap: () {
+            HapticFeedback.selectionClick();
+            _showBookingDetails(booking, isPickup: isPickup);
+          },
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF252525) : Colors.white,
+              border: isDark
+                  ? null
+                  : Border.all(color: Colors.black.withOpacity(0.05)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 50,
+                  height: 50,
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF252525) : Colors.white,
-                    border: isDark
-                        ? null
-                        : Border.all(color: Colors.black.withOpacity(0.05)),
+                    color: accentColor.withOpacity(isDark ? 0.15 : 0.1),
+                    borderRadius: BorderRadius.circular(15),
                   ),
-                  child: Row(
+                  child: SvgPicture.asset(
+                    isPickup ? AppIcons.pickUp : AppIcons.returns,
+                    width: 26,
+                    color: accentColor,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        width: 50,
-                        height: 50,
-                        decoration: BoxDecoration(
-                          color: accentColor.withOpacity(isDark ? 0.15 : 0.1),
-                          borderRadius: BorderRadius.circular(15),
+                      Text(
+                        booking['client_name'] ?? 'Unknown Client',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: isDark ? Colors.white : Colors.black,
                         ),
-                        child: SvgPicture.asset(
-                          isPickup
-                              ? AppIcons.pickUp
-                              : AppIcons.returns,
-                          width: 26,
-                          color: accentColor,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              booking['client_name'] ?? 'Unknown Client',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: isDark ? Colors.white : Colors.black,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Icon(
-                        Icons.arrow_forward_ios_rounded,
-                        color: Colors.grey.withOpacity(0.4),
-                        size: 16,
                       ),
                     ],
                   ),
                 ),
-              ),
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: Colors.grey.withOpacity(0.4),
+                  size: 16,
+                ),
+              ],
             ),
+          ),
+        );
+
+        if (isPickup) {
+          bookingTile = Slidable(
+            key: ValueKey(booking['id']),
+            endActionPane: ActionPane(
+              motion: const ScrollMotion(),
+              extentRatio: 0.28,
+              dismissible: DismissiblePane(
+                dismissThreshold: 0.75,
+                closeOnCancel: true,
+                confirmDismiss: () async {
+                  final name = booking['client_name'] ?? 'this booking';
+                  return _confirmDeleteBooking(name);
+                },
+                onDismissed: () {
+                  _deleteBooking(booking['id'].toString());
+                },
+              ),
+              children: [
+                CustomSlidableAction(
+                  onPressed: (context) async {
+                    final name = booking['client_name'] ?? 'this booking';
+                    final ok = await _confirmDeleteBooking(name);
+                    if (ok) {
+                      _deleteBooking(booking['id'].toString());
+                    }
+                  },
+                  backgroundColor: AppColors.red,
+                  foregroundColor: Colors.white,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SvgPicture.asset(
+                        AppIcons.trash,
+                        height: 22,
+                        colorFilter: const ColorFilter.mode(
+                          Colors.white,
+                          BlendMode.srcIn,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Delete',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            child: bookingTile,
+          );
+        }
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: bookingTile,
           ),
         );
       },
     );
+  }
+
+  String _formatProductsList(List? products) {
+    final items = (products ?? []).map((e) => e.toString()).toList();
+    if (items.isEmpty) return "N/A";
+    return items
+        .asMap()
+        .entries
+        .map((entry) {
+          final index = entry.key + 1;
+          return "$index- ${entry.value}";
+        })
+        .join("\n");
   }
 }

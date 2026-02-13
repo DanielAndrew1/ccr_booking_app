@@ -1,10 +1,10 @@
-// ignore_for_file: deprecated_member_use, unused_element_parameter
+// ignore_for_file: deprecated_member_use, unused_element_parameter, must_be_immutable
 
 import '../core/imports.dart';
 
 class CustomNavbar extends StatefulWidget {
-  final int initialIndex;
-  const CustomNavbar({super.key, this.initialIndex = 0});
+  int initialIndex;
+  CustomNavbar({super.key, this.initialIndex = 0});
 
   static Widget buildIcon({
     String? imagePath,
@@ -55,7 +55,7 @@ class _CustomNavbarState extends State<CustomNavbar> {
 
   void _triggerBounce(int pageIndex) {
     setState(() => _tappedIndex = pageIndex);
-    Future.delayed(const Duration(milliseconds: 150), () {
+    Future.delayed(const Duration(milliseconds: 250), () {
       if (mounted) setState(() => _tappedIndex = null);
     });
   }
@@ -69,7 +69,7 @@ class _CustomNavbarState extends State<CustomNavbar> {
         : (currentIndex == pageIndex);
 
     if (!isAlreadySelected) {
-      HapticFeedback.selectionClick();
+      HapticFeedback.lightImpact();
       _triggerBounce(pageIndex);
     }
 
@@ -92,7 +92,7 @@ class _CustomNavbarState extends State<CustomNavbar> {
 
   void _onLongPress(bool isAddButton) {
     if (isAddButton) {
-      HapticFeedback.lightImpact();
+      HapticFeedback.mediumImpact();
       setState(() => _isMenuOpen = !_isMenuOpen);
     }
   }
@@ -104,15 +104,14 @@ class _CustomNavbarState extends State<CustomNavbar> {
     final bookingProvider = Provider.of<BookingProvider>(
       context,
     ); // Listen to edit mode
+    final loc = AppLocalizations.of(context);
 
     final int currentIndex = navProvider.selectedIndex;
     final bool isEditing = bookingProvider.editingBooking != null;
     final currentUser = userProvider.currentUser;
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
-    final bool canUseAddMenu =
-        (currentUser?.role == 'Admin' || currentUser?.role == 'Owner') &&
-            !isEditing;
+    final bool canUseAddMenu = (currentUser?.role == 'Admin' || currentUser?.role == 'Owner') && !isEditing;
 
     if (!canUseAddMenu && _isMenuOpen) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -130,11 +129,16 @@ class _CustomNavbarState extends State<CustomNavbar> {
       const AddProduct(isRoot: true),
     ];
 
+    final String todayDay = DateTime.now().day.toString();
     final List<_NavItemData> navItems = [
-      _NavItemData(imagePath: AppIcons.home, label: 'Home', pageIndex: 0),
+      _NavItemData(
+        imagePath: AppIcons.home,
+        label: loc.tr('Home'),
+        pageIndex: 0,
+      ),
       _NavItemData(
         imagePath: AppIcons.calendar,
-        label: 'Calendar',
+        label: loc.tr('Calendar'),
         pageIndex: 1,
       ),
     ];
@@ -143,7 +147,7 @@ class _CustomNavbarState extends State<CustomNavbar> {
       navItems.add(
         _NavItemData(
           imagePath: isEditing ? AppIcons.edit : AppIcons.add,
-          label: isEditing ? 'Edit' : 'Add',
+          label: loc.tr(isEditing ? 'Edit' : 'Add'),
           isAddButton: !isEditing,
           pageIndex: 4,
         ),
@@ -153,12 +157,17 @@ class _CustomNavbarState extends State<CustomNavbar> {
     navItems.add(
       _NavItemData(
         imagePath: AppIcons.booking,
-        label: 'Bookings',
+        label: loc.tr('Bookings'),
         pageIndex: 2,
+        badgeText: todayDay,
       ),
     );
     navItems.add(
-      _NavItemData(imagePath: AppIcons.profile, label: 'Profile', pageIndex: 3),
+      _NavItemData(
+        imagePath: AppIcons.profile,
+        label: loc.tr('Profile'),
+        pageIndex: 3,
+      ),
     );
 
     return Scaffold(
@@ -191,12 +200,12 @@ class _CustomNavbarState extends State<CustomNavbar> {
 
           if (canUseAddMenu)
             AnimatedPositioned(
-              duration: const Duration(milliseconds: 300),
+              duration: const Duration(milliseconds: 500),
               curve: Curves.easeOutQuart,
               bottom: _isMenuOpen ? 115 : 70,
               left: MediaQuery.of(context).size.width / 2 - 110,
               child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 200),
+                duration: const Duration(milliseconds: 300),
                 opacity: _isMenuOpen ? 1.0 : 0.0,
                 child: IgnorePointer(
                   ignoring: !_isMenuOpen,
@@ -206,10 +215,11 @@ class _CustomNavbarState extends State<CustomNavbar> {
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 300),
                         width: 220,
-                        height: _isMenuOpen ? 153 : 0,
+                        height: _isMenuOpen ? 145 : 0,
                         decoration: BoxDecoration(
-                          color:
-                              isDark ? const Color(0xFF2C2C2C) : Colors.white,
+                          color: isDark
+                              ? const Color(0xFF2C2C2C)
+                              : Colors.white,
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
@@ -228,19 +238,19 @@ class _CustomNavbarState extends State<CustomNavbar> {
                               children: [
                                 _MenuEntry(
                                   imagePath: AppIcons.userAdd,
-                                  title: "Add Client",
+                                  title: loc.tr("Add Client"),
                                   onTap: () => _onTap(5, false),
                                 ),
                                 _buildDivider(isDark),
                                 _MenuEntry(
                                   imagePath: AppIcons.inventory,
-                                  title: "Add Product",
+                                  title: loc.tr("Add Product"),
                                   onTap: () => _onTap(6, false),
                                 ),
                                 _buildDivider(isDark),
                                 _MenuEntry(
                                   imagePath: AppIcons.calendarAdd,
-                                  title: "Add Booking",
+                                  title: loc.tr("Add Booking"),
                                   onTap: () => _onTap(4, false),
                                 ),
                               ],
@@ -358,11 +368,11 @@ class _CustomNavbarState extends State<CustomNavbar> {
                           children: [
                             const SizedBox(height: 6),
                             AnimatedScale(
-                              scale: isTapped ? 1.15 : 1.0,
-                              duration: const Duration(milliseconds: 300),
+                              scale: isTapped ? 0.9 : 1.0,
+                              duration: const Duration(milliseconds: 200),
                               curve: Curves.easeInOut,
                               child: TweenAnimationBuilder<Color?>(
-                                duration: const Duration(milliseconds: 300),
+                                duration: const Duration(milliseconds: 200),
                                 tween: ColorTween(
                                   begin: inactiveColor,
                                   end: isSectionActive
@@ -370,9 +380,48 @@ class _CustomNavbarState extends State<CustomNavbar> {
                                       : inactiveColor,
                                 ),
                                 builder: (context, color, child) {
-                                  return CustomNavbar.buildIcon(
+                                  final iconWidget = CustomNavbar.buildIcon(
                                     imagePath: data.imagePath,
                                     color: color ?? inactiveColor,
+                                  );
+                                  if (data.badgeText == null) {
+                                    return iconWidget;
+                                  }
+                                  final badgeTextColor = isSectionActive
+                                      ? AppColors.primary
+                                      : (isDark
+                                            ? Colors.white70
+                                            : Colors.grey.shade500);
+                                  return Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      iconWidget,
+                                      Positioned(
+                                        bottom: 9,
+                                        right: 7,
+                                        child: Container(
+                                          width: 12,
+                                          height: 13,
+                                          alignment: Alignment.center,
+                                          decoration: BoxDecoration(
+                                            color:
+                                                data.badgeColor ??
+                                                (isDark
+                                                    ? Color(0xFF252525)
+                                                    : Colors.white),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Text(
+                                            data.badgeText!,
+                                            style: TextStyle(
+                                              color: badgeTextColor,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   );
                                 },
                               ),
@@ -483,10 +532,16 @@ class _NavItemData {
   final String label;
   final bool isAddButton;
   final int pageIndex;
+  final String? badgeText;
+  final Color? badgeColor;
+  final Color? badgeTextColor;
   _NavItemData({
     this.imagePath,
     required this.label,
     this.isAddButton = false,
     required this.pageIndex,
+    this.badgeText,
+    this.badgeColor,
+    this.badgeTextColor,
   });
 }

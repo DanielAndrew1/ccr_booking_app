@@ -1,5 +1,6 @@
 import 'package:ccr_booking/core/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ThemeProvider extends ChangeNotifier {
@@ -38,6 +39,13 @@ class MyThemes {
   static final darkTheme = ThemeData(
     brightness: Brightness.dark, // Crucial for system elements
     scaffoldBackgroundColor: AppColors.darkbg,
+    fontFamily: GoogleFonts.poppins().fontFamily,
+    textTheme: GoogleFonts.poppinsTextTheme(
+      ThemeData(brightness: Brightness.dark).textTheme,
+    ),
+    primaryTextTheme: GoogleFonts.poppinsTextTheme(
+      ThemeData(brightness: Brightness.dark).textTheme,
+    ),
     textSelectionTheme: TextSelectionThemeData(
       cursorColor: AppColors.primary,
       selectionColor: AppColors.primary.withValues(alpha: 0.3),
@@ -53,6 +61,9 @@ class MyThemes {
   static final lightTheme = ThemeData(
     brightness: Brightness.light,
     scaffoldBackgroundColor: AppColors.lightcolor,
+    fontFamily: GoogleFonts.poppins().fontFamily,
+    textTheme: GoogleFonts.poppinsTextTheme(),
+    primaryTextTheme: GoogleFonts.poppinsTextTheme(),
     textSelectionTheme: TextSelectionThemeData(
       cursorColor: AppColors.primary,
       selectionColor: AppColors.primary.withValues(alpha: 0.3),

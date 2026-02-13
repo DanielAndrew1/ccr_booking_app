@@ -17,7 +17,6 @@ class AboutPage extends StatelessWidget {
         children: [
           // Background SVG positioned to match HomePage/ClientsPage
           const CustomBgSvg(),
-
           SafeArea(
             bottom: false,
             child: SingleChildScrollView(
@@ -100,21 +99,25 @@ class AboutPage extends StatelessWidget {
                   _buildSectionTitle("Key Features", isDark),
                   const SizedBox(height: 12),
                   _buildFeatureItem(
+                    context,
                     Icons.check_circle_outline,
                     "Real-time Booking Tracking",
                     isDark,
                   ),
                   _buildFeatureItem(
+                    context,
                     Icons.check_circle_outline,
                     "Inventory & Product Management",
                     isDark,
                   ),
                   _buildFeatureItem(
+                    context,
                     Icons.check_circle_outline,
                     "Automated Revenue Analytics",
                     isDark,
                   ),
                   _buildFeatureItem(
+                    context,
                     Icons.check_circle_outline,
                     "Role-based Access Control",
                     isDark,
@@ -198,7 +201,8 @@ class AboutPage extends StatelessWidget {
     );
   }
 
-  Widget _buildFeatureItem(IconData icon, String text, bool isDark) {
+  Widget _buildFeatureItem(BuildContext context, IconData icon, String text, bool isDark) {
+    final loc = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
@@ -206,7 +210,7 @@ class AboutPage extends StatelessWidget {
           SvgPicture.asset(AppIcons.tick, width: 20, color: AppColors.primary,),
           const SizedBox(width: 8),
           Text(
-            text,
+            loc.tr(text),
             style: AppFontStyle.textRegular().copyWith(
               color: isDark ? Colors.white : Colors.black,
               fontSize: 14,

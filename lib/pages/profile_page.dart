@@ -1,5 +1,5 @@
-// ignore_for_file: deprecated_member_use, use_build_context_synchronously, unused_field, non_constant_identifier_names
-import 'dart:ui';
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously, unused_field, non_constant_identifier_names, unnecessary_string_interpolations
+
 import 'package:flutter/cupertino.dart';
 import '../core/imports.dart';
 
@@ -16,7 +16,6 @@ class _ProfilePageState extends State<ProfilePage> {
   final ScrollController _scrollController = ScrollController();
   bool _showCompactHeader = false;
   String _appVersion = ""; // Use underscore for private
-  bool _notificationsEnabled = true;
 
   @override
   void initState() {
@@ -39,35 +38,13 @@ class _ProfilePageState extends State<ProfilePage> {
     });
   }
 
-  // Load App Version and Notification Preference
+  // Load App Version
   Future<void> _loadInitialData() async {
     final version = await AppVersionPlus.appVersion();
-    final notifyStatus = await NotificationService.isEnabled(); // Static call
     if (mounted) {
       setState(() {
         _appVersion = version;
-        _notificationsEnabled = notifyStatus;
       });
-    }
-  }
-
-  // Functional toggle for notifications
-  Future<void> _handleNotificationToggle(bool value) async {
-    // Call service to handle logic (permissions + Supabase + SharedPreferences)
-    bool result = await NotificationService().toggleNotifications(value);
-
-    if (!mounted) return;
-    setState(() {
-      _notificationsEnabled = result;
-    });
-
-    if (value && !result) {
-      // User tried to turn it on but system permission is blocked
-      CustomSnackBar.show(
-        context,
-        "Notifications blocked in System Settings",
-        color: AppColors.red,
-      );
     }
   }
 
@@ -103,23 +80,11 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _confirmDeleteAccount() async {
     final bool? confirm = await showCupertinoDialog<bool>(
       context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: const Text("Delete Account"),
-        content: const Text("Are you sure? This action is permanent."),
-        actions: [
-          CupertinoDialogAction(
-            child: Text(
-              "Cancel",
-              style: TextStyle(color: AppColors.secondary.withBlue(240)),
-            ),
-            onPressed: () => Navigator.pop(context, false),
-          ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            child: Text("Delete", style: TextStyle(color: AppColors.red)),
-            onPressed: () => Navigator.pop(context, true),
-          ),
-        ],
+      builder: (context) => CustomAlertDialogue(
+        icon: AppIcons.trash,
+        title: "Delete Account",
+        body: "Are you sure you want to delete your account?",
+        confirm: 'Delete',
       ),
     );
     if (confirm == true) _deleteAccount();
@@ -128,22 +93,11 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _confirmLogout() async {
     final bool? confirm = await showCupertinoDialog<bool>(
       context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: const Text("Logout"),
-        content: const Text("Are you sure you want to logout?"),
-        actions: [
-          CupertinoDialogAction(
-            child: Text(
-              "Cancel",
-              style: TextStyle(color: AppColors.secondary.withBlue(240)),
-            ),
-            onPressed: () => Navigator.pop(context, false),
-          ),
-          CupertinoDialogAction(
-            child: Text("Logout", style: TextStyle(color: AppColors.red)),
-            onPressed: () => Navigator.pop(context, true),
-          ),
-        ],
+      builder: (context) => CustomAlertDialogue(
+        icon: AppIcons.logout,
+        title: "Log Out",
+        body: "Are you sure you want to log out?",
+        confirm: 'Log Out',
       ),
     );
     if (confirm == true) _logout(context);
@@ -158,9 +112,7 @@ class _ProfilePageState extends State<ProfilePage> {
         await _logout(context);
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
-      );
+      CustomSnackBar.show(context, "Error: $e");
     }
   }
 
@@ -175,55 +127,73 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildStickyAppBar(dynamic currentUser, bool isDark) {
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
+    final loc = AppLocalizations.of(context);
     return ClipRRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          color: AppColors.secondary,
-          child: AppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            toolbarHeight: 80,
-            automaticallyImplyLeading: false,
-            title: Row(
-              children: [
-                const CustomPfp(dimentions: 45, fontSize: 22),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      currentUser.name,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        currentUser.role,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primary,
+      child: Container(
+        color: isDark ? AppColors.secondary : AppColors.primary,
+        child: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          toolbarHeight: 80,
+          automaticallyImplyLeading: false,
+          title: Row(
+            textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+            children: [
+              const CustomPfp(dimentions: 45, fontSize: 22),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+                    children: [
+                      Text(
+                        currentUser.name,
+                        textAlign: isRtl ? TextAlign.right : TextAlign.left,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
+                      if (currentUser.name == "Daniel Andrew" &&
+                          currentUser.email ==
+                              "danielandrew1207@gmail.com") ...{
+                        const SizedBox(width: 8),
+                        SvgPicture.asset(
+                          AppIcons.verify,
+                          width: 18,
+                          color: Colors.white,
+                        ),
+                      },
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 2,
                     ),
-                  ],
-                ),
-              ],
-            ),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? AppColors.primary.withOpacity(0.1)
+                          : AppColors.secondary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      loc.tr(currentUser.role),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? AppColors.primary : AppColors.secondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -236,6 +206,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
     final currentUser = userProvider.currentUser;
+    final loc = AppLocalizations.of(context);
 
     if (currentUser == null) {
       return const Scaffold(body: Center(child: CustomLoader()));
@@ -279,6 +250,9 @@ class _ProfilePageState extends State<ProfilePage> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
+                              if (currentUser.name == "Daniel Andrew" && currentUser.email == "danielandrew1207@gmail.com") ...{
+                                const SizedBox(width: 30),
+                              },
                               Text(
                                 currentUser.name,
                                 style: TextStyle(
@@ -287,7 +261,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                   color: isDark ? Colors.white : Colors.black,
                                 ),
                               ),
-                              if (currentUser.name == "Daniel Andrew") ...{
+                              if (currentUser.name == "Daniel Andrew" && currentUser.email == "danielandrew1207@gmail.com") ...{
                                 const SizedBox(width: 8),
                                 SvgPicture.asset(
                                   AppIcons.verify,
@@ -324,61 +298,44 @@ class _ProfilePageState extends State<ProfilePage> {
                           const Divider(thickness: 0.5),
                           const SizedBox(height: 10),
 
-                          // DARK MODE TOGGLE
-                          CustomTile(
-                            title: "Dark Mode",
-                            icon: Icons.dark_mode_outlined,
-                            trailing: CupertinoSwitch(
-                              value: isDark,
-                              activeTrackColor: AppColors.primary,
-                              onChanged: (value) =>
-                                  themeProvider.toggleTheme(value),
-                            ),
-                          ),
-
-                          // NOTIFICATIONS TOGGLE
-                          CustomTile(
-                            title: "Notifications",
-                            imagePath: AppIcons.notification,
-                            trailing: CupertinoSwitch(
-                              value: _notificationsEnabled,
-                              activeTrackColor: AppColors.primary,
-                              onChanged:
-                                  _handleNotificationToggle, // Link to function
-                            ),
-                          ),
-
                           CustomTile(
                             imagePath: AppIcons.profile,
-                            title: 'Edit Info',
+                            title: 'Profile',
                             onTap: () => _editProfile(context),
                           ),
+
                           if (currentUser.role == 'Owner') ...[
                             CustomTile(
                               imagePath: AppIcons.userSearch,
-                              title: 'Employee Management',
+                              title: loc.tr('Employees'),
                               route: UsersPage(),
                             ),
                             CustomTile(
                               imagePath: AppIcons.client,
-                              title: 'Client Management',
+                              title: loc.tr('Clients'),
                               route: ClientsPage(),
                             ),
                             CustomTile(
                               imagePath: AppIcons.inventory,
-                              title: 'Inventory',
+                              title: loc.tr('Inventory'),
                               route: InventoryPage(),
+                              overlayColor: true,
                             ),
                           ],
                           CustomTile(
+                            imagePath: AppIcons.settings,
+                            title: loc.tr('Settings'),
+                            route: const SettingsPage(),
+                          ),
+                          CustomTile(
                             imagePath: AppIcons.globe,
-                            title: 'About us',
+                            title: loc.tr('About'),
                             route: AboutPage(),
                           ),
                           const SizedBox(height: 6),
                           CustomTile(
                             imagePath: AppIcons.logout,
-                            title: 'Logout',
+                            title: loc.tr('Log Out'),
                             textColor: AppColors.red,
                             onTap: () => _confirmLogout(),
                           ),
@@ -387,12 +344,12 @@ class _ProfilePageState extends State<ProfilePage> {
                             onPressed: _confirmDeleteAccount,
                             imagePath: AppIcons.trash,
                             height: 50,
-                            text: "Delete Account",
+                            text: loc.tr("Delete Account"),
                             color: WidgetStateProperty.all(AppColors.red),
                           ),
                           const SizedBox(height: 14),
                           Text(
-                            "App Version $_appVersion",
+                            "${AppLocalizations.of(context).tr("App Version $_appVersion")}",
                             style: TextStyle(
                               fontSize: 14,
                               color: isDark ? Colors.white54 : Colors.black54,

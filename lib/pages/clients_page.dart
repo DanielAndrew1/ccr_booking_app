@@ -1,4 +1,4 @@
-// ignore_for_file: deprecated_member_use, use_build_context_synchronously, unused_field
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously, unused_field, unused_element
 
 import 'package:flutter/cupertino.dart';
 import '../core/imports.dart';
@@ -45,20 +45,24 @@ class _ClientsPageState extends State<ClientsPage> {
 
     // Filter by name (case-insensitive & trimmed) and ensure status isn't canceled or deleted
     final clientBookings = allBookings.where((b) {
-      final bName = (b.clientName ?? "").toString().trim().toLowerCase();
-      final bStatus = (b.status ?? "").toString().toLowerCase();
-
-      return bName == normalizedTargetName &&
-          bStatus != 'canceled' &&
-          bStatus != 'deleted';
+      if (b is Map<String, dynamic>) {
+        final bName = (b['client_name'] ?? "").toString().trim().toLowerCase();
+        final bStatus = (b['status'] ?? "").toString().toLowerCase();
+        return bName == normalizedTargetName &&
+            bStatus != 'cancelled' &&
+            bStatus != 'canceled' &&
+            bStatus != 'deleted';
+      }
+      return false;
     }).toList();
 
     double totalRevenue = 0.0;
     for (var booking in clientBookings) {
-      // Force conversion to double to handle potential int values from DB
-      final amount = booking.total;
-      if (amount != null) {
-        totalRevenue += double.tryParse(amount.toString()) ?? 0.0;
+      if (booking is Map<String, dynamic>) {
+        final amount = booking['total_price'];
+        if (amount != null) {
+          totalRevenue += double.tryParse(amount.toString()) ?? 0.0;
+        }
       }
     }
 
@@ -71,38 +75,28 @@ class _ClientsPageState extends State<ClientsPage> {
       context,
       listen: false,
     ).deleteClient(clientId);
-    CustomSnackBar.show(context, "$clientName removed", color: AppColors.red);
+    CustomSnackBar.show(
+      context,
+      "$clientName removed successfully",
+      color: AppColors.green,
+    );
   }
 
   void _removeClient(String clientId, String clientName) {
     HapticFeedback.selectionClick();
     showCupertinoDialog(
       context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: const Text("Delete Client"),
-        content: Text("Are you sure you want to remove $clientName?"),
-        actions: [
-          CupertinoDialogAction(
-            child: const Text(
-              "Cancel",
-              style: TextStyle(color: AppColors.secondary),
-            ),
-            onPressed: () => Navigator.pop(context),
-          ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            onPressed: () {
-              Navigator.pop(context);
-              _executeDelete(clientId, clientName);
-            },
-            child: const Text("Delete", style: TextStyle(color: AppColors.red)),
-          ),
-        ],
+      builder: (context) => CustomAlertDialogue(
+        icon: AppIcons.trash,
+        title: "Delete Client",
+        body: 'Are you sure you want to delete "$clientName" ?',
+        confirm: "Delete",
       ),
     );
   }
 
   void _editClientDialog(dynamic client) {
+    final rootContext = context;
     final nameController = TextEditingController(text: client.name);
     final emailController = TextEditingController(text: client.email);
     final phoneController = TextEditingController(text: client.phone ?? "");
@@ -113,7 +107,7 @@ class _ClientsPageState extends State<ClientsPage> {
 
     showDialog(
       context: context,
-      builder: (context) => Dialog(
+      builder: (dialogContext) => Dialog(
         backgroundColor: Colors.transparent,
         insetPadding: const EdgeInsets.symmetric(horizontal: 20),
         child: Container(
@@ -127,7 +121,7 @@ class _ClientsPageState extends State<ClientsPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                "Edit Client Info",
+                "Edit Client",
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
@@ -181,12 +175,13 @@ class _ClientsPageState extends State<ClientsPage> {
                           'phone': phoneController.text.trim(),
                         };
                         await Provider.of<UserProvider>(
-                          context,
+                          rootContext,
                           listen: false,
                         ).updateClient(client.id, updatedData);
-                        Navigator.pop(context);
+                        if (!mounted) return;
+                        Navigator.pop(dialogContext);
                         CustomSnackBar.show(
-                          context,
+                          rootContext,
                           "Client updated successfully!",
                           color: AppColors.green,
                         );
@@ -242,65 +237,79 @@ class _ClientsPageState extends State<ClientsPage> {
                 text: 'Manage Clients',
                 showPfp: false,
               ),
-              body: Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: CustomScrollView(
-                  key: _refreshKey,
-                  physics: const BouncingScrollPhysics(
-                    parent: AlwaysScrollableScrollPhysics(),
+              floatingActionButtonLocation:
+                  FloatingActionButtonLocation.endFloat,
+              floatingActionButton: Padding(
+                padding: const EdgeInsets.only(bottom: 50),
+                child: FloatingActionButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => AddClient()),
+                    );
+                  },
+                  backgroundColor: AppColors.primary,
+                  child: SvgPicture.asset(
+                    AppIcons.add,
+                    color: Colors.white,
+                    width: 30,
                   ),
-                  slivers: [
-                    CupertinoSliverRefreshControl(
-                      onRefresh: () async {
-                        _fetchClients();
-                        await Future.delayed(const Duration(seconds: 1));
-                        if (mounted) setState(() => _refreshKey = UniqueKey());
-                      },
-                    ),
-                    userProvider.isLoading || bookingProvider.isLoading
-                        ? const SliverFillRemaining(
-                            child: Center(child: CustomLoader()),
-                          )
-                        : clients.isEmpty
-                        ? SliverFillRemaining(
-                            child: Center(
-                              child: Text(
-                                "No clients yet.",
-                                style: TextStyle(
-                                  color: isDark
-                                      ? Colors.white70
-                                      : Colors.black54,
-                                ),
+                ),
+              ),
+              body: CustomScrollView(
+                key: _refreshKey,
+                physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
+                ),
+                slivers: [
+                  CupertinoSliverRefreshControl(
+                    onRefresh: () async {
+                      _fetchClients();
+                      await Future.delayed(const Duration(seconds: 1));
+                      if (mounted) setState(() => _refreshKey = UniqueKey());
+                    },
+                  ),
+                  userProvider.isLoading || bookingProvider.isLoading
+                      ? const SliverFillRemaining()
+                      : clients.isEmpty
+                      ? SliverFillRemaining(
+                          child: Center(
+                            child: Text(
+                              "No clients yet.",
+                              style: TextStyle(
+                                color: isDark
+                                    ? Colors.white70
+                                    : Colors.black54,
                               ),
                             ),
-                          )
-                        : SliverPadding(
-                            padding: const EdgeInsets.only(
-                              left: 16,
-                              right: 16,
-                              top: 10,
-                              bottom: 110,
-                            ),
-                            sliver: SliverList(
-                              delegate: SliverChildBuilderDelegate((
-                                context,
-                                index,
-                              ) {
-                                final stats = _calculateClientStats(
-                                  clients[index].name,
-                                  allBookings,
-                                );
-                                return _buildClientCard(
-                                  clients[index],
-                                  isDark,
-                                  stats['count'],
-                                  stats['revenue'],
-                                );
-                              }, childCount: clients.length),
-                            ),
                           ),
-                  ],
-                ),
+                        )
+                      : SliverPadding(
+                          padding: const EdgeInsets.only(
+                            left: 16,
+                            right: 16,
+                            top: 10,
+                            bottom: 110,
+                          ),
+                          sliver: SliverList(
+                            delegate: SliverChildBuilderDelegate((
+                              context,
+                              index,
+                            ) {
+                              final stats = _calculateClientStats(
+                                clients[index].name,
+                                allBookings,
+                              );
+                              return _buildClientCard(
+                                clients[index],
+                                isDark,
+                                stats['count'],
+                                stats['revenue'],
+                              );
+                            }, childCount: clients.length),
+                          ),
+                        ),
+                ],
               ),
             ),
           ],
@@ -495,15 +504,18 @@ class _ClientsPageState extends State<ClientsPage> {
     bool isDelete = false,
   }) {
     return InkWell(
+      overlayColor: WidgetStateProperty.all(
+        isDelete ? Colors.white.withOpacity(0.2) : AppColors.primary.withOpacity(0.3),
+      ),
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: isDelete ? AppColors.red.withOpacity(0.1) : Colors.transparent,
+          color: isDelete ? AppColors.red : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isDelete ? AppColors.red : AppColors.primary,
+            color: isDelete ? Colors.transparent : AppColors.primary,
           ),
         ),
         child: Row(
@@ -512,15 +524,15 @@ class _ClientsPageState extends State<ClientsPage> {
             SvgPicture.asset(
               imagePath,
               width: 18,
-              color: isDelete ? AppColors.red : AppColors.primary,
+              color: isDelete ? Colors.white : AppColors.primary,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
-                color: isDelete ? AppColors.red : AppColors.primary,
+                color: isDelete ? Colors.white : AppColors.primary,
               ),
             ),
           ],

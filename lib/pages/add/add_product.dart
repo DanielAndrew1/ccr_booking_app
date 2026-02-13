@@ -17,7 +17,6 @@ class _AddProductState extends State<AddProduct> {
   final TextEditingController _quantityController = TextEditingController();
 
   File? _imageFile;
-  bool _isLoading = false;
 
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
@@ -44,15 +43,13 @@ class _AddProductState extends State<AddProduct> {
         description.isEmpty ||
         quantityText.isEmpty ||
         _imageFile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill all fields and select an image'),
-        ),
+      CustomSnackBar.show(
+        context,
+        'Please fill all fields and select an image',
+        color: AppColors.red,
       );
       return;
     }
-
-    setState(() => _isLoading = true);
 
     try {
       final supabase = Supabase.instance.client;
@@ -83,8 +80,10 @@ class _AddProductState extends State<AddProduct> {
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Product saved successfully!')),
+        CustomSnackBar.show(
+          context,
+          'Product saved successfully!',
+          color: AppColors.green,
         );
         // Clear fields
         _nameController.clear();
@@ -95,12 +94,12 @@ class _AddProductState extends State<AddProduct> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
+        CustomSnackBar.show(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+          'Error: ${e.toString()}',
+          color: AppColors.red,
+        );
       }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -119,102 +118,100 @@ class _AddProductState extends State<AddProduct> {
         backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
         extendBodyBehindAppBar: true,
         appBar: CustomAppBar(
-          text: "Add a Product",
+          text: "Add Product",
           // Show PFP/Initials ONLY if this page is a root tab in Navbar
           showPfp: widget.isRoot,
         ),
         body: Stack(
           children: [
             const CustomBgSvg(),
-            _isLoading
-                ? const Center(child: CustomLoader())
-                : Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: ListView(
-                      physics: const BouncingScrollPhysics(),
-                      children: [
-                        const SizedBox(height: 20), // Space for AppBar height
-                        GestureDetector(
-                          onTap: _pickImage,
-                          child: Container(
-                            height: 200,
-                            width: double.infinity,
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? Colors.white.withOpacity(0.05)
-                                  : Colors.grey.shade200,
-                              borderRadius: BorderRadius.circular(12),
-                              image: _imageFile != null
-                                  ? DecorationImage(
-                                      image: FileImage(_imageFile!),
-                                      fit: BoxFit.cover,
-                                    )
-                                  : null,
-                            ),
-                            child: _imageFile == null
-                                ? Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.add_a_photo,
-                                        size: 40,
-                                        color: isDark
-                                            ? Colors.white54
-                                            : Colors.black38,
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        "Tap to select product image",
-                                        style: TextStyle(
-                                          color: isDark
-                                              ? Colors.white54
-                                              : Colors.black38,
-                                        ),
-                                      ),
-                                    ],
-                                  )
-                                : null,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        _buildThemedTextField(
-                          controller: _nameController,
-                          label: 'Product Name',
-                          isDark: isDark,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildThemedTextField(
-                          controller: _priceController,
-                          label: 'Price',
-                          isDark: isDark,
-                          suffix: 'EGP/Day',
-                          keyboardType: TextInputType.number,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildThemedTextField(
-                          controller: _quantityController,
-                          label: 'Quantity',
-                          isDark: isDark,
-                          keyboardType: TextInputType.number,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildThemedTextField(
-                          controller: _descriptionController,
-                          label: 'Description',
-                          isDark: isDark,
-                          maxLines: 4,
-                        ),
-                        const SizedBox(height: 32),
-                        CustomButton(
-                          text: "Save Product",
-                          color: WidgetStateProperty.all(AppColors.primary),
-                          onPressed: _saveProduct,
-                          height: 50,
-                        ),
-                        const SizedBox(height: 40),
-                      ],
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ListView(
+                physics: const BouncingScrollPhysics(),
+                children: [
+                  const SizedBox(height: 20), // Space for AppBar height
+                  GestureDetector(
+                    onTap: _pickImage,
+                    child: Container(
+                      height: 200,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.white.withOpacity(0.05)
+                            : Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(12),
+                        image: _imageFile != null
+                            ? DecorationImage(
+                                image: FileImage(_imageFile!),
+                                fit: BoxFit.cover,
+                              )
+                            : null,
+                      ),
+                      child: _imageFile == null
+                          ? Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.add_a_photo,
+                                  size: 40,
+                                  color: isDark
+                                      ? Colors.white54
+                                      : Colors.black38,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  "Tap to select product image",
+                                  style: TextStyle(
+                                    color: isDark
+                                        ? Colors.white54
+                                        : Colors.black38,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : null,
                     ),
                   ),
+                  const SizedBox(height: 24),
+                  _buildThemedTextField(
+                    controller: _nameController,
+                    label: 'Product Name',
+                    isDark: isDark,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildThemedTextField(
+                    controller: _priceController,
+                    label: 'Price',
+                    isDark: isDark,
+                    suffix: 'EGP/Day',
+                    keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildThemedTextField(
+                    controller: _quantityController,
+                    label: 'Quantity',
+                    isDark: isDark,
+                    keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildThemedTextField(
+                    controller: _descriptionController,
+                    label: 'Description',
+                    isDark: isDark,
+                    maxLines: 4,
+                  ),
+                  const SizedBox(height: 32),
+                  CustomButton(
+                    text: "Save Product",
+                    color: WidgetStateProperty.all(AppColors.primary),
+                    onPressed: _saveProduct,
+                    height: 50,
+                  ),
+                  const SizedBox(height: 40),
+                ],
+              ),
+            ),
           ],
         ),
       ),

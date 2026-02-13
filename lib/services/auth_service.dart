@@ -58,15 +58,17 @@ class AuthService {
     required String name,
     required String email,
     String? password,
+    String? avatarUrl,
   }) async {
     final currentUser = _client.auth.currentUser;
     if (currentUser == null) throw 'No logged in user';
 
     // CHANGED TO 'users'
-    await _client
-        .from('users')
-        .update({'name': name, 'email': email})
-        .eq('id', currentUser.id);
+    final updates = {'name': name, 'email': email};
+    if (avatarUrl != null) {
+      updates['avatar_url'] = avatarUrl;
+    }
+    await _client.from('users').update(updates).eq('id', currentUser.id);
 
     if (email != currentUser.email) {
       await _client.auth.updateUser(UserAttributes(email: email));

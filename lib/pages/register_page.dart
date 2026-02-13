@@ -15,11 +15,9 @@ class _RegisterPageState extends State<RegisterPage> {
   final _passwordController = TextEditingController();
   final _authService = AuthService();
 
-  bool _isLoading = false;
-
   // Fixed the non-nullable error by returning the Future chain directly
   Future<void> _register() {
-    setState(() => _isLoading = true);
+    final loc = AppLocalizations.of(context);
 
     return _authService
         .register(
@@ -32,7 +30,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
           CustomSnackBar.show(
             context,
-            "Account Created Successfully!",
+            loc.tr("Account Created Successfully!"),
             color: AppColors.green,
           );
 
@@ -43,19 +41,18 @@ class _RegisterPageState extends State<RegisterPage> {
           if (mounted) {
             CustomSnackBar.show(
               context,
-              "Registration Failed: ${e.toString()}",
+              "${loc.tr("Registration Failed")}: ${e.toString()}",
             );
           }
         })
-        .whenComplete(() {
-          if (mounted) setState(() => _isLoading = false);
-        });
+        .whenComplete(() {});
   }
 
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
+    final loc = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
@@ -69,7 +66,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 Image.asset(AppImages.logo),
                 const SizedBox(height: 16),
                 Text(
-                  'Create Account',
+                  loc.tr('Create Account'),
                   style: AppFontStyle.titleMedium().copyWith(
                     color: isDark ? Colors.white : AppColors.darkcolor,
                   ),
@@ -79,7 +76,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   textEditingController: _nameController,
                   keyboardType: TextInputType.text,
                   isObsecure: false,
-                  labelText: 'Name',
+                  labelText: loc.tr('Name'),
                   textCapitalization: TextCapitalization.words,
                 ),
                 const SizedBox(height: 12),
@@ -87,7 +84,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   textEditingController: _emailController,
                   keyboardType: TextInputType.emailAddress,
                   isObsecure: false,
-                  labelText: 'Email',
+                  labelText: loc.tr('Email'),
                   textCapitalization: TextCapitalization.none,
                 ),
                 const SizedBox(height: 12),
@@ -95,14 +92,13 @@ class _RegisterPageState extends State<RegisterPage> {
                   textEditingController: _passwordController,
                   keyboardType: TextInputType.visiblePassword,
                   isObsecure: true,
-                  labelText: 'Password',
+                  labelText: loc.tr('Password'),
                   textCapitalization: TextCapitalization.none,
                 ),
                 const SizedBox(height: 32),
                 CustomButton(
-                  // Pass null when loading to let the button handle the loader UI
-                  onPressed: _isLoading ? null : _register,
-                  text: 'Create Account',
+                  onPressed: _register,
+                  text: loc.tr('Create Account'),
                   color: WidgetStateProperty.all(AppColors.primary),
                 ),
                 const SizedBox(height: 12),
@@ -110,7 +106,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      "Already have an account? ",
+                      loc.tr("Already have an account? "),
                       style: TextStyle(
                         color: isDark ? Colors.white70 : AppColors.darkcolor,
                         fontSize: 14,
@@ -131,7 +127,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                       child: Text(
-                        'Login',
+                        loc.tr('Login'),
                         style: AppFontStyle.descriptionSemiBold(
                           AppColors.primary,
                         ).copyWith(fontSize: 14),

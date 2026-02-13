@@ -1,4 +1,4 @@
-// ignore_for_file: deprecated_member_use
+// ignore_for_file: deprecated_member_use, unused_field
 
 import 'package:intl/intl.dart';
 
@@ -20,7 +20,6 @@ class CalendarPageState extends State<CalendarPage>
 
   Ticker? _ticker;
   DateTime _selectedDate = DateTime.now().toLocal();
-  bool _isLoading = false;
 
   late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
   bool _hasConnection = true;
@@ -41,7 +40,6 @@ class CalendarPageState extends State<CalendarPage>
     _ticker = createTicker((elapsed) {
       if (mounted) setState(() {});
     })..start();
-    _fetchBookings();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _handleInitialSnap();
     });
@@ -61,7 +59,7 @@ class CalendarPageState extends State<CalendarPage>
   }
 
   void resetToToday() async {
-    HapticFeedback.mediumImpact();
+    HapticFeedback.lightImpact();
     final now = DateTime.now().toLocal();
     final bool alreadyOnTodayPage = isSameDay(_selectedDate, now);
 
@@ -79,12 +77,6 @@ class CalendarPageState extends State<CalendarPage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _snapToCurrentTime();
     });
-  }
-
-  Future<void> _fetchBookings() async {
-    setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 100));
-    if (mounted) setState(() => _isLoading = false);
   }
 
   void _handleInitialSnap() {
@@ -118,6 +110,7 @@ class CalendarPageState extends State<CalendarPage>
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
     final bool isNotToday = !isSameDay(_selectedDate, DateTime.now().toLocal());
+    final navProvider = Provider.of<NavbarProvider>(context, listen: false);
 
     // This block forces the system status bar to follow the app theme
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -145,52 +138,68 @@ class CalendarPageState extends State<CalendarPage>
           showPfp: true,
           onTodayPressed: isNotToday ? resetToToday : null,
         ),
-        body: Column(
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+        floatingActionButton: Padding(
+          padding: const EdgeInsets.only(bottom: 130),
+          child: FloatingActionButton(
+            onPressed: () {
+              navProvider.setIndex(4);
+            },
+            backgroundColor: AppColors.primary,
+            child: SvgPicture.asset(
+              AppIcons.add,
+              color: Colors.white,
+              width: 30,
+            ),
+          ),
+        ),
+        body: Stack(
           children: [
-            if (!_hasConnection) const NoInternetWidget(),
-            _buildCompactDaySelector(isDark),
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CustomLoader())
-                  : PageView.builder(
-                      controller: _pageController,
-                      onPageChanged: (index) {
-                        HapticFeedback.selectionClick();
-                        setState(
-                          () => _selectedDate = DateTime.now().toLocal().add(
-                            Duration(days: index - 7),
-                          ),
-                        );
-                        _scrollDayBarToCenter(index);
-                      },
-                      itemCount: 22,
-                      itemBuilder: (context, pageIndex) {
-                        final pageDate = DateTime.now().toLocal().add(
-                          Duration(days: pageIndex - 7),
-                        );
-                        final isToday = isSameDay(
-                          pageDate,
-                          DateTime.now().toLocal(),
-                        );
+            Column(
+              children: [
+                _buildCompactDaySelector(isDark),
+                Expanded(
+                  child: PageView.builder(
+                    controller: _pageController,
+                    onPageChanged: (index) {
+                      HapticFeedback.lightImpact();
+                      setState(
+                        () => _selectedDate = DateTime.now().toLocal().add(
+                          Duration(days: index - 7),
+                        ),
+                      );
+                      _scrollDayBarToCenter(index);
+                    },
+                    itemCount: 22,
+                    itemBuilder: (context, pageIndex) {
+                      final pageDate = DateTime.now().toLocal().add(
+                        Duration(days: pageIndex - 7),
+                      );
+                      final isToday = isSameDay(
+                        pageDate,
+                        DateTime.now().toLocal(),
+                      );
 
-                        return SingleChildScrollView(
-                          physics: const ClampingScrollPhysics(),
-                          controller: isToday
-                              ? _todayScrollController
-                              : ScrollController(),
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 20.0),
-                            child: Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                _buildTimeGrid(isDark),
-                                if (isToday) _buildTimeIndicator(),
-                              ],
-                            ),
+                      return SingleChildScrollView(
+                        physics: const ClampingScrollPhysics(),
+                        controller: isToday
+                            ? _todayScrollController
+                            : ScrollController(),
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 20.0),
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              _buildTimeGrid(isDark),
+                              if (isToday) _buildTimeIndicator(),
+                            ],
                           ),
-                        );
-                      },
-                    ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -226,7 +235,7 @@ class CalendarPageState extends State<CalendarPage>
           return GestureDetector(
             key: _dayKeys[index],
             onTap: () {
-              HapticFeedback.mediumImpact();
+              HapticFeedback.lightImpact();
               _pageController.animateToPage(
                 index,
                 duration: const Duration(milliseconds: 400),
@@ -243,6 +252,19 @@ class CalendarPageState extends State<CalendarPage>
                 border: isToday && !isSelected
                     ? Border.all(color: AppColors.primary, width: 1.5)
                     : null,
+                boxShadow: [
+                  isSelected
+                      ? BoxShadow(
+                          color: AppColors.primary.withOpacity(0.8),
+                          blurRadius: isDark ? 6 : 10,
+                          offset: Offset(0, 0),
+                        )
+                      : BoxShadow(
+                          color: Colors.transparent,
+                          blurRadius: 20,
+                          offset: Offset(0, 0),
+                        ),
+                ],
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,

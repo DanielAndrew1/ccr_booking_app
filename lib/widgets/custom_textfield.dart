@@ -28,12 +28,16 @@ class CustomTextfield extends StatelessWidget {
     final Color hintColor = isDark ? Colors.white60 : Colors.black54;
     final Color inactiveUnderlineColor = isDark ? Colors.white60 : Colors.black26;
 
-    return TextField(
+    final bool obscure = isObsecure ?? false;
+    return TextFormField(
       controller: textEditingController,
       keyboardType: keyboardType,
-      obscureText: isObsecure!,
+      obscureText: obscure,
       textCapitalization: textCapitalization,
       cursorColor: AppColors.primary,
+      textInputAction: TextInputAction.next,
+      onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
+      scrollPadding: const EdgeInsets.only(bottom: 120),
 
       // This controls the input text color
       style: TextStyle(color: textColor),

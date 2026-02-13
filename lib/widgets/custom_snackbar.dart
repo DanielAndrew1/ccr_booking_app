@@ -46,6 +46,8 @@ class CustomSnackBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool showTick =
+        isSuccess || backgroundColor == AppColors.green;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
@@ -65,7 +67,11 @@ class CustomSnackBar extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // Logic: Show different icon/container based on isSuccess
-            SvgPicture.asset(isSuccess ? AppIcons.tick : AppIcons.info, color: Colors.white, width: 32),
+            SvgPicture.asset(
+              showTick ? AppIcons.tick : AppIcons.info,
+              color: Colors.white,
+              width: 32,
+            ),
             const SizedBox(width: 4),
             Expanded(
               child: Text(
@@ -100,6 +106,7 @@ class _TopSnackBarAnimatorState extends State<_TopSnackBarAnimator>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<Offset> _offsetAnimation;
+  bool _isDismissing = false;
 
   @override
   void initState() {
@@ -115,13 +122,18 @@ class _TopSnackBarAnimatorState extends State<_TopSnackBarAnimator>
 
     _controller.forward();
 
-    // Auto dismiss after 3 seconds
-    Future.delayed(const Duration(seconds: 3), () async {
-      if (mounted) {
-        await _controller.reverse();
-        widget.onDismiss();
-      }
+    // Auto dismiss after 4 seconds
+    Future.delayed(const Duration(seconds: 4), () {
+      if (!mounted) return;
+      _dismiss();
     });
+  }
+
+  Future<void> _dismiss() async {
+    if (_isDismissing) return;
+    _isDismissing = true;
+    await _controller.reverse();
+    widget.onDismiss();
   }
 
   @override
@@ -137,7 +149,15 @@ class _TopSnackBarAnimatorState extends State<_TopSnackBarAnimator>
         alignment: Alignment.topCenter,
         child: SlideTransition(
           position: _offsetAnimation,
-          child: Material(color: Colors.transparent, child: widget.child),
+          child: Dismissible(
+            key: ValueKey(widget.hashCode),
+            direction: DismissDirection.up,
+            onDismissed: (_) => _dismiss(),
+            child: Material(
+              color: Colors.transparent,
+              child: widget.child,
+            ),
+          ),
         ),
       ),
     );

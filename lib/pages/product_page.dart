@@ -1,5 +1,6 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously
 
+import 'package:flutter/cupertino.dart';
 import '../core/imports.dart';
 
 class ProductPage extends StatefulWidget {
@@ -324,14 +325,10 @@ class _ProductPageState extends State<ProductPage> {
 
                                         if (context.mounted) {
                                           Navigator.pop(context);
-                                          ScaffoldMessenger.of(
+                                          CustomSnackBar.show(
                                             context,
-                                          ).showSnackBar(
-                                            const SnackBar(
-                                              content: Text('Product updated!'),
-                                              behavior:
-                                                  SnackBarBehavior.floating,
-                                            ),
+                                            'Product updated!',
+                                            color: AppColors.green,
                                           );
                                         }
                                       } catch (e) {
@@ -339,14 +336,10 @@ class _ProductPageState extends State<ProductPage> {
                                           setDialogState(
                                             () => isSaving = false,
                                           );
-                                          ScaffoldMessenger.of(
+                                          CustomSnackBar.show(
                                             context,
-                                          ).showSnackBar(
-                                            SnackBar(
-                                              content: Text('Error: $e'),
-                                              behavior:
-                                                  SnackBarBehavior.floating,
-                                            ),
+                                            'Error: $e',
+                                            color: AppColors.red,
                                           );
                                         }
                                       }
@@ -413,105 +406,64 @@ class _ProductPageState extends State<ProductPage> {
   }
 
   Future<void> _confirmDelete() async {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDark = themeProvider.isDarkMode;
+    final bool? confirm = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (context) => CustomAlertDialogue(
+        icon: AppIcons.trash,
+        title: "Delete Product",
+        body:
+            "Are you sure you want to delete this product? This will also remove the product image.",
+        confirm: "Delete",
+      ),
+    );
+
+    if (confirm != true) return;
+
     showDialog(
       context: context,
-      builder: (context) {
-        bool isDeleting = false;
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(15),
-              ),
-              title: Text(
-                'Confirm Delete',
-                style: TextStyle(color: isDark ? Colors.white : Colors.black),
-              ),
-              content: isDeleting
-                  ? const SizedBox(
-                      height: 100,
-                      child: Center(child: CustomLoader()),
-                    )
-                  : Text(
-                      'Are you sure you want to delete this product? This will also remove the product image.',
-                      style: TextStyle(
-                        color: isDark ? Colors.white70 : Colors.black87,
-                      ),
-                    ),
-              actions: isDeleting
-                  ? null
-                  : [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: Text(
-                          'Cancel',
-                          style: TextStyle(
-                            color: isDark ? Colors.white54 : Colors.grey,
-                          ),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () async {
-                          setDialogState(() => isDeleting = true);
-                          try {
-                            // 1. Delete image from Storage if it exists
-                            if (imageUrl != null && imageUrl!.isNotEmpty) {
-                              try {
-                                final uri = Uri.parse(imageUrl!);
-                                final pathSegments = uri.pathSegments;
-                                // The path is everything after 'product-images/'
-                                final int bucketIndex = pathSegments.indexOf(
-                                  'product-images',
-                                );
-                                if (bucketIndex != -1 &&
-                                    bucketIndex + 1 < pathSegments.length) {
-                                  final filePath = pathSegments
-                                      .sublist(bucketIndex + 1)
-                                      .join('/');
-                                  await Supabase.instance.client.storage
-                                      .from('product-images')
-                                      .remove([filePath]);
-                                }
-                              } catch (storageError) {
-                                debugPrint(
-                                  "Storage deletion error: $storageError",
-                                );
-                                // We continue even if storage delete fails to avoid orphaned DB records
-                              }
-                            }
-
-                            // 2. Delete product record from DB
-                            await Supabase.instance.client
-                                .from('products')
-                                .delete()
-                                .eq('id', widget.productId);
-
-                            if (!mounted) return;
-                            Navigator.pop(context); // Close dialog
-                            Navigator.pop(context); // Go back to previous page
-                          } catch (e) {
-                            if (mounted) {
-                              setDialogState(() => isDeleting = false);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Delete failed: $e')),
-                              );
-                            }
-                          }
-                        },
-                        child: const Text(
-                          'Delete',
-                          style: TextStyle(color: Colors.red),
-                        ),
-                      ),
-                    ],
-            );
-          },
-        );
-      },
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CustomLoader()),
     );
+
+    try {
+      // 1. Delete image from Storage if it exists
+      if (imageUrl != null && imageUrl!.isNotEmpty) {
+        try {
+          final uri = Uri.parse(imageUrl!);
+          final pathSegments = uri.pathSegments;
+          // The path is everything after 'product-images/'
+          final int bucketIndex = pathSegments.indexOf('product-images');
+          if (bucketIndex != -1 && bucketIndex + 1 < pathSegments.length) {
+            final filePath = pathSegments.sublist(bucketIndex + 1).join('/');
+            await Supabase.instance.client.storage
+                .from('product-images')
+                .remove([filePath]);
+          }
+        } catch (storageError) {
+          debugPrint("Storage deletion error: $storageError");
+          // We continue even if storage delete fails to avoid orphaned DB records
+        }
+      }
+
+      // 2. Delete product record from DB
+      await Supabase.instance.client
+          .from('products')
+          .delete()
+          .eq('id', widget.productId);
+
+      if (!mounted) return;
+      Navigator.pop(context); // Close loader
+      Navigator.pop(context); // Go back to previous page
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Close loader
+        CustomSnackBar.show(
+          context,
+          'Delete failed: $e',
+          color: AppColors.red,
+        );
+      }
+    }
   }
 
   @override

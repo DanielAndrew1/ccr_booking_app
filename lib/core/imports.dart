@@ -7,6 +7,7 @@ export 'package:flutter/scheduler.dart';
 export 'package:flutter_svg/flutter_svg.dart';
 export 'package:ccr_booking/core/app_images.dart';
 export 'package:ccr_booking/core/app_version_plus.dart';
+export 'package:flutter_localizations/flutter_localizations.dart';
 
 // Third-Party Packages
 export 'package:firebase_core/firebase_core.dart';
@@ -24,6 +25,8 @@ export 'package:ccr_booking/core/root.dart';
 export 'package:ccr_booking/core/theme.dart';
 export 'package:ccr_booking/core/app_theme.dart';
 export 'package:ccr_booking/core/user_provider.dart';
+export 'package:ccr_booking/localization/app_localizations.dart';
+export 'package:ccr_booking/localization/locale_provider.dart';
 
 // Providers
 export 'package:ccr_booking/providers/booking_provider.dart';
@@ -55,6 +58,7 @@ export 'package:ccr_booking/pages/employees_page.dart';
 export 'package:ccr_booking/pages/product_page.dart';
 export 'package:ccr_booking/pages/edit_booking.dart';
 export '../pages/edit_info_page.dart';
+export 'package:ccr_booking/pages/settings_page.dart';
 
 // Pages - Creation/Addition
 export 'package:ccr_booking/pages/add/add_booking.dart';
@@ -69,6 +73,7 @@ export 'package:ccr_booking/widgets/custom_button.dart';
 export 'package:ccr_booking/widgets/custom_textfield.dart';
 export 'package:ccr_booking/widgets/custom_loader.dart';
 export 'package:ccr_booking/widgets/custom_internet_notification.dart';
+export 'package:ccr_booking/widgets/custom_alert_dialogue.dart';
 
 // Widgets - Specialized Components
 export '../widgets/custom_pfp.dart';

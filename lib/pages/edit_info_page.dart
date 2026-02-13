@@ -1,6 +1,7 @@
 // lib/pages/edit_info_page.dart
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously
 
+import 'package:path/path.dart' as p;
 import '../core/imports.dart';
 
 class EditInfoPage extends StatefulWidget {
@@ -17,6 +18,8 @@ class _EditInfoPageState extends State<EditInfoPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _loading = false;
+  bool _uploadingImage = false;
+  String? _avatarUrl;
 
   @override
   void initState() {
@@ -25,6 +28,101 @@ class _EditInfoPageState extends State<EditInfoPage> {
     if (userProvider.currentUser != null) {
       _nameController.text = userProvider.currentUser!.name;
       _emailController.text = userProvider.currentUser!.email;
+      _avatarUrl = userProvider.currentUser!.avatarUrl;
+    }
+  }
+
+  Future<void> _pickAndUploadAvatar() async {
+    if (_uploadingImage) return;
+    String? userId = Supabase.instance.client.auth.currentUser?.id;
+    userId ??= Provider.of<UserProvider>(
+      context,
+      listen: false,
+    ).currentUser?.id;
+    if (userId == null) {
+      CustomSnackBar.show(context, "No user ID");
+      return;
+    }
+
+    final picker = ImagePicker();
+    XFile? picked;
+    try {
+      picked = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 70,
+        maxWidth: 1024,
+        maxHeight: 1024,
+      );
+    } catch (e) {
+      if (mounted) {
+        CustomSnackBar.show(context, "Image picker error: $e");
+      }
+      return;
+    }
+    if (picked == null) return;
+
+    setState(() => _uploadingImage = true);
+    try {
+      final ext = p.extension(picked.name).toLowerCase();
+      final fileName =
+          "${DateTime.now().millisecondsSinceEpoch}${ext.isEmpty ? '.jpg' : ext}";
+      final filePath = "$userId/$fileName";
+      final file = File(picked.path);
+      try {
+        await Supabase.instance.client.storage
+            .from('profile-pics')
+            .upload(
+              filePath,
+              file,
+              fileOptions: const FileOptions(
+                upsert: true,
+                cacheControl: '3600',
+              ),
+            );
+      } catch (e) {
+        if (mounted) {
+          CustomSnackBar.show(context, "Upload failed: $e");
+        }
+        return;
+      }
+
+      final publicUrl = Supabase.instance.client.storage
+          .from('profile-pics')
+          .getPublicUrl(filePath);
+      if (publicUrl.isEmpty) {
+        if (mounted) {
+          CustomSnackBar.show(
+            context,
+            "Upload failed: could not get image URL",
+          );
+        }
+        return;
+      }
+
+      await _authService.updateUser(
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim().isEmpty
+            ? null
+            : _passwordController.text.trim(),
+        avatarUrl: publicUrl,
+      );
+
+      await Provider.of<UserProvider>(context, listen: false).refreshUser();
+
+      if (!mounted) return;
+      setState(() => _avatarUrl = publicUrl);
+      CustomSnackBar.show(
+        context,
+        "Profile photo updated",
+        color: AppColors.green,
+      );
+    } catch (e) {
+      if (mounted) {
+        CustomSnackBar.show(context, "Upload failed: $e");
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingImage = false);
     }
   }
 
@@ -53,7 +151,7 @@ class _EditInfoPageState extends State<EditInfoPage> {
       }
     } catch (e) {
       if (mounted) {
-        CustomSnackBar.show(context, "Update failed: $e", color: AppColors.red);
+        CustomSnackBar.show(context, "Update failed: $e");
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -104,6 +202,8 @@ class _EditInfoPageState extends State<EditInfoPage> {
                             dimentions: 120,
                             fontSize: 50,
                             nameOverride: _nameController.text,
+                            imageUrlOverride: _avatarUrl,
+                            onTapOverride: _pickAndUploadAvatar,
                           ),
                         ),
                       );
@@ -141,7 +241,23 @@ class _EditInfoPageState extends State<EditInfoPage> {
                       onPressed: _loading ? null : _saveChanges,
                       height: 45,
                       child: _loading
-                          ? CustomLoader(size: 24, color: AppColors.secondary)
+                          ? Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                CustomLoader(
+                                  size: 24,
+                                  color: AppColors.secondary,
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Save Changes',
+                                  style: AppFontStyle.textMedium().copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            )
                           : Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [

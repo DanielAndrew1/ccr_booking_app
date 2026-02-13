@@ -7,12 +7,18 @@ class CustomPfp extends StatelessWidget {
   final double dimentions;
   final double fontSize;
   final String? nameOverride;
+  final String? imageUrlOverride;
+  final VoidCallback? onTapOverride;
+  final bool disableTap;
 
   const CustomPfp({
     super.key,
     required this.dimentions,
     required this.fontSize,
     this.nameOverride,
+    this.imageUrlOverride,
+    this.onTapOverride,
+    this.disableTap = false,
   });
 
   @override
@@ -34,17 +40,29 @@ class CustomPfp extends StatelessWidget {
       }
     }
 
+    final imageUrl = imageUrlOverride ?? userProvider.currentUser?.avatarUrl;
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+
     return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        // Correct way: Tell the provider to switch to index 4 (Add Booking)
-        navProvider.setIndex(4);
-      },
+      onTap: disableTap
+          ? null
+          : (onTapOverride ??
+                () {
+                  navProvider.setIndex(3);
+                }),
       child: Container(
         width: dimentions,
         height: dimentions,
         decoration: BoxDecoration(
-          color: AppColors.primary,
+          gradient: LinearGradient(
+            begin: AlignmentGeometry.topLeft,
+            end: AlignmentGeometry.bottomRight,
+            colors: [
+              isDark ? AppColors.primary : AppColors.secondary,
+              isDark ? Color(0xFF794F07) : Color(0xFF0B0E20),
+            ],
+          ),
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
@@ -55,14 +73,31 @@ class CustomPfp extends StatelessWidget {
           ],
         ),
         child: Center(
-          child: Text(
-            initials,
-            style: TextStyle(
-              fontSize: fontSize,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
+          child: (imageUrl != null && imageUrl.isNotEmpty)
+              ? ClipOval(
+                  child: Image.network(
+                    imageUrl,
+                    width: dimentions,
+                    height: dimentions,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Text(
+                      initials,
+                      style: TextStyle(
+                        fontSize: fontSize,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                )
+              : Text(
+                  initials,
+                  style: TextStyle(
+                    fontSize: fontSize,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
         ),
       ),
     );

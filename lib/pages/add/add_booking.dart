@@ -378,7 +378,7 @@ class _AddBookingState extends State<AddBooking> {
             Scaffold(
               backgroundColor: Colors.transparent,
               appBar: CustomAppBar(
-                text: "Add a Booking",
+                text: "Add Booking",
                 showPfp: widget.isRoot,
               ),
               body: SingleChildScrollView(
@@ -484,7 +484,7 @@ class _AddBookingState extends State<AddBooking> {
                                     ),
                                     child: Center(
                                       child: _buildImageOrIcon(
-                                        AppIcons.pickUp,
+                                        AppIcons.add,
                                         isDark,
                                         size: 28,
                                         tintColor: Colors.white,

@@ -73,6 +73,8 @@
     <string>CCR Booking needs camera access to scan equipment barcodes and take profile photos.</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>CCR Booking needs access to your gallery to upload receipts and equipment photos.</string>
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>CCR Booking needs access to save and update your profile photo.</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>This app may require microphone access for voice-based search and support calls.</string>
     <key>NSBluetoothAlwaysUsageDescription</key>

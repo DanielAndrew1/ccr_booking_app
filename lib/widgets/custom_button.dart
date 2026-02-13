@@ -40,6 +40,7 @@ class _CustomButtonState extends State<CustomButton> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
     final effectiveColor =
         widget.color ?? WidgetStateProperty.all(AppColors.primary);
 
@@ -48,9 +49,14 @@ class _CustomButtonState extends State<CustomButton> {
 
     // Helper to get text even if passed as a child
     String buttonText = widget.text ?? '';
-    if (buttonText.isEmpty && widget.child is Text) {
-      buttonText = (widget.child as Text).data ?? '';
+    Text? childText;
+    if (widget.child is Text) {
+      childText = widget.child as Text;
+      if (buttonText.isEmpty) {
+        buttonText = childText.data ?? '';
+      }
     }
+    buttonText = loc.tr(buttonText);
 
     return SizedBox(
       width: double.infinity,
@@ -83,28 +89,38 @@ class _CustomButtonState extends State<CustomButton> {
                   ),
                 ],
               )
-            : widget.child ??
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (widget.imagePath != null || widget.icon != null) ...[
-                        IconHandler.buildIcon(
-                          imagePath: widget.imagePath,
-                          icon: widget.icon,
-                          color: Colors.white,
-                          size: 20,
+            : (widget.child is Text
+                ? Text(
+                    buttonText,
+                    style: (childText?.style ??
+                            AppFontStyle.textMedium().copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ))
+                        .copyWith(color: Colors.white),
+                  )
+                : widget.child ??
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (widget.imagePath != null || widget.icon != null) ...[
+                          IconHandler.buildIcon(
+                            imagePath: widget.imagePath,
+                            icon: widget.icon,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        Text(
+                          buttonText,
+                          style: AppFontStyle.textMedium().copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                        const SizedBox(width: 8),
                       ],
-                      Text(
-                        buttonText,
-                        style: AppFontStyle.textMedium().copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
+                    )),
       ),
     );
   }

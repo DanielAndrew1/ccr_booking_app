@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use, unused_field
+
 import '../../core/imports.dart';
 
 class AddClient extends StatefulWidget {
@@ -21,9 +23,11 @@ class _AddClientState extends State<AddClient> {
 
     if (name.isEmpty || email.isEmpty || phone.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(
+        CustomSnackBar.show(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Please fill all fields')));
+          'Please fill all fields',
+          color: AppColors.red,
+        );
       }
       return;
     }
@@ -36,8 +40,10 @@ class _AddClientState extends State<AddClient> {
         'phone': phone,
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Client saved successfully')),
+        CustomSnackBar.show(
+          context,
+          'Client saved successfully',
+          color: AppColors.green,
         );
       }
       _nameController.clear();
@@ -45,9 +51,11 @@ class _AddClientState extends State<AddClient> {
       _phoneController.clear();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
+        CustomSnackBar.show(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error saving client: $e')));
+          'Error saving client: $e',
+          color: AppColors.red,
+        );
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -69,7 +77,7 @@ class _AddClientState extends State<AddClient> {
         backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
         extendBodyBehindAppBar: true,
         appBar: CustomAppBar(
-          text: "Add a Client",
+          text: "Add Client",
           // Show PFP/Initials ONLY if this page is a root tab in Navbar
           showPfp: widget.isRoot,
         ),
@@ -103,10 +111,23 @@ class _AddClientState extends State<AddClient> {
                   ),
                   const SizedBox(height: 32),
                   CustomButton(
-                    onPressed: _loading ? null : _saveClient,
-                    text: _loading ? "Saving..." : "Save",
+                    onPressed: _saveClient,
                     color: WidgetStateProperty.all(AppColors.primary),
                     height: 50,
+                    child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SvgPicture.asset(AppIcons.save, color: Colors.white,),
+                              SizedBox(width: 6),
+                              Text(
+                                "Save",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                ),
+                              ),
+                            ],
+                          ),
                   ),
                 ],
               ),

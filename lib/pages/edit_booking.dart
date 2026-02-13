@@ -88,24 +88,26 @@ class _EditBookingState extends State<EditBooking> {
     if (productIds.isNotEmpty) {
       final uniqueIds = productIds.map((id) => id.toString()).toSet().toList();
       try {
-        final productData = await supabase
+        final rawData = await supabase
             .from('products')
             .select()
             .inFilter('id', uniqueIds);
+        final List<Map<String, dynamic>> productData =
+            List<Map<String, dynamic>>.from(rawData);
 
         final Map<String, Map<String, dynamic>> productMap = {
           for (final p in productData)
-            p['id'].toString(): Map<String, dynamic>.from(p),
+            if (p['id'] != null) p['id'].toString(): p,
         };
 
-        prefilledProducts = productIds
-            .map((id) => productMap[id.toString()])
-            .where((p) => p != null)
-            .cast<Map<String, dynamic>>()
+        final built = productIds
+            .map<Map<String, dynamic>?>((id) => productMap[id.toString()])
             .toList();
+        built.removeWhere((p) => p == null);
 
-        if (prefilledProducts.isEmpty) {
-          prefilledProducts = [null];
+        prefilledProducts = List<Map<String, dynamic>?>.from(built);
+        if (prefilledProducts.isEmpty || prefilledProducts.last != null) {
+          prefilledProducts.add(null);
         }
       } catch (_) {
         prefilledProducts = [null];
@@ -130,8 +132,15 @@ class _EditBookingState extends State<EditBooking> {
     bool isProductsEmpty = !selectedProducts.any((p) => p != null);
 
     if (_bookingId == null) {
-      CustomSnackBar.show(context, "Missing booking ID");
-      return;
+      final fallbackId = Provider.of<BookingProvider>(
+        context,
+        listen: false,
+      ).editingBooking?['id']?.toString();
+      if (fallbackId == null) {
+        CustomSnackBar.show(context, "Missing booking ID");
+        return;
+      }
+      _bookingId = fallbackId;
     }
 
     if (selectedClient == null ||
@@ -470,16 +479,24 @@ class _EditBookingState extends State<EditBooking> {
             Scaffold(
               backgroundColor: Colors.transparent,
               appBar: CustomAppBar(
-                text: isEditing ? "Edit Booking" : "Add a Booking",
-                showPfp: false,
-                leadingIcon: Icons.close_rounded,
-                onLeadingPressed: () {
-                  Provider.of<BookingProvider>(context, listen: false)
-                      .clearEditingBooking();
-                  Provider.of<NavbarProvider>(context, listen: false)
-                      .setEditMode(false);
-                  Provider.of<NavbarProvider>(context, listen: false).setIndex(4);
-                },
+                text: isEditing ? "Edit Booking" : "Add Booking",
+                showPfp: true,
+                actions: [
+                  Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: IconButton(
+                      icon: Icon(Icons.close_rounded, color: Colors.white, size: 30),
+                      onPressed: () {
+                        Provider.of<BookingProvider>(context, listen: false)
+                            .clearEditingBooking();
+                        Provider.of<NavbarProvider>(context, listen: false)
+                            .setEditMode(false);
+                        Provider.of<NavbarProvider>(context, listen: false)
+                            .setIndex(4);
+                      },
+                    ),
+                  ),
+                ],
               ),
               body: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
@@ -626,7 +643,7 @@ class _EditBookingState extends State<EditBooking> {
                     ),
                     const SizedBox(height: 6),
                     _PickerTile(
-                      imagePath: AppIcons.calendar,
+                      imagePath: AppIcons.pickUp,
                       label: pickupDate == null
                           ? "Select Pickup Date"
                           : DateFormat('dd/MM/yyyy').format(pickupDate!),
@@ -644,7 +661,7 @@ class _EditBookingState extends State<EditBooking> {
                     ),
                     const SizedBox(height: 6),
                     _PickerTile(
-                      imagePath: AppIcons.calendar,
+                      imagePath: AppIcons.returns,
                       label: returnDate == null
                           ? "Select Return Date"
                           : DateFormat('dd/MM/yyyy').format(returnDate!),
@@ -727,13 +744,20 @@ class _EditBookingState extends State<EditBooking> {
                             borderRadius: BorderRadius.circular(15),
                           ),
                         ),
-                        child: Text(
-                          isEditing ? "Save Changes" : "Confirm Booking",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SvgPicture.asset(AppIcons.save, color: Colors.white,),
+                            SizedBox(width: 6,),
+                            Text(
+                              isEditing ? "Save Changes" : "Confirm Booking",
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),

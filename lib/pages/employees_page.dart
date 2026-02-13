@@ -55,7 +55,7 @@ class _UsersPageState extends State<UsersPage> {
       if (mounted) {
         CustomSnackBar.show(
           context,
-          "$userName removed successfully",
+          '"$userName" removed successfully',
           color: AppColors.green,
         );
       }
@@ -64,7 +64,6 @@ class _UsersPageState extends State<UsersPage> {
         CustomSnackBar.show(
           context,
           "Error deleting user: ${e.toString()}",
-          color: AppColors.red,
         );
       }
     }
@@ -75,36 +74,11 @@ class _UsersPageState extends State<UsersPage> {
     HapticFeedback.heavyImpact();
     final bool? confirm = await showCupertinoDialog<bool>(
       context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: const Text("Delete Employee"),
-        content: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text('Are you sure you want to remove'),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(' "'),
-                Text(userName, style: TextStyle(color: AppColors.red),), 
-                Text('" ?'),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          CupertinoDialogAction(
-            child: Text(
-              "Cancel",
-              style: TextStyle(color: AppColors.secondary.withBlue(240)),
-            ),
-            onPressed: () => Navigator.pop(context, false),
-          ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            child: const Text("Delete"),
-            onPressed: () => Navigator.pop(context, true),
-          ),
-        ],
+      builder: (context) => CustomAlertDialogue(
+        icon: AppIcons.trash,
+        title: "Delete User",
+        body: 'Are you sure you want to delete "$userName"?',
+        confirm: "Delete",
       ),
     );
 
@@ -151,7 +125,7 @@ class _UsersPageState extends State<UsersPage> {
                 : AnimatedSwitcher(
                     duration: const Duration(milliseconds: 500),
                     child: allUsers.isEmpty
-                        ? const Center(child: Text("No users found"))
+                        ? const Center(child: Text("No Employees yet."))
                         : ListView(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 16,
@@ -219,86 +193,89 @@ class _UsersPageState extends State<UsersPage> {
       curve: Curves.easeInOut,
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF2C2C2C) : Colors.white,
+        color: isDark ? Color(0x8E2C2C2C) : const Color(0x90FFFFFF),
         borderRadius: BorderRadius.circular(16),
         border: isCurrentUser
             ? Border.all(
                 color: isDark
-                    ? AppColors.primary.withOpacity(0.5)
-                    : AppColors.secondary.withOpacity(0.5),
+                    ? AppColors.primary.withOpacity(0.7)
+                    : AppColors.secondary.withOpacity(0.7),
                 width: 1,
               )
             : null,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: Column(
         children: [
-          ListTile(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 20,
-              vertical: 8,
+          Theme(
+            data: Theme.of(context).copyWith(
+              splashFactory: NoSplash.splashFactory,
+              highlightColor: Colors.transparent,
             ),
-            leading: CircleAvatar(
-              backgroundColor: isDark
-                  ? AppColors.primary.withOpacity(0.2)
-                  : AppColors.secondary.withOpacity(0.2),
-              child: Text(
-                _getInitials(user.name),
-                style: TextStyle(
-                  color: isDark ? AppColors.primary : AppColors.secondary,
-                  fontWeight: FontWeight.bold,
+            child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 8,
+              ),
+              splashColor: Colors.transparent,
+              hoverColor: Colors.transparent,
+              focusColor: Colors.transparent,
+              leading: CircleAvatar(
+                backgroundColor: isDark
+                    ? AppColors.primary.withOpacity(0.2)
+                    : AppColors.secondary.withOpacity(0.2),
+                child: Text(
+                  _getInitials(user.name),
+                  style: TextStyle(
+                    color: isDark ? AppColors.primary : AppColors.secondary,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-            ),
-            title: Row(
-              children: [
-                Text(
-                  user.name,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black,
-                  ),
-                ),
-                if (isDaniel) ...[
-                  const SizedBox(width: 6),
-                  SvgPicture.asset(
-                    AppIcons.verify,
-                    width: 16,
-                    color: isDark ? Colors.white : Colors.black,
-                  ),
-                ],
-              ],
-            ),
-            subtitle: Text(
-              user.role,
-              style: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
-            ),
-            trailing: isCurrentUser
-                ? _buildBadge("Me", isDark)
-                : isDaniel
-                ? null
-                : AnimatedRotation(
-                    duration: const Duration(milliseconds: 300),
-                    turns: isExpanded ? 0.5 : 0,
-                    child: const Icon(
-                      Icons.keyboard_arrow_down,
-                      color: Colors.grey,
+              title: Row(
+                children: [
+                  Text(
+                    user.name,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black,
                     ),
                   ),
-            onTap: (isCurrentUser || isDaniel)
-                ? null
-                : () {
-                    HapticFeedback.selectionClick();
-                    setState(() {
-                      _expandedIndex = isExpanded ? null : index;
-                    });
-                  },
+                  if (isDaniel) ...[
+                    const SizedBox(width: 6),
+                    SvgPicture.asset(
+                      AppIcons.verify,
+                      width: 16,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                  ],
+                ],
+              ),
+              subtitle: Text(
+                user.role,
+                style:
+                    TextStyle(color: isDark ? Colors.white70 : Colors.black54),
+              ),
+              trailing: isCurrentUser
+                  ? _buildBadge("You", isDark)
+                  : isDaniel
+                  ? null
+                  : AnimatedRotation(
+                      duration: const Duration(milliseconds: 300),
+                      turns: isExpanded ? 0.5 : 0,
+                      child: const Icon(
+                        Icons.keyboard_arrow_down,
+                        color: Colors.grey,
+                      ),
+                    ),
+              onTap: (isCurrentUser || isDaniel)
+                  ? null
+                  : () {
+                      HapticFeedback.selectionClick();
+                      setState(() {
+                        _expandedIndex = isExpanded ? null : index;
+                      });
+                    },
+            ),
           ),
           if (!isCurrentUser && !isDaniel)
             AnimatedSize(
@@ -315,12 +292,12 @@ class _UsersPageState extends State<UsersPage> {
 
   Widget _buildBadge(String text, bool isDark) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         color: isDark
             ? AppColors.primary.withOpacity(0.1)
             : AppColors.secondary.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Text(
         text,
@@ -387,12 +364,9 @@ class _UsersPageState extends State<UsersPage> {
                   // Switching this to the Cupertino style version as an example
                   // or keep _removeUser if you prefer Material.
                   onPressed: () => _confirmDeleteUser(user.id, user.name),
-                  icon: SvgPicture.asset(
-                    AppIcons.trash,
-                    color: Colors.white,
-                  ),
+                  icon: SvgPicture.asset(AppIcons.trash, color: Colors.white),
                   label: const Text(
-                    "Delete Employee",
+                    "Delete",
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),

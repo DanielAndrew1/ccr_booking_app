@@ -1,8 +1,9 @@
-// ignore_for_file: deprecated_member_use, use_build_context_synchronously
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously, unused_field, unused_element
 import 'package:flutter/cupertino.dart';
 import 'package:intl/intl.dart';
-
+import 'package:shared_preferences/shared_preferences.dart';
 import '../core/imports.dart';
+part 'home_page_widgets.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -165,6 +166,7 @@ class _HomePageState extends State<HomePage>
         .select('*')
         .eq('status', 'upcoming')
         .neq('status', 'canceled')
+        .neq('status', 'cancelled')
         .neq('status', 'deleted')
         .gte('pickup_datetime', range['start']!)
         .lte('pickup_datetime', range['end']!)
@@ -179,6 +181,7 @@ class _HomePageState extends State<HomePage>
         .select('*')
         .eq('status', 'returning')
         .neq('status', 'canceled')
+        .neq('status', 'cancelled')
         .neq('status', 'deleted')
         .gte('return_datetime', range['start']!)
         .lte('return_datetime', range['end']!)
@@ -193,6 +196,7 @@ class _HomePageState extends State<HomePage>
           .from('bookings')
           .select('id')
           .neq('status', 'canceled')
+          .neq('status', 'cancelled')
           .neq('status', 'deleted')
           .gte('pickup_datetime', range['start']!)
           .lte('pickup_datetime', range['end']!);
@@ -200,6 +204,7 @@ class _HomePageState extends State<HomePage>
           .from('bookings')
           .select('id')
           .neq('status', 'canceled')
+          .neq('status', 'cancelled')
           .neq('status', 'deleted')
           .gte('return_datetime', range['start']!)
           .lte('return_datetime', range['end']!);
@@ -233,6 +238,7 @@ class _HomePageState extends State<HomePage>
     bool isPickup = true,
     double width = 500,
   }) {
+    final loc = AppLocalizations.of(context);
     List<String> productList = [];
     var productsRaw = data['products'];
 
@@ -256,9 +262,9 @@ class _HomePageState extends State<HomePage>
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
-              title: const Text(
-                "Booking Details",
-                style: TextStyle(fontWeight: FontWeight.bold),
+              title: Text(
+                loc.tr("Booking Details"),
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               content: SizedBox(
                 width: width,
@@ -268,25 +274,25 @@ class _HomePageState extends State<HomePage>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildPopupField(
-                        "Client",
+                        loc.tr("Client"),
                         data['client_name'] ?? "Unknown",
                         isDark,
                       ),
                       _buildPopupField(
-                        "Pickup",
+                        loc.tr("Pickup"),
                         _formatDateTime(data['pickup_datetime']),
                         isDark,
                         icon: Icons.upload_rounded,
                       ),
                       _buildPopupField(
-                        "Return",
+                        loc.tr("Return"),
                         _formatDateTime(data['return_datetime']),
                         isDark,
                         icon: Icons.download_rounded,
                       ),
                       const Divider(height: 30),
-                      const Text(
-                        "Products",
+                      Text(
+                        loc.tr("Products"),
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 10),
@@ -317,9 +323,9 @@ class _HomePageState extends State<HomePage>
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text(
-                    "Close",
-                    style: TextStyle(color: Colors.grey),
+                  child: Text(
+                    loc.tr("Close"),
+                    style: const TextStyle(color: Colors.grey),
                   ),
                 ),
                 if (isFromActionSection)
@@ -348,7 +354,9 @@ class _HomePageState extends State<HomePage>
                       setState(() {});
                     },
                     child: Text(
-                      isPickup ? "Mark as Picked Up" : "Mark as Returned",
+                      isPickup
+                          ? loc.tr("Mark as Picked Up")
+                          : loc.tr("Mark as Returned"),
                       style: const TextStyle(color: Colors.white),
                     ),
                   ),
@@ -398,7 +406,26 @@ class _HomePageState extends State<HomePage>
                 );
               }
 
-              final list = snapshot.data as List<Map<String, dynamic>>;
+              final rawList = snapshot.data as List<Map<String, dynamic>>;
+              final list = rawList.where((item) {
+                final status = (item['status'] ?? '').toString().toLowerCase();
+                return status != 'canceled' &&
+                    status != 'cancelled' &&
+                    status != 'deleted';
+              }).toList();
+              if (list.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(
+                    _getEmptyDialogMessage(title),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: isDark ? Colors.white70 : Colors.black54,
+                      fontSize: 14,
+                    ),
+                  ),
+                );
+              }
               return ListView.builder(
                 shrinkWrap: true,
                 itemCount: list.length,
@@ -479,38 +506,6 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  Widget _buildPopupField(
-    String label,
-    String value,
-    bool isDark, {
-    IconData? icon,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 11)),
-          Row(
-            children: [
-              if (icon != null) Icon(icon, size: 14, color: AppColors.primary),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  value,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w500,
-                    color: isDark ? Colors.white : Colors.black,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -530,572 +525,76 @@ class _HomePageState extends State<HomePage>
         statusBarColor: Colors.transparent,
       ),
       child: Scaffold(
+        extendBodyBehindAppBar: true,
         backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
+        appBar: CustomAppBar(
+          showPfp: true,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  Text("Hello, ${currentUser.name.split(" ").first}"),
+                ],
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  Text("Manage everything in a few clicks", style: TextStyle(fontSize: 16),),
+                ],
+              ),
+            ],
+          )
+        ),
         body: Stack(
           children: [
             const CustomBgSvg(),
-            Column(
-              children: [
-                MediaQuery.removePadding(
-                  context: context,
-                  removeTop: true,
-                  child: _buildAppBar(currentUser),
-                ),
-                if (!_hasConnection) NoInternetWidget(),
-                Expanded(
-                  child: CustomScrollView(
-                    physics: const BouncingScrollPhysics(
-                      parent: AlwaysScrollableScrollPhysics(),
-                    ),
-                    slivers: [
-                      CupertinoSliverRefreshControl(
-                        onRefresh: () async {
-                          await userProvider.refreshUser();
-                          if (mounted) setState(() {});
-                        },
-                        builder:
-                            (
-                              context,
-                              refreshState,
-                              pulledExtent,
-                              triggerDistance,
-                              indicatorExtent,
-                            ) => const Center(
-                              child: Padding(
-                                padding: EdgeInsets.symmetric(vertical: 16),
-                                child: CustomLoader(size: 24),
-                              ),
-                            ),
-                      ),
-                      SliverPadding(
-                        padding: const EdgeInsets.all(20.0),
-                        sliver: SliverToBoxAdapter(
-                          child: _buildRoleDashboard(currentUser.role, isDark),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAppBar(dynamic currentUser) {
-    final double statusBarHeight = MediaQuery.of(context).padding.top;
-    return ClipRRect(
-      borderRadius: const BorderRadius.only(bottomRight: Radius.circular(60)),
-      child: Container(
-        padding: EdgeInsets.only(top: statusBarHeight),
-        color: AppColors.secondary,
-        child: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          foregroundColor: AppColors.lightcolor,
-          toolbarHeight: 80,
-          surfaceTintColor: Colors.transparent,
-          automaticallyImplyLeading: false,
-          centerTitle: false,
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'Hello, ${currentUser.name.split(' ').first}',
-                style: AppFontStyle.subTitleMedium().copyWith(
-                  color: AppColors.lightcolor,
-                ),
-              ),
-              Text(
-                "Manage everything in a few clicks",
-                style: AppFontStyle.textRegular().copyWith(
-                  fontSize: 18,
-                  color: AppColors.lightcolor,
-                ),
-              ),
-            ],
-          ),
-          leading: const Padding(
-            padding: EdgeInsets.only(left: 12.0),
-            child: Center(child: CustomPfp(dimentions: 65, fontSize: 21)),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRoleDashboard(String role, bool isDark) {
-    return Column(
-      children: [
-        if (role == 'Warehouse' || role == 'Admin') ...[
-          _buildAsyncList(
-            _getUpcomingBookings(),
-            "Today's Pickups",
-            isDark,
-            AppColors.secondary,
-            isPickup: true,
-          ),
-          const SizedBox(height: 30),
-          _buildAsyncList(
-            _getReturningBookings(),
-            "Today's Returns",
-            isDark,
-            AppColors.primary,
-            isPickup: false,
-          ),
-          const SizedBox(height: 30),
-        ] else if (role == 'Owner') ...[
-          _buildOwnerStatsView(isDark),
-          const SizedBox(height: 22),
-        ],
-        Row(
-          children: [
-            const Expanded(
-              child: Divider(
-                thickness: 1,
-                // Optional: match your theme colors
-                color: Colors.grey,
-                endIndent: 10, // Adds a small gap before the text
-              ),
-            ),
-            Text(
-              "Quick Actions",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white70 : Colors.black54,
-              ),
-            ),
-            const Expanded(
-              child: Divider(
-                thickness: 1,
-                color: Colors.grey,
-                indent: 10, // Adds a small gap after the text
-              ),
-            ),
-          ],
-        ),
-        SizedBox(height: 22),
-        if (role == 'Admin' || role == 'Owner') ...[
-          _buildActionButton(
-            title: "Add New Client",
-            subtitle: "Add a new client to your database",
-            imagePath: AppIcons.userAdd,
-            isFilled: true,
-            color: isDark ? AppColors.primary : AppColors.secondary,
-            isDark: isDark,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const AddClient()),
-            ),
-          ),
-          const SizedBox(height: 20),
-        ],
-        _buildActionButton(
-          title: "Recieve a notification",
-          subtitle: "Test the notification system",
-          imagePath: AppIcons.notification,
-          color: isDark ? AppColors.primary : AppColors.secondary,
-          isDark: isDark,
-          onTap: () => _notificationService.showNotification(
-            id: 1,
-            title: "CCR Booking",
-            body: "Notification triggered successfully",
-          ),
-        ),
-        const SizedBox(height: 120),
-      ],
-    );
-  }
-
-  Widget _buildOwnerStatsView(bool isDark) {
-    return FutureBuilder<Map<String, int>>(
-      future: _getOwnerStats(),
-      builder: (context, snapshot) {
-        final stats =
-            snapshot.data ??
-            {
-              'pickups': 0,
-              'returns': 0,
-              'clients': 0,
-              'employees': 0,
-              'products': 0,
-            };
-        Color accent = isDark ? AppColors.primary : AppColors.secondary;
-        return Column(
-          children: [
-            Row(
-              children: [
-                _buildStatCard(
-                  "Clients",
-                  "${stats['clients']}",
-                  null,
-                  AppIcons.client,
-                  accent,
-                  isDark,
-                  onTap: () => _showDetailsDialog(
-                    "All Clients",
-                    supabase.from('clients').select(),
-                    isDark,
-                  ),
-                ),
-                const SizedBox(width: 15),
-                _buildStatCard(
-                  "Employees",
-                  "${stats['employees']}",
-                  null,
-                  AppIcons.userSearch,
-                  accent,
-                  isDark,
-                  onTap: () => _showDetailsDialog(
-                    "All Employees",
-                    supabase.from('users').select(),
-                    isDark,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 15),
-            _buildStatCard(
-              "Products",
-              "${stats['products']}",
-              null,
-              AppIcons.inventory,
-              accent,
-              isDark,
-              isFullWidth: true,
-              onTap: () => _showDetailsDialog(
-                "All Products",
-                supabase.from('products').select(),
-                isDark,
-              ),
-            ),
-            const SizedBox(height: 15),
-            Row(
-              children: [
-                _buildStatCard(
-                  "Today's Pickups",
-                  "${stats['pickups']}",
-                  null,
-                  AppIcons.pickUp,
-                  accent,
-                  isDark,
-                  mirrorIcon: true,
-                  onTap: () {
-                    final range = _getTodayRange();
-                    _showDetailsDialog(
-                      "Today's Pickups",
-                      supabase
-                          .from('bookings')
-                          .select()
-                          .neq('status', 'canceled')
-                          .neq('status', 'deleted')
-                          .gte('pickup_datetime', range['start']!)
-                          .lte('pickup_datetime', range['end']!),
-                      isDark,
-                    );
-                  },
-                ),
-                const SizedBox(width: 15),
-                _buildStatCard(
-                  "Today's Returns",
-                  "${stats['returns']}",
-                  null,
-                  AppIcons.returns,
-                  accent,
-                  isDark,
-                  onTap: () {
-                    final range = _getTodayRange();
-                    _showDetailsDialog(
-                      "Today's Returns",
-                      supabase
-                          .from('bookings')
-                          .select()
-                          .neq('status', 'canceled')
-                          .neq('status', 'deleted')
-                          .gte('return_datetime', range['start']!)
-                          .lte('return_datetime', range['end']!),
-                      isDark,
-                    );
-                  },
-                ),
-              ],
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildAsyncList(
-    Future<List<Map<String, dynamic>>> future,
-    String title,
-    bool isDark,
-    Color statusColor, {
-    bool isPickup = true,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: Text(
-            title,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : Colors.black,
-            ),
-          ),
-        ),
-        FutureBuilder<List<Map<String, dynamic>>>(
-          future: future,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CustomLoader());
-            }
-            if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Text(
-                    isPickup ? "No pickups for today." : "No returns for today",
-                    style: TextStyle(
-                      color: isDark ? Colors.white : Colors.black,
-                    ),
-                  ),
-                ),
-              );
-            }
-            return ListView.builder(
-              padding: EdgeInsets.zero,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: snapshot.data!.length,
-              itemBuilder: (context, index) {
-                final data = snapshot.data![index];
-                return GestureDetector(
-                  onTap: () => _showBookingDetails(
-                    data,
-                    isDark,
-                    isFromActionSection: true,
-                    isPickup: isPickup,
-                    width: 500,
-                  ),
-                  child: Card(
-                    color: isDark ? const Color(0xFF2C2C2C) : Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: ListTile(
-                      title: Text(
-                        data['client_name'] ?? "Unknown Client",
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      trailing: const Icon(
-                        Icons.info_outline,
-                        size: 20,
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ),
-                );
-              },
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatCard(
-    String label,
-    String value,
-    IconData? icon,
-    String? imagePath,
-    Color color,
-    bool isDark, {
-    bool isFullWidth = false,
-    bool mirrorIcon = false,
-    VoidCallback? onTap,
-  }) {
-    Widget card = GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0x962C2C2C) : const Color(0x95FFFFFF),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            mirrorIcon
-                ? Transform.flip(
-                    flipX: true,
-                    child: _buildIconHelper(imagePath, icon, color),
-                  )
-                : _buildIconHelper(imagePath, icon, color),
-            const SizedBox(height: 8),
-            SlidingNumber(
-              value: value,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.black,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    return isFullWidth
-        ? SizedBox(width: double.infinity, child: card)
-        : Expanded(child: card);
-  }
-
-  Widget _buildIconHelper(String? imagePath, IconData? icon, Color color) {
-    if (imagePath != null && imagePath.endsWith('.svg')) {
-      return SvgPicture.asset(
-        imagePath,
-        colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
-        height: 32,
-        width: 32,
-      );
-    } else if (icon != null) {
-      return Icon(icon, color: color, size: 32);
-    }
-    return const SizedBox(height: 32, width: 32);
-  }
-
-  Widget _buildActionButton({
-    required String title,
-    required String subtitle,
-    String? imagePath,
-    bool isFilled = false,
-    required Color color,
-    required bool isDark,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: isFilled
-              ? (isDark ? AppColors.primary : AppColors.secondary)
-              : (isDark ? Colors.transparent : Colors.transparent),
-          borderRadius: BorderRadius.circular(20),
-          border: isFilled
-              ? Border.all(color: Colors.transparent)
-              : Border.all(
-                  color: isDark ? AppColors.primary : AppColors.secondary,
-                ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 45,
-              height: 45,
-              decoration: BoxDecoration(
-                color: isFilled
-                      ? Colors.transparent
-                      : (isDark ? AppColors.primary.withOpacity(0) : AppColors.secondary.withOpacity(0)),
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: IconHandler.buildIcon(
-                  imagePath: imagePath,
-                  color: isFilled
-                      ? (isDark ? Colors.white : Colors.white)
-                      : (isDark ? AppColors.primary : AppColors.secondary),
-                  size: 35,
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
+            Padding(
+              padding: const EdgeInsets.only(top: 140),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: isFilled
-                          ? Colors.white
-                          : (isDark ? AppColors.primary : AppColors.secondary),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: isFilled
-                          ? Colors.white
-                          : (isDark ? AppColors.primary : AppColors.secondary),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600
+                  Expanded(
+                    child: CustomScrollView(
+                      physics: const BouncingScrollPhysics(
+                        parent: AlwaysScrollableScrollPhysics(),
+                      ),
+                      slivers: [
+                        CupertinoSliverRefreshControl(
+                          onRefresh: () async {
+                            await userProvider.refreshUser();
+                            if (mounted) setState(() {});
+                          },
+                          builder:
+                              (
+                                context,
+                                refreshState,
+                                pulledExtent,
+                                triggerDistance,
+                                indicatorExtent,
+                              ) => const Center(
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 16),
+                                  child: CustomLoader(size: 24),
+                                ),
+                              ),
+                        ),
+                        SliverPadding(
+                          padding: const EdgeInsets.all(20.0),
+                          sliver: SliverToBoxAdapter(
+                            child: _buildRoleDashboard(currentUser.role, isDark),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
-            Icon(
-              Icons.arrow_forward_ios_rounded,
-              size: 20,
-              color: isFilled
-                  ? Colors.white
-                  : (isDark ? AppColors.primary : AppColors.secondary),
-            ),
           ],
         ),
       ),
     );
   }
-}
 
-class SlidingNumber extends StatelessWidget {
-  final String value;
-  final TextStyle style;
-  const SlidingNumber({super.key, required this.value, required this.style});
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 500),
-      transitionBuilder: (Widget child, Animation<double> animation) {
-        return FadeTransition(
-          opacity: animation,
-          child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0.0, 0.5),
-              end: Offset.zero,
-            ).animate(animation),
-            child: child,
-          ),
-        );
-      },
-      child: Text(value, key: ValueKey<String>(value), style: style),
-    );
-  }
 }

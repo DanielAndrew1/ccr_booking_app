@@ -51,6 +51,7 @@ class _InventoryPageState extends State<InventoryPage> {
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
+    final navProvider = Provider.of<NavbarProvider>(context, listen: false);
 
     // Determine the refresh indicator color based on your requirements
     final Color refreshColor = isDark ? AppColors.primary : AppColors.secondary;
@@ -139,6 +140,21 @@ class _InventoryPageState extends State<InventoryPage> {
               ),
             ),
           ],
+        ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+        floatingActionButton: Padding(
+          padding: const EdgeInsets.only(bottom: 50),
+          child: FloatingActionButton(
+            onPressed: () {
+              navProvider.setIndex(5);
+            },
+            backgroundColor: AppColors.primary,
+            child: SvgPicture.asset(
+              AppIcons.add,
+              color: Colors.white,
+              width: 30,
+            ),
+          ),
         ),
         body: Stack(
           children: [

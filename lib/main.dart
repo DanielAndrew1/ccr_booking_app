@@ -2,13 +2,12 @@
 
 import 'core/imports.dart';
 import 'firebase_options.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 // 1. Define a Global Key for the Navigator
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 class IconHandler {
-  // main.dart
-
   static Widget buildIcon({
     String? imagePath,
     IconData? icon,
@@ -16,32 +15,31 @@ class IconHandler {
     double size = 24,
     bool isAdd = false,
   }) {
-    final double finalSize = size;
 
     if (imagePath != null && imagePath.isNotEmpty) {
       if (imagePath.toLowerCase().contains('.svg')) {
         return SvgPicture.asset(
           imagePath,
-          width: finalSize,
-          height: finalSize,
+          width: size,
+          height: size,
           colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
           // THIS PREVENTS THE CRASH:
           placeholderBuilder: (context) =>
-              Icon(icon ?? Icons.broken_image, color: color, size: finalSize),
+              Icon(icon ?? Icons.broken_image, color: color, size: size),
         );
       } else {
         return Image.asset(
           imagePath,
-          width: finalSize,
-          height: finalSize,
+          width: size,
+          height: size,
           color: color,
           // FALLBACK FOR REGULAR IMAGES:
           errorBuilder: (context, error, stackTrace) =>
-              Icon(icon ?? Icons.broken_image, color: color, size: finalSize),
+              Icon(icon ?? Icons.broken_image, color: color, size: size),
         );
       }
     }
-    return Icon(icon ?? Icons.help_outline, color: color, size: finalSize);
+    return Icon(icon ?? Icons.help_outline, color: color, size: size);
   }
 }
 
@@ -78,6 +76,7 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => LocaleProvider()..load()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => BookingProvider()),
         ChangeNotifierProvider(create: (_) => NavbarProvider()),
@@ -266,6 +265,7 @@ class _MyAppState extends State<MyApp> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final localeProvider = Provider.of<LocaleProvider>(context);
     final isDark = themeProvider.isDarkMode;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -284,19 +284,51 @@ class _MyAppState extends State<MyApp> with TickerProviderStateMixin {
         navigatorKey: navigatorKey, // 2. Pass the key here
         debugShowCheckedModeBanner: false,
         home: const MainStackHandler(),
+        locale: localeProvider.locale,
+        supportedLocales: AppLocalizations.supportedLocales,
+        localizationsDelegates: const [
+          AppLocalizationsDelegate(),
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
         routes: {
           '/login': (_) => const LoginPage(),
           '/register': (_) => const RegisterPage(),
-          '/home': (_) => const CustomNavbar(),
+          '/home': (_) => CustomNavbar(),
         },
         themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
         theme: ThemeData(
           brightness: Brightness.light,
           appBarTheme: const AppBarTheme(systemOverlayStyle: null),
+          fontFamily: GoogleFonts.poppins().fontFamily,
+          textTheme: GoogleFonts.poppinsTextTheme(),
+          primaryTextTheme: GoogleFonts.poppinsTextTheme(),
+          pageTransitionsTheme: const PageTransitionsTheme(
+            builders: {
+              TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+              TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+              TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+            },
+          ),
         ),
         darkTheme: ThemeData(
           brightness: Brightness.dark,
           appBarTheme: const AppBarTheme(systemOverlayStyle: null),
+          fontFamily: GoogleFonts.poppins().fontFamily,
+          textTheme: GoogleFonts.poppinsTextTheme(
+            ThemeData(brightness: Brightness.dark).textTheme,
+          ),
+          primaryTextTheme: GoogleFonts.poppinsTextTheme(
+            ThemeData(brightness: Brightness.dark).textTheme,
+          ),
+          pageTransitionsTheme: const PageTransitionsTheme(
+            builders: {
+              TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+              TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+              TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+            },
+          ),
         ),
       ),
     );
