@@ -241,7 +241,7 @@ class _EditBookingState extends State<EditBooking> {
       }).eq('id', _bookingId!);
 
       if (!mounted) return;
-      Navigator.pop(context);
+      Provider.of<NavbarProvider>(context, listen: false).setEditMode(false);
 
       // RESET EVERYTHING
       setState(() {
@@ -258,7 +258,6 @@ class _EditBookingState extends State<EditBooking> {
         context,
         "Booking Updated Successfully!",
         color: AppColors.green,
-        icon: Icons.check_circle_outline,
       );
 
       Provider.of<BookingProvider>(context, listen: false)

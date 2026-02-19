@@ -22,7 +22,7 @@ class _AddProductState extends State<AddProduct> {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(
       source: ImageSource.gallery,
-      imageQuality: 120,
+      imageQuality: 100,
     );
 
     if (image != null) {

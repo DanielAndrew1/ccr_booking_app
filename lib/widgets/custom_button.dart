@@ -41,8 +41,7 @@ class _CustomButtonState extends State<CustomButton> {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
-    final effectiveColor =
-        widget.color ?? WidgetStateProperty.all(AppColors.primary);
+    final effectiveColor = widget.color ?? WidgetStateProperty.all(AppColors.primary);
 
     // Determine if we are loading (externally via null onPressed or internally)
     final bool isLoading = widget.onPressed == null || _internalLoading;

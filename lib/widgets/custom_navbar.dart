@@ -397,7 +397,7 @@ class _CustomNavbarState extends State<CustomNavbar> {
                                     children: [
                                       iconWidget,
                                       Positioned(
-                                        bottom: 9,
+                                        bottom: 8.5,
                                         right: 7,
                                         child: Container(
                                           width: 12,

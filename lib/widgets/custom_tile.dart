@@ -34,7 +34,7 @@ class CustomTile extends StatelessWidget {
     final iconContainerColor =
         textColor != null ? textColor!.withOpacity(0.13) : Colors.grey.withOpacity(0.13);
     final overlayTint = textColor != null
-        ? textColor!.withOpacity(0.2)
+        ? textColor!.withOpacity(0.05)
         : Colors.grey.withOpacity(0.05);
 
     return Column(

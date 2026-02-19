@@ -140,7 +140,7 @@ class CalendarPageState extends State<CalendarPage>
         ),
         floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         floatingActionButton: Padding(
-          padding: const EdgeInsets.only(bottom: 130),
+          padding: const EdgeInsets.only(bottom: 80),
           child: FloatingActionButton(
             onPressed: () {
               navProvider.setIndex(4);

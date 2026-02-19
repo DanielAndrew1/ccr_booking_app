@@ -251,12 +251,9 @@ class BookingsPageState extends State<BookingsPage> {
                         ),
                     ],
                   ),
-                  Divider(
-                    height: 32,
-                    color: isDark ? Colors.white10 : Colors.black12,
-                  ),
+                  SizedBox(height: 8),
                   _detailRow(
-                    "Client",
+                    "Client Name",
                     booking['client_name'] ?? "N/A",
                     AppIcons.client,
                     isDark,
@@ -801,8 +798,8 @@ class BookingsPageState extends State<BookingsPage> {
         .asMap()
         .entries
         .map((entry) {
-          final index = entry.key + 1;
-          return "$index- ${entry.value}";
+          // final index = entry.key + 1;
+          return "•  ${entry.value}";
         })
         .join("\n");
   }

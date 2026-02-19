@@ -324,10 +324,7 @@ class _UsersPageState extends State<UsersPage> {
                   offset: const Offset(0, 45),
                   onSelected: (role) => _changeRole(user.id, role),
                   itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: "Warehouse",
-                      child: Text("Warehouse"),
-                    ),
+                    const PopupMenuItem(value: "Warehouse", child: Text("Warehouse")),
                     const PopupMenuItem(value: "Admin", child: Text("Admin")),
                     const PopupMenuItem(value: "Owner", child: Text("Owner")),
                   ],

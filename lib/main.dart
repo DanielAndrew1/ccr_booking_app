@@ -15,7 +15,6 @@ class IconHandler {
     double size = 24,
     bool isAdd = false,
   }) {
-
     if (imagePath != null && imagePath.isNotEmpty) {
       if (imagePath.toLowerCase().contains('.svg')) {
         return SvgPicture.asset(
