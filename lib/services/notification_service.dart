@@ -1,5 +1,8 @@
 // ignore_for_file: avoid_print
 
+import 'dart:io';
+
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -14,8 +17,20 @@ class NotificationService {
   final _fcm = FirebaseMessaging.instance;
   final _supabase = Supabase.instance.client;
   bool _isInitialized = false;
+  bool _isTokenSyncInProgress = false;
+  bool _isRetryScheduled = false;
+  int _apnsRetryCount = 0;
 
   static const String _storageKey = "notifications_enabled";
+  static const int _maxApnsRetries = 6;
+
+  bool get _isIosSimulator {
+    if (!Platform.isIOS) return false;
+    final env = Platform.environment;
+    return env.containsKey('SIMULATOR_DEVICE_NAME') ||
+        env.containsKey('SIMULATOR_MODEL_IDENTIFIER') ||
+        env.containsKey('SIMULATOR_UDID');
+  }
 
   /// 1. Static check for the toggle state (Used by UI and main.dart)
   static Future<bool> isEnabled() async {
@@ -54,6 +69,7 @@ class NotificationService {
       const initSettings = InitializationSettings(
         android: initSettingsAndroid,
         iOS: initSettingsIOS,
+        macOS: initSettingsIOS,
       );
 
       await notificationsPlugin.initialize(
@@ -91,16 +107,64 @@ class NotificationService {
   }
 
   Future<void> getAndSaveToken() async {
+    if (_isIosSimulator) return;
+    if (_isTokenSyncInProgress) return;
+    _isTokenSyncInProgress = true;
     try {
       if (!(await isEnabled())) return;
 
-      String? token = await _fcm.getToken();
-      if (token != null) {
-        await _saveTokenToSupabase(token);
+      final apnsReady = await _waitForApnsTokenIfNeeded();
+      if (!apnsReady) {
+        _scheduleApnsRetry();
+        return;
       }
+
+      String? token = await _fcm.getToken();
+      if (token != null && token.isNotEmpty) {
+        _apnsRetryCount = 0;
+        await _saveTokenToSupabase(token);
+      } else {
+        _scheduleApnsRetry();
+      }
+    } on FirebaseException catch (e) {
+      if (e.code == 'apns-token-not-set') {
+        _scheduleApnsRetry();
+        return;
+      }
+      print("Error getting FCM token: $e");
     } catch (e) {
       print("Error getting FCM token: $e");
+    } finally {
+      _isTokenSyncInProgress = false;
     }
+  }
+
+  Future<bool> _waitForApnsTokenIfNeeded() async {
+    if (!Platform.isIOS) return true;
+
+    final existingToken = await _fcm.getAPNSToken();
+    if (existingToken != null && existingToken.isNotEmpty) return true;
+
+    for (int i = 0; i < 8; i++) {
+      final apnsToken = await _fcm.getAPNSToken();
+      if (apnsToken != null && apnsToken.isNotEmpty) return true;
+      await Future.delayed(const Duration(milliseconds: 500));
+    }
+
+    return false;
+  }
+
+  void _scheduleApnsRetry() {
+    if (!Platform.isIOS) return;
+    if (_apnsRetryCount >= _maxApnsRetries) return;
+    if (_isRetryScheduled) return;
+    _isRetryScheduled = true;
+    _apnsRetryCount += 1;
+    final retryDelay = Duration(seconds: _apnsRetryCount * 2);
+    Future.delayed(retryDelay, () async {
+      _isRetryScheduled = false;
+      await getAndSaveToken();
+    });
   }
 
   Future<void> _saveTokenToSupabase(String token) async {
@@ -120,8 +184,22 @@ class NotificationService {
 
   /// Removes the token so the server stops sending pushes to this device
   Future<void> _removeTokenFromSupabase() async {
+    if (_isIosSimulator) return;
     final userId = _supabase.auth.currentUser?.id;
-    final token = await _fcm.getToken();
+    String? token;
+    try {
+      final apnsReady = await _waitForApnsTokenIfNeeded();
+      if (!apnsReady) return;
+      token = await _fcm.getToken();
+    } on FirebaseException catch (e) {
+      if (e.code != 'apns-token-not-set') {
+        print("Error reading token for removal: $e");
+      }
+      token = null;
+    } catch (e) {
+      print("Error reading token for removal: $e");
+      token = null;
+    }
 
     if (userId != null && token != null) {
       try {

@@ -1,4 +1,4 @@
-import '../../core/imports.dart';
+import 'package:ccr_booking/core/imports.dart';
 
 class OnboardingOne extends StatelessWidget {
   const OnboardingOne({super.key});
@@ -10,17 +10,6 @@ class OnboardingOne extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Column(
         children: [
-          const SizedBox(height: 20),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              "Skip",
-              style: TextStyle(
-                color: isDark ? Colors.white70 : Colors.black54,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
           const SizedBox(height: 30),
           Expanded(
             child: Column(
@@ -29,7 +18,7 @@ class OnboardingOne extends StatelessWidget {
                 SvgPicture.asset(AppImages.onBoarding1, width: 400),
                 const SizedBox(height: 24),
                 Text(
-                  "Mange Booking Easily",
+                  "Manage Booking Easily",
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: isDark ? Colors.white : Colors.black,

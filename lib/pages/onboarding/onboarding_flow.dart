@@ -1,6 +1,6 @@
 // ignore_for_file: deprecated_member_use
 
-import '../../core/imports.dart';
+import 'package:ccr_booking/core/imports.dart';
 import 'onboarding_1.dart';
 import 'onboarding_2.dart';
 
@@ -44,6 +44,19 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           SafeArea(
             child: Column(
               children: [
+                Align(
+                  alignment: Alignment.topRight,
+                  child: TextButton(
+                    onPressed: () => widget.onFinished(),
+                    child: Text(
+                      "Skip",
+                      style: TextStyle(
+                        color: isDark ? Colors.white70 : Colors.black54,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
                 Expanded(
                   child: PageView(
                     controller: _controller,
@@ -80,8 +93,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                                   child: CircularProgressIndicator(
                                     value: value,
                                     strokeWidth: 2,
-                                    backgroundColor:
-                                        AppColors.primary.withOpacity(0.2),
+                                    backgroundColor: AppColors.primary
+                                        .withOpacity(0.2),
                                     valueColor: const AlwaysStoppedAnimation(
                                       AppColors.primary,
                                     ),

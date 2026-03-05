@@ -27,7 +27,33 @@ class AuthService {
   }
 
   Future<void> login({required String email, required String password}) async {
-    await _client.auth.signInWithPassword(email: email, password: password);
+    final normalizedEmail = email.trim().toLowerCase();
+    final response = await _client.auth.signInWithPassword(
+      email: normalizedEmail,
+      password: password,
+    );
+
+    final authUser = response.user ?? _client.auth.currentUser;
+    if (authUser == null) {
+      throw 'Invalid email or password';
+    }
+
+    // Protect against stale local auth state mismatching entered credentials.
+    if ((authUser.email ?? '').toLowerCase() != normalizedEmail) {
+      await _client.auth.signOut();
+      throw 'Invalid email or password';
+    }
+
+    final userData = await _client
+        .from('users')
+        .select('id')
+        .eq('id', authUser.id)
+        .maybeSingle();
+
+    if (userData == null) {
+      await _client.auth.signOut();
+      throw 'No app profile found for this account';
+    }
   }
 
   Future<void> logout() async {

@@ -50,11 +50,6 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
-  }
-
   await Supabase.initialize(
     url: SupbaseService.url,
     anonKey: SupbaseService.annonKey,
@@ -69,7 +64,7 @@ void main() async {
     debugPrint("Firebase init error: $e");
   }
 
-  await NotificationService().initNotification();
+  unawaited(NotificationService().initNotification());
 
   runApp(
     MultiProvider(
@@ -234,7 +229,12 @@ class _MyAppState extends State<MyApp> with TickerProviderStateMixin {
               ),
           child: const Material(
             color: Colors.transparent,
-            child: SafeArea(child: NoInternetWidget()),
+            child: SafeArea(
+              child: CustomSnackBar(
+                message:
+                    'No Internet Connection! \n Please check your network and try again',
+              ),
+            ),
           ),
         ),
       ),
@@ -265,7 +265,7 @@ class _MyAppState extends State<MyApp> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final localeProvider = Provider.of<LocaleProvider>(context);
-    final isDark = themeProvider.isDarkMode;
+    final isDark = themeProvider.effectiveBrightness == Brightness.dark;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
@@ -296,7 +296,7 @@ class _MyAppState extends State<MyApp> with TickerProviderStateMixin {
           '/register': (_) => const RegisterPage(),
           '/home': (_) => CustomNavbar(),
         },
-        themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
+        themeMode: themeProvider.themeMode,
         theme: ThemeData(
           brightness: Brightness.light,
           appBarTheme: const AppBarTheme(systemOverlayStyle: null),

@@ -1,6 +1,6 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously
 import 'package:path/path.dart' as p;
-import '../../core/imports.dart';
+import 'package:ccr_booking/core/imports.dart';
 
 class AddProduct extends StatefulWidget {
   final bool isRoot; // Logic to determine if this is a main tab in Navbar

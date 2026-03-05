@@ -1,8 +1,5 @@
-import 'dart:io';
-
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart' as sqflite;
-import 'package:sqflite_common_ffi/sqflite_ffi.dart' as ffi;
 import '../models/product_model.dart';
 
 class DBHelper {
@@ -17,28 +14,6 @@ class DBHelper {
   static Future<sqflite.Database> _initDB() async {
     final dbPath = await sqflite.getDatabasesPath();
     final path = join(dbPath, 'ccr_booking.db');
-
-    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-      ffi.sqfliteFfiInit();
-      final factory = ffi.databaseFactoryFfi;
-      return await factory.openDatabase(
-        path,
-        options: sqflite.OpenDatabaseOptions(
-          version: 1,
-          onCreate: (db, version) async {
-            await db.execute('''
-              CREATE TABLE products(
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT,
-                description TEXT,
-                price REAL,
-                image BLOB
-              )
-            ''');
-          },
-        ),
-      );
-    }
 
     return await sqflite.openDatabase(
       path,

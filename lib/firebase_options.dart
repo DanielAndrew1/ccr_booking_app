@@ -85,5 +85,4 @@ class DefaultFirebaseOptions {
     storageBucket: 'ccr-booking-app1.firebasestorage.app',
     measurementId: 'G-19PQNJM37P',
   );
-
 }

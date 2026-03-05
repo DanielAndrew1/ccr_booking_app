@@ -1,4 +1,4 @@
-import '../../core/imports.dart';
+import 'package:ccr_booking/core/imports.dart';
 
 class OnboardingTwo extends StatelessWidget {
   const OnboardingTwo({super.key});
@@ -11,25 +11,11 @@ class OnboardingTwo extends StatelessWidget {
       child: Column(
         children: [
           const SizedBox(height: 20),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              "Skip",
-              style: TextStyle(
-                color: isDark ? Colors.white70 : Colors.black54,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(height: 30),
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                SvgPicture.asset(
-                  AppImages.onBoarding2,
-                  width: 400,
-                ),
+                SvgPicture.asset(AppImages.onBoarding2, width: 400),
                 const SizedBox(height: 24),
                 Text(
                   "Track Bookings in Real-Time",

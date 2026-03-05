@@ -1,6 +1,6 @@
 // ignore_for_file: deprecated_member_use, unused_field
 
-import '../../core/imports.dart';
+import 'package:ccr_booking/core/imports.dart';
 
 class AddClient extends StatefulWidget {
   final bool isRoot; // Logic to determine if this is a main tab in Navbar
@@ -115,19 +115,16 @@ class _AddClientState extends State<AddClient> {
                     color: WidgetStateProperty.all(AppColors.primary),
                     height: 50,
                     child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              SvgPicture.asset(AppIcons.save, color: Colors.white,),
-                              SizedBox(width: 6),
-                              Text(
-                                "Save",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                ),
-                              ),
-                            ],
-                          ),
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SvgPicture.asset(AppIcons.save, color: Colors.white),
+                        SizedBox(width: 6),
+                        Text(
+                          "Save",
+                          style: TextStyle(color: Colors.white, fontSize: 18),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),

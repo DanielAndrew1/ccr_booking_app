@@ -3,35 +3,85 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class ThemeProvider extends ChangeNotifier {
-  ThemeMode _themeMode = ThemeMode.dark; // Default
+class ThemeProvider extends ChangeNotifier with WidgetsBindingObserver {
+  ThemeMode _themeMode = ThemeMode.system;
 
   ThemeProvider() {
+    WidgetsBinding.instance.addObserver(this);
     _loadFromPrefs();
   }
 
   ThemeMode get themeMode => _themeMode;
-  bool get isDarkMode => _themeMode == ThemeMode.dark;
+  Brightness get effectiveBrightness {
+    if (_themeMode == ThemeMode.system) {
+      return WidgetsBinding.instance.platformDispatcher.platformBrightness;
+    }
+    return _themeMode == ThemeMode.dark ? Brightness.dark : Brightness.light;
+  }
 
-  // Toggle and Save
-  void toggleTheme(bool isOn) async {
-    _themeMode = isOn ? ThemeMode.dark : ThemeMode.light;
+  bool get isDarkMode {
+    return effectiveBrightness == Brightness.dark;
+  }
+
+  Future<void> setThemeMode(ThemeMode mode) async {
+    _themeMode = mode;
     notifyListeners();
 
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('isDarkMode', isOn);
+    await prefs.setString('themeMode', mode.name);
+    await prefs.remove('isDarkMode');
+  }
+
+  // Backward-compatible API for any remaining switch callers.
+  Future<void> toggleTheme(bool isOn) async {
+    await setThemeMode(isOn ? ThemeMode.dark : ThemeMode.light);
   }
 
   // Load saved preference on startup
   void _loadFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
-    final bool? isDark = prefs.getBool('isDarkMode');
+    final String? savedMode = prefs.getString('themeMode');
 
-    // If user has a saved preference, use it; otherwise default to dark
-    if (isDark != null) {
-      _themeMode = isDark ? ThemeMode.dark : ThemeMode.light;
+    if (savedMode != null) {
+      switch (savedMode) {
+        case 'light':
+          _themeMode = ThemeMode.light;
+          break;
+        case 'dark':
+          _themeMode = ThemeMode.dark;
+          break;
+        default:
+          _themeMode = ThemeMode.system;
+      }
+    } else {
+      final bool? isDarkLegacy = prefs.getBool('isDarkMode');
+      if (isDarkLegacy != null) {
+        _themeMode = isDarkLegacy ? ThemeMode.dark : ThemeMode.light;
+      } else {
+        _themeMode = ThemeMode.system;
+      }
+    }
+    notifyListeners();
+  }
+
+  @override
+  void didChangePlatformBrightness() {
+    if (_themeMode == ThemeMode.system) {
       notifyListeners();
     }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _themeMode == ThemeMode.system) {
+      notifyListeners();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 }
 

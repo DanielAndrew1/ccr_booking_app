@@ -1,6 +1,6 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously, unnecessary_underscores, unused_element_parameter
 import 'package:intl/intl.dart';
-import '../../core/imports.dart';
+import 'package:ccr_booking/core/imports.dart';
 
 class AddBooking extends StatefulWidget {
   final bool isRoot;
@@ -211,107 +211,108 @@ class _AddBookingState extends State<AddBooking> {
     List<Map<String, dynamic>> allProducts = List<Map<String, dynamic>>.from(
       response,
     );
-    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
-    final isDark = themeProvider.isDarkMode;
     if (!mounted) return;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => Container(
-        height: MediaQuery.of(context).size.height * 0.75,
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
-        ),
-        padding: const EdgeInsets.all(20),
-        child: StatefulBuilder(
-          builder: (context, setModalState) => Column(
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.grey[700] : Colors.grey[300],
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                "Select Product",
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.black,
-                ),
-              ),
-              const SizedBox(height: 15),
-              TextField(
-                decoration: InputDecoration(
-                  hintText: "Search...",
-                  prefixIcon: Icon(
-                    Icons.search,
-                    color: isDark ? Colors.white70 : Colors.black54,
-                  ),
-                  filled: true,
-                  fillColor: isDark
-                      ? Colors.white10
-                      : Colors.black12.withOpacity(0.05),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-                style: TextStyle(color: isDark ? Colors.white : Colors.black),
-                onChanged: (val) => setModalState(() {
-                  allProducts = List<Map<String, dynamic>>.from(response)
-                      .where(
-                        (p) => p['name'].toString().toLowerCase().contains(
-                          val.toLowerCase(),
-                        ),
-                      )
-                      .toList();
-                }),
-              ),
-              const SizedBox(height: 15),
-              Expanded(
-                child: ListView.separated(
-                  itemCount: allProducts.length,
-                  separatorBuilder: (_, __) => Divider(
-                    color: isDark ? Colors.white12 : Colors.grey[300],
-                  ),
-                  itemBuilder: (context, i) {
-                    final product = allProducts[i];
-                    final imageUrl = product['image_url'] ?? product['image'];
-                    return ListTile(
-                      leading: _buildImageOrIcon(imageUrl, isDark),
-                      title: Text(
-                        product['name'],
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : Colors.black,
-                        ),
-                      ),
-                      subtitle: Text(
-                        "${_currencyFormat.format(product['price'])} EGP/Day",
-                        style: const TextStyle(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      onTap: () {
-                        setState(() => selectedProducts[index] = product);
-                        Navigator.pop(context);
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
+      builder: (sheetContext) {
+        final isDark = Provider.of<ThemeProvider>(sheetContext).isDarkMode;
+        return Container(
+          height: MediaQuery.of(sheetContext).size.height * 0.75,
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
           ),
-        ),
-      ),
+          padding: const EdgeInsets.all(20),
+          child: StatefulBuilder(
+            builder: (context, setModalState) => Column(
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.grey[700] : Colors.grey[300],
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  "Select Product",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 15),
+                TextField(
+                  decoration: InputDecoration(
+                    hintText: "Search...",
+                    prefixIcon: Icon(
+                      Icons.search,
+                      color: isDark ? Colors.white70 : Colors.black54,
+                    ),
+                    filled: true,
+                    fillColor: isDark
+                        ? Colors.white10
+                        : Colors.black12.withOpacity(0.05),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                  onChanged: (val) => setModalState(() {
+                    allProducts = List<Map<String, dynamic>>.from(response)
+                        .where(
+                          (p) => p['name'].toString().toLowerCase().contains(
+                            val.toLowerCase(),
+                          ),
+                        )
+                        .toList();
+                  }),
+                ),
+                const SizedBox(height: 15),
+                Expanded(
+                  child: ListView.separated(
+                    itemCount: allProducts.length,
+                    separatorBuilder: (_, __) => Divider(
+                      color: isDark ? Colors.white12 : Colors.grey[300],
+                    ),
+                    itemBuilder: (context, i) {
+                      final product = allProducts[i];
+                      final imageUrl = product['image_url'] ?? product['image'];
+                      return ListTile(
+                        leading: _buildImageOrIcon(imageUrl, isDark),
+                        title: Text(
+                          product['name'],
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
+                        ),
+                        subtitle: Text(
+                          "${_currencyFormat.format(product['price'])} EGP/Day",
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        onTap: () {
+                          setState(() => selectedProducts[index] = product);
+                          Navigator.pop(context);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -377,10 +378,7 @@ class _AddBookingState extends State<AddBooking> {
             const CustomBgSvg(),
             Scaffold(
               backgroundColor: Colors.transparent,
-              appBar: CustomAppBar(
-                text: "Add Booking",
-                showPfp: widget.isRoot,
-              ),
+              appBar: CustomAppBar(text: "Add Booking", showPfp: widget.isRoot),
               body: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
                 padding: const EdgeInsets.symmetric(

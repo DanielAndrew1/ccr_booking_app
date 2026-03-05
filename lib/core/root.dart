@@ -1,11 +1,7 @@
-import 'package:ccr_booking/core/user_provider.dart';
-import 'package:ccr_booking/pages/login_page.dart';
-import 'package:ccr_booking/pages/onboarding/onboarding_flow.dart';
-import 'package:ccr_booking/widgets/custom_loader.dart';
-import 'package:ccr_booking/widgets/custom_navbar.dart';
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:ccr_booking/core/imports.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../pages/onboarding/onboarding_flow.dart';
 
 class RootPage extends StatefulWidget {
   const RootPage({super.key});
@@ -16,11 +12,17 @@ class RootPage extends StatefulWidget {
 
 class _RootPageState extends State<RootPage> {
   bool? _seenOnboarding;
+  bool? _hasInternet;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
 
   @override
   void initState() {
     super.initState();
     _loadSeen();
+    _initConnectivity();
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
+      _updateConnectivity,
+    );
   }
 
   Future<void> _loadSeen() async {
@@ -39,12 +41,35 @@ class _RootPageState extends State<RootPage> {
     }
   }
 
+  Future<void> _initConnectivity() async {
+    final result = await Connectivity().checkConnectivity();
+    _updateConnectivity(result);
+  }
+
+  void _updateConnectivity(List<ConnectivityResult> result) {
+    final hasInternet = !result.contains(ConnectivityResult.none);
+    if (!mounted) return;
+    setState(() {
+      _hasInternet = hasInternet;
+    });
+  }
+
+  @override
+  void dispose() {
+    _connectivitySubscription?.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context);
 
-    if (_seenOnboarding == null) {
+    if (_seenOnboarding == null || _hasInternet == null) {
       return const Scaffold(body: Center(child: CustomLoader()));
+    }
+
+    if (_hasInternet == false) {
+      return NoInternetPage(onRetry: _initConnectivity);
     }
 
     if (_seenOnboarding == false) {

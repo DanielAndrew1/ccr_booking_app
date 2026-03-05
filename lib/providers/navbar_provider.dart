@@ -1,4 +1,4 @@
-import '../core/imports.dart';
+import 'package:ccr_booking/core/imports.dart';
 
 class NavbarProvider extends ChangeNotifier {
   int _selectedIndex = 0;
