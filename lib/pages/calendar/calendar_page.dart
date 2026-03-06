@@ -25,7 +25,7 @@ class CalendarPageState extends State<CalendarPage>
   bool _hasConnection = true;
 
   final double hourHeight = 60.0;
-  final double labelWidth = 75.0;
+  final double labelWidth = 50.0;
   final double circleSize = 10.0;
   final double gridLineTopOffset = 10.0;
 
@@ -107,8 +107,7 @@ class CalendarPageState extends State<CalendarPage>
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDark = themeProvider.isDarkMode;
+    final isDark = context.isDarkMode;
     final bool isNotToday = !isSameDay(_selectedDate, DateTime.now().toLocal());
 
     // This block forces the system status bar to follow the app theme
@@ -134,12 +133,12 @@ class CalendarPageState extends State<CalendarPage>
         backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
         appBar: CustomAppBar(
           text: 'Calendar',
-          showPfp: true,
+          showPfp: false,
           onTodayPressed: isNotToday ? resetToToday : null,
         ),
         floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         floatingActionButton: Padding(
-          padding: const EdgeInsets.only(bottom: 80),
+          padding: const EdgeInsets.only(bottom: 20),
           child: FloatingActionButton(
             onPressed: () {
               Navigator.of(
@@ -333,7 +332,6 @@ class CalendarPageState extends State<CalendarPage>
               ],
             ),
           ),
-        const SizedBox(height: 115),
       ],
     );
   }

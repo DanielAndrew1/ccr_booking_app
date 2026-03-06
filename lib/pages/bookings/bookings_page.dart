@@ -6,7 +6,8 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:ccr_booking/core/imports.dart';
 
 class BookingsPage extends StatefulWidget {
-  const BookingsPage({super.key});
+  final bool showPfp;
+  const BookingsPage({super.key, this.showPfp = true});
 
   @override
   State<BookingsPage> createState() => BookingsPageState();
@@ -370,7 +371,7 @@ class BookingsPageState extends State<BookingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+    final isDark = context.isDarkMode;
 
     final now = DateTime.now();
     final bool isNotToday =
@@ -390,7 +391,7 @@ class BookingsPageState extends State<BookingsPage> {
               }
             : null,
         text: "Bookings",
-        showPfp: true,
+        showPfp: widget.showPfp,
       ),
       body: Stack(
         children: [

@@ -84,7 +84,7 @@ class CustomSearchState extends State<CustomSearch> {
       backgroundColor: Colors.transparent,
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) {
-          final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+          final isDark = context.isDarkMode;
           return Container(
             height: MediaQuery.of(context).size.height * 0.75,
             decoration: BoxDecoration(
@@ -241,8 +241,7 @@ class CustomSearchState extends State<CustomSearch> {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDark = themeProvider.isDarkMode;
+    final isDark = context.isDarkMode;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

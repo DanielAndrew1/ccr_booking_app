@@ -50,8 +50,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDark = themeProvider.isDarkMode;
+    final isDark = context.isDarkMode;
     final loc = AppLocalizations.of(context);
 
     return Scaffold(

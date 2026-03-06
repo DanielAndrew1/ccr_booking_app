@@ -20,8 +20,7 @@ class CustomTextfield extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final bool isDark = themeProvider.isDarkMode;
+    final bool isDark = context.isDarkMode;
 
     // Set colors based on Dark Mode state
     final Color textColor = isDark ? Colors.white : Colors.black;

@@ -318,7 +318,7 @@ class _EditBookingState extends State<EditBooking> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) {
-        final isDark = Provider.of<ThemeProvider>(sheetContext).isDarkMode;
+        final isDark = sheetContext.isDarkMode;
         return Container(
           height: MediaQuery.of(sheetContext).size.height * 0.75,
           decoration: BoxDecoration(
@@ -462,8 +462,7 @@ class _EditBookingState extends State<EditBooking> {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDark = themeProvider.isDarkMode;
+    final isDark = context.isDarkMode;
     final isEditing =
         Provider.of<BookingProvider>(context).editingBooking != null;
 
@@ -816,8 +815,7 @@ class _CustomDatePickerSheetState extends State<_CustomDatePickerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDark = themeProvider.isDarkMode;
+    final isDark = context.isDarkMode;
     final primaryRed = AppColors.primary;
     final daysInMonth = DateTime(
       _displayedMonth.year,

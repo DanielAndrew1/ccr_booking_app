@@ -49,8 +49,7 @@ class _InventoryPageState extends State<InventoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDark = themeProvider.isDarkMode;
+    final isDark = context.isDarkMode;
     final navProvider = Provider.of<NavbarProvider>(context, listen: false);
 
     // Determine the refresh indicator color based on your requirements
@@ -180,8 +179,8 @@ class _InventoryPageState extends State<InventoryPage> {
                               refreshIndicatorExtent,
                             ) {
                               return Center(
-                                child: CupertinoActivityIndicator(
-                                  radius: 14,
+                                child: CustomLoader(
+                                  size: 28,
                                   color: refreshColor,
                                 ),
                               );

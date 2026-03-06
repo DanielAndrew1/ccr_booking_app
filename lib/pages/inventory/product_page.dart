@@ -109,8 +109,7 @@ class _ProductPageState extends State<ProductPage> {
         bool isSaving = false;
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            final themeProvider = Provider.of<ThemeProvider>(context);
-            final isDark = themeProvider.isDarkMode;
+            final isDark = context.isDarkMode;
             return Dialog(
               backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
               shape: RoundedRectangleBorder(
@@ -464,8 +463,7 @@ class _ProductPageState extends State<ProductPage> {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDark = themeProvider.isDarkMode;
+    final isDark = context.isDarkMode;
 
     return Container(
       color: isDark ? AppColors.darkbg : AppColors.lightcolor,

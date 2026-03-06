@@ -64,11 +64,9 @@ class AuthService {
     final currentAuthUser = _client.auth.currentUser;
     if (currentAuthUser == null) return null;
 
-    // CHANGED TO 'users'
-    final response = await _client.from('users').select();
-    final users = (response as List).map((u) => AppUser.fromJson(u)).toList();
-
     try {
+      final response = await _client.from('users').select();
+      final users = (response as List).map((u) => AppUser.fromJson(u)).toList();
       final currentUser = users.firstWhere((u) => u.id == currentAuthUser.id);
       final otherUsers = users
           .where((u) => u.id != currentAuthUser.id)

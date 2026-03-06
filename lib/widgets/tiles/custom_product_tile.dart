@@ -19,8 +19,7 @@ class CustomProductTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Detect dark mode
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDark = themeProvider.isDarkMode;
+    final isDark = context.isDarkMode;
 
     return Column(
       children: [

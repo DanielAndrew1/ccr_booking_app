@@ -21,15 +21,6 @@ class _UsersPageState extends State<UsersPage> {
     });
   }
 
-  String _getInitials(String name) {
-    if (name.trim().isEmpty) return "?";
-    List<String> nameParts = name.trim().split(RegExp(r'\s+'));
-    if (nameParts.length >= 2) {
-      return (nameParts[0][0] + nameParts[1][0]).toUpperCase();
-    }
-    return nameParts[0][0].toUpperCase();
-  }
-
   // Updated to use CustomSnackBar
   void _changeRole(String userId, String newRole) {
     HapticFeedback.selectionClick();
@@ -86,8 +77,7 @@ class _UsersPageState extends State<UsersPage> {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDark = themeProvider.isDarkMode;
+    final isDark = context.isDarkMode;
     final userProvider = Provider.of<UserProvider>(context);
 
     final String? currentUserId = Supabase.instance.client.auth.currentUser?.id;
@@ -216,17 +206,12 @@ class _UsersPageState extends State<UsersPage> {
               splashColor: Colors.transparent,
               hoverColor: Colors.transparent,
               focusColor: Colors.transparent,
-              leading: CircleAvatar(
-                backgroundColor: isDark
-                    ? AppColors.primary.withOpacity(0.2)
-                    : AppColors.secondary.withOpacity(0.2),
-                child: Text(
-                  _getInitials(user.name),
-                  style: TextStyle(
-                    color: isDark ? AppColors.primary : AppColors.secondary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+              leading: CustomPfp(
+                dimentions: 46,
+                fontSize: 16,
+                nameOverride: user.name,
+                imageUrlOverride: user.avatarUrl,
+                disableTap: true,
               ),
               title: Row(
                 children: [

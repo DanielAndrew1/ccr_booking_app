@@ -35,7 +35,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+    final isDark = context.isDarkMode;
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkbg : Colors.white,
       body: Stack(

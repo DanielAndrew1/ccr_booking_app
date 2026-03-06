@@ -218,7 +218,7 @@ class _AddBookingState extends State<AddBooking> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) {
-        final isDark = Provider.of<ThemeProvider>(sheetContext).isDarkMode;
+        final isDark = sheetContext.isDarkMode;
         return Container(
           height: MediaQuery.of(sheetContext).size.height * 0.75,
           decoration: BoxDecoration(
@@ -362,8 +362,7 @@ class _AddBookingState extends State<AddBooking> {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDark = themeProvider.isDarkMode;
+    final isDark = context.isDarkMode;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -675,8 +674,7 @@ class _CustomDatePickerSheetState extends State<_CustomDatePickerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDark = themeProvider.isDarkMode;
+    final isDark = context.isDarkMode;
     final primaryRed = AppColors.primary;
     final daysInMonth = DateTime(
       _displayedMonth.year,
@@ -794,10 +792,10 @@ class _CustomDatePickerSheetState extends State<_CustomDatePickerSheet> {
                       ? null
                       : () => setState(() => _selectedDay = checkDate),
                   child: Container(
-                    margin: const EdgeInsets.all(4),
+                    margin: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       color: isSelected ? primaryRed : Colors.transparent,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(50),
                       boxShadow: isSelected
                           ? [
                               BoxShadow(
@@ -827,7 +825,6 @@ class _CustomDatePickerSheetState extends State<_CustomDatePickerSheet> {
               },
             ),
           ),
-          const SizedBox(height: 15),
           Text(
             "Selected Date",
             style: TextStyle(color: isDark ? Colors.white70 : Colors.grey),
@@ -839,7 +836,7 @@ class _CustomDatePickerSheetState extends State<_CustomDatePickerSheet> {
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
-            height: 55,
+            height: 50,
             child: ElevatedButton(
               onPressed: () {
                 widget.onDateSelected(_selectedDay);

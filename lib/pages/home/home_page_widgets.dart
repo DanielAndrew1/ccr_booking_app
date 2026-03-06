@@ -253,7 +253,7 @@ extension _HomePageWidgets on _HomePageState {
                   accent,
                   isDark,
                   mirrorIcon: true,
-                  route: BookingsPage(),
+                  route: const BookingsPage(showPfp: false),
                   dialogAction: () {
                     final range = _getTodayRange();
                     _showDetailsDialog(
@@ -277,7 +277,7 @@ extension _HomePageWidgets on _HomePageState {
                   AppIcons.returns,
                   accent,
                   isDark,
-                  route: BookingsPage(),
+                  route: const BookingsPage(showPfp: false),
                   dialogAction: () {
                     final range = _getTodayRange();
                     _showDetailsDialog(

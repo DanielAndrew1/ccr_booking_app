@@ -7,8 +7,7 @@ class CustomBgSvg extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDark = themeProvider.isDarkMode;
+    final isDark = context.isDarkMode;
     return Positioned(
       top: 0,
       right: 0,

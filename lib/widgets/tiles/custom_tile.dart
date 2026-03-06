@@ -26,8 +26,7 @@ class CustomTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDark = themeProvider.isDarkMode;
+    final isDark = context.isDarkMode;
     final bgColor = isDark
         ? Color(0xFF2D2D2D).withOpacity(0.6)
         : Colors.white.withOpacity(0.6);

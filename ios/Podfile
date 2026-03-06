@@ -4,6 +4,37 @@ platform :ios, '15.0'
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
+def normalize_shell_script_arrays!
+  pbxproj_path = File.expand_path('Runner.xcodeproj/project.pbxproj', __dir__)
+  return unless File.exist?(pbxproj_path)
+
+  source = File.read(pbxproj_path)
+  return unless source.include?('shellScript = (')
+
+  normalized = source.gsub(/shellScript = \(\n(.*?)\n\s*\);/m) do
+    raw_lines = Regexp.last_match(1).lines.map(&:strip).reject(&:empty?)
+    lines = raw_lines.map do |line|
+      line = line.sub(/,\s*\z/, '')
+      line = line[1..-2] if line.start_with?('"') && line.end_with?('"')
+      line
+    end
+
+    escaped_script = lines
+      .join("\\n")
+      .gsub('\\', '\\\\')
+      .gsub('"', '\"')
+
+    "shellScript = \"#{escaped_script}\\n\";"
+  end
+
+  return if normalized == source
+
+  File.write(pbxproj_path, normalized)
+  puts 'Normalized shellScript entries in Runner.xcodeproj/project.pbxproj'
+end
+
+normalize_shell_script_arrays!
+
 project 'Runner', {
   'Debug' => :debug,
   'Profile' => :release,

@@ -15,8 +15,7 @@ class CustomLoader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDark = themeProvider.isDarkMode;
+    final isDark = context.isDarkMode;
 
     // Determine the color: use the passed color if it exists,
     // otherwise fall back to the dark/light mode logic.

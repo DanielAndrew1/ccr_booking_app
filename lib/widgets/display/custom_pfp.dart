@@ -40,9 +40,12 @@ class CustomPfp extends StatelessWidget {
       }
     }
 
-    final imageUrl = imageUrlOverride ?? userProvider.currentUser?.avatarUrl;
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDark = themeProvider.isDarkMode;
+    final bool hasExplicitUserTarget =
+        nameOverride != null || imageUrlOverride != null;
+    final String? imageUrl = hasExplicitUserTarget
+        ? imageUrlOverride
+        : userProvider.currentUser?.avatarUrl;
+    final isDark = context.isDarkMode;
 
     return GestureDetector(
       onTap: disableTap
@@ -55,14 +58,7 @@ class CustomPfp extends StatelessWidget {
         width: dimentions,
         height: dimentions,
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: AlignmentGeometry.topLeft,
-            end: AlignmentGeometry.bottomRight,
-            colors: [
-              isDark ? AppColors.primary : AppColors.secondary,
-              isDark ? Color(0xFF794F07) : Color(0xFF0B0E20),
-            ],
-          ),
+          gradient: AppColors.pfpGradient(isDark),
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(

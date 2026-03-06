@@ -104,8 +104,7 @@ class _CustomNavbarState extends State<CustomNavbar> {
     final int selectedIndex = navProvider.selectedIndex;
     final bool isEditing = bookingProvider.editingBooking != null;
     final currentUser = userProvider.currentUser;
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDark = themeProvider.isDarkMode;
+    final isDark = context.isDarkMode;
     final bool canUseAddMenu =
         (currentUser?.role == 'Admin' || currentUser?.role == 'Owner') &&
         !isEditing;
@@ -134,7 +133,7 @@ class _CustomNavbarState extends State<CustomNavbar> {
         pageIndex: 0,
       ),
       _NavItemData(
-        imagePath: AppIcons.email,
+        imagePath: AppIcons.messages,
         label: loc.tr('Messages'),
         pageIndex: 1,
       ),
@@ -171,7 +170,6 @@ class _CustomNavbarState extends State<CustomNavbar> {
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      backgroundColor: AppColors.lightcolor,
       body: Stack(
         children: [
           Container(
@@ -405,7 +403,7 @@ class _CustomNavbarState extends State<CustomNavbar> {
                                       children: [
                                         iconWidget,
                                         Align(
-                                          alignment: const Alignment(0, -0.01),
+                                          alignment: const Alignment(0, -0.2),
                                           child: Container(
                                             constraints: BoxConstraints(
                                               minWidth: dayText.length > 1
@@ -429,8 +427,8 @@ class _CustomNavbarState extends State<CustomNavbar> {
                                               style: TextStyle(
                                                 color: badgeTextColor,
                                                 fontSize: dayText.length > 1
-                                                    ? 11
-                                                    : 12,
+                                                    ? 10
+                                                    : 11,
                                                 height: 1.0,
                                                 fontWeight: FontWeight.bold,
                                               ),
@@ -494,7 +492,7 @@ class _MenuEntry extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+    final isDark = context.isDarkMode;
     return InkWell(
       onTap: onTap,
       child: Padding(

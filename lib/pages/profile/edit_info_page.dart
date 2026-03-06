@@ -2,6 +2,7 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously
 
 import 'package:path/path.dart' as p;
+import 'package:image_cropper/image_cropper.dart';
 import 'package:ccr_booking/core/imports.dart';
 
 class EditInfoPage extends StatefulWidget {
@@ -31,7 +32,51 @@ class _EditInfoPageState extends State<EditInfoPage> {
     }
   }
 
-  Future<void> _pickAndUploadAvatar() async {
+  String? _extractStoragePathFromPublicUrl(String? publicUrl) {
+    if (publicUrl == null || publicUrl.isEmpty) return null;
+    const marker = '/storage/v1/object/public/profile-pics/';
+    final idx = publicUrl.indexOf(marker);
+    if (idx == -1) return null;
+    return Uri.decodeComponent(publicUrl.substring(idx + marker.length));
+  }
+
+  Future<CroppedFile?> _pickAndCropImage({required ImageSource source}) async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: source,
+      imageQuality: 95,
+      maxWidth: 2048,
+      maxHeight: 2048,
+    );
+    if (picked == null) return null;
+
+    return ImageCropper().cropImage(
+      sourcePath: picked.path,
+      compressFormat: ImageCompressFormat.jpg,
+      compressQuality: 92,
+      uiSettings: [
+        AndroidUiSettings(
+          cropStyle: CropStyle.circle,
+          toolbarTitle: 'Crop Image',
+          toolbarColor: AppColors.darkbg,
+          toolbarWidgetColor: Colors.white,
+          hideBottomControls: false,
+          lockAspectRatio: false,
+          initAspectRatio: CropAspectRatioPreset.original,
+        ),
+        IOSUiSettings(
+          cropStyle: CropStyle.circle,
+          title: 'Crop Image',
+          aspectRatioLockEnabled: false,
+          resetAspectRatioEnabled: true,
+          rotateButtonsHidden: false,
+          rotateClockwiseButtonHidden: false,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _pickAndUploadAvatar({required ImageSource source}) async {
     if (_uploadingImage) return;
     String? userId = Supabase.instance.client.auth.currentUser?.id;
     userId ??= Provider.of<UserProvider>(
@@ -43,30 +88,25 @@ class _EditInfoPageState extends State<EditInfoPage> {
       return;
     }
 
-    final picker = ImagePicker();
-    XFile? picked;
+    CroppedFile? cropped;
     try {
-      picked = await picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 70,
-        maxWidth: 1024,
-        maxHeight: 1024,
-      );
+      cropped = await _pickAndCropImage(source: source);
     } catch (e) {
       if (mounted) {
-        CustomSnackBar.show(context, "Image picker error: $e");
+        CustomSnackBar.show(context, "Image processing error: $e");
       }
       return;
     }
-    if (picked == null) return;
+    if (cropped == null) return;
 
     setState(() => _uploadingImage = true);
     try {
-      final ext = p.extension(picked.name).toLowerCase();
+      final oldPath = _extractStoragePathFromPublicUrl(_avatarUrl);
+      final ext = p.extension(cropped.path).toLowerCase();
       final fileName =
           "${DateTime.now().millisecondsSinceEpoch}${ext.isEmpty ? '.jpg' : ext}";
       final filePath = "$userId/$fileName";
-      final file = File(picked.path);
+      final file = File(cropped.path);
       try {
         await Supabase.instance.client.storage
             .from('profile-pics')
@@ -98,6 +138,14 @@ class _EditInfoPageState extends State<EditInfoPage> {
         return;
       }
 
+      if (oldPath != null && oldPath != filePath) {
+        try {
+          await Supabase.instance.client.storage.from('profile-pics').remove([
+            oldPath,
+          ]);
+        } catch (_) {}
+      }
+
       await _authService.updateUser(
         name: _nameController.text.trim(),
         email: _emailController.text.trim(),
@@ -123,6 +171,177 @@ class _EditInfoPageState extends State<EditInfoPage> {
     } finally {
       if (mounted) setState(() => _uploadingImage = false);
     }
+  }
+
+  Future<void> _removeAvatar() async {
+    if (_uploadingImage) return;
+    if (_avatarUrl == null || _avatarUrl!.isEmpty) return;
+
+    setState(() => _uploadingImage = true);
+    try {
+      final oldPath = _extractStoragePathFromPublicUrl(_avatarUrl);
+      if (oldPath != null) {
+        try {
+          await Supabase.instance.client.storage.from('profile-pics').remove([
+            oldPath,
+          ]);
+        } catch (_) {}
+      }
+
+      await _authService.updateUser(
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim().isEmpty
+            ? null
+            : _passwordController.text.trim(),
+        avatarUrl: '',
+      );
+
+      await Provider.of<UserProvider>(context, listen: false).refreshUser();
+
+      if (!mounted) return;
+      setState(() => _avatarUrl = null);
+      CustomSnackBar.show(
+        context,
+        "Profile photo removed",
+        color: AppColors.green,
+      );
+    } catch (e) {
+      if (mounted) {
+        CustomSnackBar.show(context, "Failed to remove photo: $e");
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingImage = false);
+    }
+  }
+
+  Widget _buildImageSourceOption({
+    required bool isDark,
+    Color? color,
+    required String imgPath,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Container(
+          height: 132,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: color ?? (isDark ? Colors.white12 : Colors.black12),
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(height: 2),
+              IconHandler.buildIcon(
+                size: 35,
+                color: color ?? (isDark ? Colors.white : Colors.black),
+                imagePath: imgPath,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color ?? (isDark ? Colors.white : Colors.black),
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showAvatarOptionsSheet() async {
+    if (_uploadingImage) return;
+    final hasAvatar = _avatarUrl != null && _avatarUrl!.isNotEmpty;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: false,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        final isDark = sheetContext.isDarkMode;
+        final sheetColor = isDark ? AppColors.darkbg : Colors.white;
+        final textColor = isDark ? Colors.white : Colors.black87;
+
+        return ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+          child: Container(
+            width: double.infinity,
+            color: sheetColor,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 30),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 48,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white24 : Colors.black12,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Select Image Source',
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      _buildImageSourceOption(
+                        isDark: isDark,
+                        imgPath: AppIcons.camera,
+                        label: 'Camera',
+                        onTap: () {
+                          Navigator.pop(sheetContext);
+                          _pickAndUploadAvatar(source: ImageSource.camera);
+                        },
+                      ),
+                      const SizedBox(width: 16),
+                      _buildImageSourceOption(
+                        isDark: isDark,
+                        imgPath: AppIcons.photo,
+                        label: 'Photos',
+                        onTap: () {
+                          Navigator.pop(sheetContext);
+                          _pickAndUploadAvatar(source: ImageSource.gallery);
+                        },
+                      ),
+                      if (hasAvatar) const SizedBox(width: 16),
+                      if (hasAvatar)
+                        _buildImageSourceOption(
+                          isDark: isDark,
+                          imgPath: AppIcons.trash,
+                          label: 'Remove',
+                          color: AppColors.red,
+                          onTap: () {
+                            Navigator.pop(sheetContext);
+                            _removeAvatar();
+                          },
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _saveChanges() async {
@@ -164,7 +383,7 @@ class _EditInfoPageState extends State<EditInfoPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+    final isDark = context.isDarkMode;
 
     return Container(
       // This ensures the background color matches the theme under the SVG
@@ -194,12 +413,50 @@ class _EditInfoPageState extends State<EditInfoPage> {
                         tag: 'profile_image',
                         child: Material(
                           type: MaterialType.transparency,
-                          child: CustomPfp(
-                            dimentions: 120,
-                            fontSize: 50,
-                            nameOverride: _nameController.text,
-                            imageUrlOverride: _avatarUrl,
-                            onTapOverride: _pickAndUploadAvatar,
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              CustomPfp(
+                                dimentions: 140,
+                                fontSize: 60,
+                                nameOverride: _nameController.text,
+                                imageUrlOverride: _avatarUrl,
+                                onTapOverride: _showAvatarOptionsSheet,
+                              ),
+                              Positioned(
+                                right: -4,
+                                bottom: -2,
+                                child: GestureDetector(
+                                  onTap: _showAvatarOptionsSheet,
+                                  child: Container(
+                                    width: 44,
+                                    height: 44,
+                                    decoration: BoxDecoration(
+                                      gradient: AppColors.pfpGradient(isDark),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: isDark
+                                            ? const Color(0xFF2B2F37)
+                                            : Colors.white,
+                                        width: 2.5,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.25),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 3),
+                                        ),
+                                      ],
+                                    ),
+                                    child: const Icon(
+                                      Icons.edit_rounded,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       );

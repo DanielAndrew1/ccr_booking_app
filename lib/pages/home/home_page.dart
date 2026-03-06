@@ -511,8 +511,7 @@ class _HomePageState extends State<HomePage>
     super.build(context);
     final userProvider = Provider.of<UserProvider>(context);
     final currentUser = userProvider.currentUser;
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDark = themeProvider.isDarkMode;
+    final isDark = context.isDarkMode;
 
     if (currentUser == null) {
       return const Scaffold(body: Center(child: CustomLoader()));

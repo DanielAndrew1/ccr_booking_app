@@ -18,21 +18,29 @@ class UserProvider extends ChangeNotifier {
 
   Future<void> loadUser() async {
     final sessionUser = _supabase.auth.currentUser;
-    if (sessionUser != null) {
+    if (sessionUser == null) return;
+
+    try {
       final data = await _authService.getHomeUsersData();
       if (data != null) {
         currentUser = data.currentUser;
         notifyListeners();
       }
+    } catch (e) {
+      debugPrint("Load user error: $e");
     }
   }
 
   Future<void> refreshUser() async {
     if (currentUser == null) return;
-    final updatedData = await _authService.getHomeUsersData();
-    if (updatedData != null) {
-      currentUser = updatedData.currentUser;
-      notifyListeners();
+    try {
+      final updatedData = await _authService.getHomeUsersData();
+      if (updatedData != null) {
+        currentUser = updatedData.currentUser;
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint("Refresh user error: $e");
     }
   }
 

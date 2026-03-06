@@ -7,8 +7,7 @@ class AboutPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDark = themeProvider.isDarkMode;
+    final isDark = context.isDarkMode;
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
       extendBodyBehindAppBar: true,
@@ -100,26 +99,27 @@ class AboutPage extends StatelessWidget {
                   const SizedBox(height: 12),
                   _buildFeatureItem(
                     context,
-                    Icons.check_circle_outline,
                     "Real-time Booking Tracking",
                     isDark,
                   ),
                   _buildFeatureItem(
                     context,
-                    Icons.check_circle_outline,
                     "Inventory & Product Management",
                     isDark,
                   ),
                   _buildFeatureItem(
                     context,
-                    Icons.check_circle_outline,
                     "Automated Revenue Analytics",
                     isDark,
                   ),
                   _buildFeatureItem(
                     context,
-                    Icons.check_circle_outline,
                     "Role-based Access Control",
+                    isDark,
+                  ),
+                  _buildFeatureItem(
+                    context,
+                    "Messages for improved communication",
                     isDark,
                   ),
 
@@ -203,7 +203,6 @@ class AboutPage extends StatelessWidget {
 
   Widget _buildFeatureItem(
     BuildContext context,
-    IconData icon,
     String text,
     bool isDark,
   ) {

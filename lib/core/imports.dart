@@ -22,6 +22,7 @@ export 'package:ccr_booking/core/app_theme.dart';
 export 'package:ccr_booking/core/app_version_plus.dart';
 export 'package:ccr_booking/core/root.dart';
 export 'package:ccr_booking/core/theme.dart';
+export 'package:ccr_booking/core/theme_context.dart';
 export 'package:ccr_booking/core/user_provider.dart';
 export 'package:ccr_booking/localization/app_localizations.dart';
 export 'package:ccr_booking/localization/locale_provider.dart';
@@ -32,6 +33,7 @@ export 'package:ccr_booking/providers/booking_provider.dart';
 export 'package:ccr_booking/providers/navbar_provider.dart';
 
 // Models
+export 'package:ccr_booking/models/message_model.dart';
 export 'package:ccr_booking/models/user_model.dart';
 
 // Services
@@ -42,6 +44,9 @@ export 'package:ccr_booking/services/notification_service.dart';
 // Pages - Authentication
 export 'package:ccr_booking/pages/auth/login_page.dart';
 export 'package:ccr_booking/pages/auth/register_page.dart';
+
+// Pages - Splash
+export 'package:ccr_booking/pages/splash/splash_screen.dart';
 
 // Pages - Home/Main
 export 'package:ccr_booking/pages/bookings/bookings_page.dart';
@@ -56,10 +61,16 @@ export 'package:ccr_booking/pages/system/no_internet_page.dart';
 export 'package:ccr_booking/pages/users/clients_page.dart';
 export 'package:ccr_booking/pages/users/employees_page.dart';
 
+// Pages - Messages
+export 'package:ccr_booking/pages/messages/message_thread_page.dart';
+
 // Pages - Profile
 export 'package:ccr_booking/pages/profile/about_page.dart';
 export 'package:ccr_booking/pages/profile/edit_info_page.dart';
 export 'package:ccr_booking/pages/profile/settings_page.dart';
+
+// Pages - Icon handler
+export 'package:ccr_booking/widgets/icon_handler/icon_handler.dart';
 
 // Pages - Add/Create
 export 'package:ccr_booking/pages/add/add_booking.dart';

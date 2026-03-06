@@ -104,7 +104,7 @@ class _ClientsPageState extends State<ClientsPage> {
     showDialog(
       context: context,
       builder: (dialogContext) {
-        final isDark = Provider.of<ThemeProvider>(dialogContext).isDarkMode;
+        final isDark = dialogContext.isDarkMode;
         return Dialog(
           backgroundColor: Colors.transparent,
           insetPadding: const EdgeInsets.symmetric(horizontal: 20),
@@ -211,8 +211,7 @@ class _ClientsPageState extends State<ClientsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDark = themeProvider.isDarkMode;
+    final isDark = context.isDarkMode;
     final userProvider = Provider.of<UserProvider>(context);
     final bookingProvider = Provider.of<BookingProvider>(context);
 

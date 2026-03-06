@@ -80,7 +80,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final localeProvider = Provider.of<LocaleProvider>(context);
     final loc = AppLocalizations.of(context);
-    final isDark = themeProvider.isDarkMode;
+    final isDark = context.isDarkMode;
 
     return Container(
       color: isDark ? AppColors.darkbg : AppColors.lightcolor,

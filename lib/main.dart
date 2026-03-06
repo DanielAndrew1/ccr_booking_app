@@ -7,41 +7,6 @@ import 'package:google_fonts/google_fonts.dart';
 // 1. Define a Global Key for the Navigator
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-class IconHandler {
-  static Widget buildIcon({
-    String? imagePath,
-    IconData? icon,
-    required Color color,
-    double size = 24,
-    bool isAdd = false,
-  }) {
-    if (imagePath != null && imagePath.isNotEmpty) {
-      if (imagePath.toLowerCase().contains('.svg')) {
-        return SvgPicture.asset(
-          imagePath,
-          width: size,
-          height: size,
-          colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
-          // THIS PREVENTS THE CRASH:
-          placeholderBuilder: (context) =>
-              Icon(icon ?? Icons.broken_image, color: color, size: size),
-        );
-      } else {
-        return Image.asset(
-          imagePath,
-          width: size,
-          height: size,
-          color: color,
-          // FALLBACK FOR REGULAR IMAGES:
-          errorBuilder: (context, error, stackTrace) =>
-              Icon(icon ?? Icons.broken_image, color: color, size: size),
-        );
-      }
-    }
-    return Icon(icon ?? Icons.help_outline, color: color, size: size);
-  }
-}
-
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
@@ -92,6 +57,7 @@ class _MyAppState extends State<MyApp> with TickerProviderStateMixin {
   OverlayEntry? _networkOverlayEntry;
   bool _isShowingError = false;
   RealtimeChannel? _realtimeChannel;
+  RealtimeChannel? _messagesRealtimeChannel;
 
   late AnimationController _slideController;
 
@@ -145,9 +111,7 @@ class _MyAppState extends State<MyApp> with TickerProviderStateMixin {
     if (context == null) return;
 
     final supabase = Supabase.instance.client;
-    if (_realtimeChannel != null) return;
-
-    _realtimeChannel = supabase
+    _realtimeChannel ??= supabase
         .channel('public:bookings')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
@@ -183,6 +147,65 @@ class _MyAppState extends State<MyApp> with TickerProviderStateMixin {
           },
         )
         .subscribe();
+
+    final currentUserId = supabase.auth.currentUser?.id;
+    if (currentUserId != null) {
+      _messagesRealtimeChannel ??= supabase
+          .channel('public:messages:$currentUserId')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.insert,
+            schema: 'public',
+            table: 'messages',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'receiver_id',
+              value: currentUserId,
+            ),
+            callback: (payload) async {
+              await _showIncomingMessageNotification(payload.newRecord);
+            },
+          )
+          .subscribe();
+    }
+  }
+
+  Future<void> _showIncomingMessageNotification(
+    Map<String, dynamic> newRecord,
+  ) async {
+    if (!(await NotificationService.isEnabled())) return;
+
+    final supabase = Supabase.instance.client;
+    final senderId = newRecord['sender_id']?.toString() ?? '';
+    final rawBody = newRecord['body']?.toString() ?? '';
+
+    String title = 'New message';
+    if (senderId.isNotEmpty) {
+      try {
+        final sender = await supabase
+            .from('users')
+            .select('name')
+            .eq('id', senderId)
+            .maybeSingle();
+        if (sender != null && sender['name'] != null) {
+          title = sender['name'].toString();
+        }
+      } catch (_) {}
+    }
+
+    String body;
+    if (rawBody.startsWith('__img__::')) {
+      body = 'sent a photo';
+    } else if (rawBody.trim().isEmpty) {
+      body = 'sent a message';
+    } else {
+      body = rawBody;
+    }
+
+    NotificationService().showNotification(
+      id: DateTime.now().millisecondsSinceEpoch % 1000000,
+      title: title,
+      body: body,
+    );
   }
 
   void _stopSupabaseListener() {
@@ -190,6 +213,17 @@ class _MyAppState extends State<MyApp> with TickerProviderStateMixin {
       Supabase.instance.client.removeChannel(_realtimeChannel!);
       _realtimeChannel = null;
     }
+    if (_messagesRealtimeChannel != null) {
+      Supabase.instance.client.removeChannel(_messagesRealtimeChannel!);
+      _messagesRealtimeChannel = null;
+    }
+  }
+
+  double _responsiveTextScale(MediaQueryData mediaQuery) {
+    final shortestSide = mediaQuery.size.shortestSide;
+    final screenScale = (shortestSide / 390).clamp(1.0, 1.2);
+    final systemScale = mediaQuery.textScaler.scale(1.0);
+    return (systemScale * screenScale).clamp(systemScale, 1.35);
   }
 
   Future<void> _initConnectivity() async {
@@ -283,6 +317,16 @@ class _MyAppState extends State<MyApp> with TickerProviderStateMixin {
         navigatorKey: navigatorKey, // 2. Pass the key here
         debugShowCheckedModeBanner: false,
         home: const MainStackHandler(),
+        builder: (context, child) {
+          if (child == null) return const SizedBox.shrink();
+          final mediaQuery = MediaQuery.of(context);
+          return MediaQuery(
+            data: mediaQuery.copyWith(
+              textScaler: TextScaler.linear(_responsiveTextScale(mediaQuery)),
+            ),
+            child: child,
+          );
+        },
         locale: localeProvider.locale,
         supportedLocales: AppLocalizations.supportedLocales,
         localizationsDelegates: const [
@@ -360,98 +404,6 @@ class _MainStackHandlerState extends State<MainStackHandler> {
             ),
         ],
       ),
-    );
-  }
-}
-
-class SplashOverlay extends StatefulWidget {
-  final VoidCallback onAnimationComplete;
-  const SplashOverlay({super.key, required this.onAnimationComplete});
-
-  @override
-  State<SplashOverlay> createState() => _SplashOverlayState();
-}
-
-class _SplashOverlayState extends State<SplashOverlay>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _cropAnimation;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _opacityAnimation;
-  bool _isDataReady = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    );
-    _cropAnimation = Tween<double>(begin: 1.0, end: 0.45).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeInOut),
-      ),
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 2.5).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.5, 1.0, curve: Curves.easeOut),
-      ),
-    );
-    _opacityAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.6, 1.0, curve: Curves.linear),
-      ),
-    );
-    _startSequence();
-  }
-
-  Future<void> _startSequence() async {
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    await Future.wait([
-      userProvider.loadUser(),
-      Future.delayed(const Duration(seconds: 1)),
-    ]);
-    if (mounted) {
-      setState(() => _isDataReady = true);
-      await _controller.forward();
-      widget.onAnimationComplete();
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return Opacity(
-          opacity: _isDataReady ? _opacityAnimation.value : 1.0,
-          child: Container(
-            color: isDark ? AppColors.darkbg : AppColors.lightcolor,
-            child: Center(
-              child: Transform.scale(
-                scale: _isDataReady ? _scaleAnimation.value : 1.0,
-                child: ClipRect(
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    widthFactor: _isDataReady ? _cropAnimation.value : 1.0,
-                    child: Image.asset(AppImages.logo, width: 400),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 }
