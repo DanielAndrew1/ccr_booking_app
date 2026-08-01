@@ -1,6 +1,8 @@
 // ignore_for_file: use_build_context_synchronously, deprecated_member_use
 
 import 'package:ccr_booking/core/imports.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:intl/intl.dart';
 
 class MessagesPage extends StatefulWidget {
@@ -13,18 +15,25 @@ class MessagesPage extends StatefulWidget {
 class _MessagesPageState extends State<MessagesPage> {
   final SupabaseClient _supabase = Supabase.instance.client;
   RealtimeChannel? _messagesChannel;
+  RealtimeChannel? _typingChannel;
   Timer? _refreshDebounce;
   final TextEditingController _searchController = TextEditingController();
   static const String _imagePrefix = '__img__::';
+  static const String _voicePrefix = '__voice__::';
   static final Map<String, List<Map<String, dynamic>>> _threadsCacheByUser = {};
 
   String? _currentUserId;
   bool _isLoading = true;
   bool _didInitialLoad = false;
   bool _showSearch = false;
+  bool _showArchived = false;
   String _searchQuery = '';
   List<Map<String, dynamic>> _threads = [];
   List<Map<String, dynamic>> _allUsers = [];
+
+  // otherUserId -> is currently typing to me
+  final Map<String, bool> _typingUsers = {};
+  final Map<String, Timer> _typingTimers = {};
 
   @override
   void initState() {
@@ -50,6 +59,7 @@ class _MessagesPageState extends State<MessagesPage> {
       _loadThreads(showLoader: true);
     }
     _subscribeRealtime();
+    _subscribeTyping();
   }
 
   List<Map<String, dynamic>> _cloneThreads(List<Map<String, dynamic>> source) {
@@ -100,6 +110,56 @@ class _MessagesPageState extends State<MessagesPage> {
           ),
           callback: (_) => _scheduleThreadsRefresh(),
         )
+        // read receipts: refresh when messages I sent get marked read
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'messages',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'sender_id',
+            value: userId,
+          ),
+          callback: (_) => _scheduleThreadsRefresh(),
+        )
+        .subscribe();
+  }
+
+  /// Listens for typing broadcasts. The thread/chat page should broadcast on
+  /// the SAME channel name ('typing-status') like this whenever the input
+  /// text changes:
+  ///
+  /// Supabase.instance.client.channel('typing-status').sendBroadcastMessage(
+  ///   event: 'typing',
+  ///   payload: {'from': myUserId, 'to': otherUserId, 'isTyping': true/false},
+  /// );
+  ///
+  /// Send isTyping:true on text change (debounced) and isTyping:false after
+  /// ~2s of no typing or when the field is cleared/message sent.
+  void _subscribeTyping() {
+    final userId = _currentUserId;
+    if (userId == null) return;
+
+    _typingChannel = _supabase
+        .channel('typing-status')
+        .onBroadcast(
+          event: 'typing',
+          callback: (payload) {
+            final from = payload['from']?.toString();
+            final to = payload['to']?.toString();
+            final isTyping = payload['isTyping'] == true;
+            if (from == null || to != userId) return;
+
+            _typingTimers[from]?.cancel();
+            if (mounted) setState(() => _typingUsers[from] = isTyping);
+
+            if (isTyping) {
+              _typingTimers[from] = Timer(const Duration(seconds: 5), () {
+                if (mounted) setState(() => _typingUsers[from] = false);
+              });
+            }
+          },
+        )
         .subscribe();
   }
 
@@ -123,13 +183,23 @@ class _MessagesPageState extends State<MessagesPage> {
           .or('sender_id.eq.$userId,receiver_id.eq.$userId')
           .order('created_at', ascending: false);
 
+      final prefsResponse = await _supabase
+          .from('chat_preferences')
+          .select('other_user_id,pinned,archived,muted')
+          .eq('user_id', userId);
+
       final users = List<Map<String, dynamic>>.from(usersResponse as List);
       final messages = List<Map<String, dynamic>>.from(
         messagesResponse as List,
       );
+      final prefs = List<Map<String, dynamic>>.from(prefsResponse as List);
 
       final Map<String, Map<String, dynamic>> userById = {
         for (final u in users) (u['id'] ?? '').toString(): u,
+      };
+
+      final Map<String, Map<String, dynamic>> prefsByUser = {
+        for (final p in prefs) (p['other_user_id'] ?? '').toString(): p,
       };
 
       final Map<String, Map<String, dynamic>> threadByOtherUser = {};
@@ -150,6 +220,8 @@ class _MessagesPageState extends State<MessagesPage> {
             'user': userById[otherUserId]!,
             'last_message': (m['body'] ?? '').toString(),
             'last_at': DateTime.tryParse((m['created_at'] ?? '').toString()),
+            'last_sender_id': senderId,
+            'last_read': m['read_at'] != null,
           };
         });
       }
@@ -157,7 +229,13 @@ class _MessagesPageState extends State<MessagesPage> {
       for (final user in users) {
         final id = (user['id'] ?? '').toString();
         threadByOtherUser.putIfAbsent(id, () {
-          return {'user': user, 'last_message': '', 'last_at': null};
+          return {
+            'user': user,
+            'last_message': '',
+            'last_at': null,
+            'last_sender_id': null,
+            'last_read': false,
+          };
         });
       }
 
@@ -165,10 +243,18 @@ class _MessagesPageState extends State<MessagesPage> {
         final row = Map<String, dynamic>.from(entry.value);
         row['other_user_id'] = entry.key;
         row['unread_count'] = unreadBySender[entry.key] ?? 0;
+        final pref = prefsByUser[entry.key];
+        row['pinned'] = pref?['pinned'] == true;
+        row['archived'] = pref?['archived'] == true;
+        row['muted'] = pref?['muted'] == true;
         return row;
       }).toList();
 
       threads.sort((a, b) {
+        final aPinned = a['pinned'] == true;
+        final bPinned = b['pinned'] == true;
+        if (aPinned != bPinned) return aPinned ? -1 : 1;
+
         final aDate = a['last_at'] as DateTime?;
         final bDate = b['last_at'] as DateTime?;
         if (aDate == null && bDate == null) {
@@ -204,6 +290,140 @@ class _MessagesPageState extends State<MessagesPage> {
     }
   }
 
+  Future<void> _updateChatPref(
+    String otherUserId, {
+    bool? pinned,
+    bool? archived,
+    bool? muted,
+  }) async {
+    final userId = _currentUserId;
+    if (userId == null) return;
+
+    final thread = _threads.firstWhere(
+      (t) => t['other_user_id'] == otherUserId,
+      orElse: () => {},
+    );
+    if (thread.isEmpty) return;
+
+    final newPinned = pinned ?? (thread['pinned'] == true);
+    final newArchived = archived ?? (thread['archived'] == true);
+    final newMuted = muted ?? (thread['muted'] == true);
+
+    setState(() {
+      thread['pinned'] = newPinned;
+      thread['archived'] = newArchived;
+      thread['muted'] = newMuted;
+      _threads.sort((a, b) {
+        final aPinned = a['pinned'] == true;
+        final bPinned = b['pinned'] == true;
+        if (aPinned != bPinned) return aPinned ? -1 : 1;
+        final aDate = a['last_at'] as DateTime?;
+        final bDate = b['last_at'] as DateTime?;
+        if (aDate == null && bDate == null) return 0;
+        if (aDate == null) return 1;
+        if (bDate == null) return -1;
+        return bDate.compareTo(aDate);
+      });
+      _threadsCacheByUser[userId] = _cloneThreads(_threads);
+    });
+
+    try {
+      await _supabase.from('chat_preferences').upsert(
+        {
+          'user_id': userId,
+          'other_user_id': otherUserId,
+          'pinned': newPinned,
+          'archived': newArchived,
+          'muted': newMuted,
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        onConflict: 'user_id,other_user_id',
+      );
+    } catch (e) {
+      if (mounted) {
+        CustomSnackBar.show(context, 'Failed to update chat: $e');
+      }
+    }
+  }
+
+  void _showChatOptions(Map<String, dynamic> thread) {
+    final isDark = context.isDarkMode;
+    final otherUserId = (thread['other_user_id'] ?? '').toString();
+    final pinned = thread['pinned'] == true;
+    final archived = thread['archived'] == true;
+    final muted = thread['muted'] == true;
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 44,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.black12,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+              ListTile(
+                leading: Icon(
+                  pinned ? Icons.push_pin : Icons.push_pin_outlined,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+                title: Text(
+                  pinned ? 'Unpin chat' : 'Pin chat',
+                  style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                ),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _updateChatPref(otherUserId, pinned: !pinned);
+                },
+              ),
+              ListTile(
+                leading: Icon(
+                  muted ? Icons.notifications_off : Icons.notifications_off_outlined,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+                title: Text(
+                  muted ? 'Unmute notifications' : 'Mute notifications',
+                  style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                ),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _updateChatPref(otherUserId, muted: !muted);
+                },
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.archive_outlined,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+                title: Text(
+                  archived ? 'Unarchive chat' : 'Archive chat',
+                  style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                ),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _updateChatPref(otherUserId, archived: !archived);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   String _formatDateTime(DateTime? dateTime) {
     if (dateTime == null) return '';
     final now = DateTime.now();
@@ -217,22 +437,27 @@ class _MessagesPageState extends State<MessagesPage> {
   }
 
   bool _isImageMessage(String text) => text.startsWith(_imagePrefix);
+  bool _isVoiceMessage(String text) => text.startsWith(_voicePrefix);
 
   String _previewText(String text) {
     if (text.isEmpty) return '';
     if (_isImageMessage(text)) return '[Image]';
+    if (_isVoiceMessage(text)) return '[Voice message]';
     return text;
   }
 
   List<Map<String, dynamic>> get _visibleThreads {
     final query = _searchQuery.trim().toLowerCase();
-    if (query.isEmpty) return _threads;
-    return _threads.where((thread) {
+    final base = _threads.where((t) => (t['archived'] == true) == _showArchived);
+    if (query.isEmpty) return base.toList();
+    return base.where((thread) {
       final user = Map<String, dynamic>.from(thread['user'] as Map);
       final userName = (user['name'] ?? '').toString().toLowerCase();
       return userName.contains(query);
     }).toList();
   }
+
+  int get _archivedCount => _threads.where((t) => t['archived'] == true).length;
 
   void _toggleSearch() {
     setState(() {
@@ -509,20 +734,85 @@ class _MessagesPageState extends State<MessagesPage> {
     if (_messagesChannel != null) {
       _supabase.removeChannel(_messagesChannel!);
     }
+    if (_typingChannel != null) {
+      _supabase.removeChannel(_typingChannel!);
+    }
+    for (final timer in _typingTimers.values) {
+      timer.cancel();
+    }
     _refreshDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
+  Widget _buildReadReceipt(Map<String, dynamic> thread, bool isDark) {
+    if (thread['last_sender_id'] != _currentUserId) return const SizedBox.shrink();
+    final read = thread['last_read'] == true;
+    return Padding(
+      padding: const EdgeInsets.only(right: 3),
+      child: Icon(
+        read ? Icons.done_all_rounded : Icons.done_all_rounded,
+        size: 15,
+        color: read
+            ? (isDark ? AppColors.primary : AppColors.secondary)
+            : (isDark ? Colors.white38 : Colors.black38),
+      ),
+    );
+  }
+
   Widget _buildChatRow(Map<String, dynamic> thread, bool isDark) {
     final user = Map<String, dynamic>.from(thread['user'] as Map);
     final userName = (user['name'] ?? 'Unknown').toString();
+    final otherUserId = (thread['other_user_id'] ?? '').toString();
     final unreadCount = (thread['unread_count'] ?? 0) as int;
     final lastMessage = (thread['last_message'] ?? '').toString();
     final dateLabel = _formatDateTime(thread['last_at'] as DateTime?);
-    // final msgExists = lastMessage.isNotEmpty;
+    final muted = thread['muted'] == true;
+    final pinned = thread['pinned'] == true;
+    final isTyping = _typingUsers[otherUserId] == true;
 
-    return GestureDetector(
+    return Slidable(
+      key: ValueKey(otherUserId),
+      startActionPane: ActionPane(
+        motion: const DrawerMotion(),
+        extentRatio: 0.25,
+        children: [
+          SlidableAction(
+            onPressed: (_) => _updateChatPref(
+              otherUserId,
+              archived: !(thread['archived'] == true),
+            ),
+            backgroundColor: const Color(0xFF6B8E9C),
+            foregroundColor: Colors.white,
+            icon: Icons.archive_outlined,
+            label: thread['archived'] == true ? 'Unarchive' : 'Archive',
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ],
+      ),
+      endActionPane: ActionPane(
+        motion: const DrawerMotion(),
+        extentRatio: 0.5,
+        children: [
+          SlidableAction(
+            onPressed: (_) => _updateChatPref(otherUserId, pinned: !pinned),
+            backgroundColor: const Color(0xFFDDA15E),
+            foregroundColor: Colors.white,
+            icon: pinned ? Icons.push_pin : Icons.push_pin_outlined,
+            label: pinned ? 'Unpin' : 'Pin',
+            borderRadius: BorderRadius.circular(14),
+          ),
+          SlidableAction(
+            onPressed: (_) => _updateChatPref(otherUserId, muted: !muted),
+            backgroundColor: const Color(0xFF6C757D),
+            foregroundColor: Colors.white,
+            icon: muted ? Icons.notifications_off : Icons.notifications_off_outlined,
+            label: muted ? 'Unmute' : 'Mute',
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ],
+      ),
+      child: GestureDetector(
       onTap: () async {
         setState(() {
           thread['unread_count'] = 0;
@@ -541,6 +831,7 @@ class _MessagesPageState extends State<MessagesPage> {
           ),
         );
       },
+      onLongPress: () => _showChatOptions(thread),
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -563,27 +854,71 @@ class _MessagesPageState extends State<MessagesPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    userName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: isDark ? Colors.white : Colors.black87,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          userName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: isDark ? Colors.white : Colors.black87,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      if (pinned) ...[
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.push_pin,
+                          size: 13,
+                          color: isDark ? Colors.white38 : Colors.black38,
+                        ),
+                      ],
+                      if (muted) ...[
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.notifications_off,
+                          size: 13,
+                          color: isDark ? Colors.white38 : Colors.black38,
+                        ),
+                      ],
+                    ],
                   ),
-                  if (lastMessage.isNotEmpty) ...[
+                  if (isTyping)
                     Text(
-                      _previewText(lastMessage),
+                      'typing...',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: isDark ? Colors.white60 : Colors.black54,
+                        color: AppColors.primary,
                         fontSize: 13.5,
+                        fontStyle: FontStyle.italic,
                       ),
+                    )
+                  else if (lastMessage.isNotEmpty)
+                    Row(
+                      children: [
+                        _buildReadReceipt(thread, isDark),
+                        Flexible(
+                          child: Text(
+                            _previewText(lastMessage),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: unreadCount > 0
+                                  ? (isDark ? Colors.white : Colors.black87)
+                                  : (isDark ? Colors.white60 : Colors.black54),
+                              fontSize: 13.5,
+                              fontWeight: unreadCount > 0
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
                 ],
               ),
             ),
@@ -607,7 +942,9 @@ class _MessagesPageState extends State<MessagesPage> {
                       vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.primary,
+                      color: muted
+                          ? (isDark ? Colors.white24 : Colors.black26)
+                          : AppColors.primary,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -624,6 +961,41 @@ class _MessagesPageState extends State<MessagesPage> {
           ],
         ),
       ),
+      ),
+    );
+  }
+
+  Widget _buildArchivedBanner(bool isDark) {
+    return InkWell(
+      onTap: () => setState(() => _showArchived = true),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: isDark ? Color(0xFF2D2D2D).withOpacity(0.6)
+              : Color(0xFFD0C9C9).withOpacity(0.6),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.archive_outlined, color: isDark ? Colors.white70 : Colors.black54),
+            const SizedBox(width: 10),
+            Text(
+              'Archived',
+              style: TextStyle(
+                color: isDark ? Colors.white : Colors.black87,
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              '$_archivedCount',
+              style: TextStyle(color: isDark ? Colors.white54 : Colors.black45),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -635,17 +1007,18 @@ class _MessagesPageState extends State<MessagesPage> {
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkbg : AppColors.lightcolor,
       appBar: CustomAppBar(
-        text: 'Messages',
-        showPfp: true,
+        text: _showArchived ? 'Archived' : 'Messages',
+        showPfp: !_showArchived,
         actions: [
           IconButton(
             onPressed: _toggleSearch,
             icon: IconHandler.buildIcon(imagePath: AppIcons.search),
           ),
-          IconButton(
-            onPressed: _showCreateGroupSheet,
-            icon: IconHandler.buildIcon(imagePath: AppIcons.add),
-          ),
+          if (!_showArchived)
+            IconButton(
+              onPressed: _showCreateGroupSheet,
+              icon: IconHandler.buildIcon(imagePath: AppIcons.add),
+            ),
         ],
       ),
       body: Stack(
@@ -696,38 +1069,74 @@ class _MessagesPageState extends State<MessagesPage> {
                 secondChild: const SizedBox.shrink(),
               ),
               Expanded(
-                child: RefreshIndicator(
-                  onRefresh: () => _loadThreads(),
-                  color: AppColors.primary,
-                  child: _isLoading && _threads.isEmpty
-                      ? const Center(child: CustomLoader())
-                      : visibleThreads.isEmpty
-                      ? ListView(
-                          children: [
-                            const SizedBox(height: 220),
-                            Center(
-                              child: Text(
-                                _searchQuery.isNotEmpty
-                                    ? 'No users match your search'
-                                    : 'No users available',
-                                style: TextStyle(
-                                  color: isDark
-                                      ? Colors.white70
-                                      : Colors.black54,
-                                ),
-                              ),
+                child: CustomScrollView(
+                  physics: const BouncingScrollPhysics(
+                    parent: AlwaysScrollableScrollPhysics(),
+                  ),
+                  slivers: [
+                    CupertinoSliverRefreshControl(
+                      onRefresh: () => _loadThreads(),
+                      builder:
+                          (
+                            context,
+                            refreshState,
+                            pulledExtent,
+                            refreshTriggerPullDistance,
+                            refreshIndicatorExtent,
+                          ) => const Center(
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(vertical: 16),
+                              child: CustomLoader(size: 24),
                             ),
-                          ],
-                        )
-                      : ListView.builder(
-                          physics: const AlwaysScrollableScrollPhysics(
-                            parent: BouncingScrollPhysics(),
                           ),
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
-                          itemCount: visibleThreads.length,
-                          itemBuilder: (_, i) =>
-                              _buildChatRow(visibleThreads[i], isDark),
+                    ),
+                    if (_isLoading && _threads.isEmpty)
+                      const SliverFillRemaining(
+                        child: Center(child: CustomLoader()),
+                      )
+                    else if (visibleThreads.isEmpty && !(_archivedCount > 0 && !_showArchived))
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(
+                          child: Text(
+                            _searchQuery.isNotEmpty
+                                ? 'No users match your search'
+                                : (_showArchived ? 'No archived chats' : 'No users available'),
+                            style: TextStyle(
+                              color: isDark ? Colors.white70 : Colors.black54,
+                            ),
+                          ),
                         ),
+                      )
+                    else
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+                        sliver: SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) {
+                              if (!_showArchived &&
+                                  _archivedCount > 0 &&
+                                  _searchQuery.isEmpty &&
+                                  index == 0) {
+                                return _buildArchivedBanner(isDark);
+                              }
+                              final offset =
+                                  (!_showArchived && _archivedCount > 0 && _searchQuery.isEmpty)
+                                      ? 1
+                                      : 0;
+                              return _buildChatRow(
+                                visibleThreads[index - offset],
+                                isDark,
+                              );
+                            },
+                            childCount: visibleThreads.length +
+                                ((!_showArchived && _archivedCount > 0 && _searchQuery.isEmpty)
+                                    ? 1
+                                    : 0),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ],

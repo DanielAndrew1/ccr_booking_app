@@ -135,7 +135,7 @@ class _AddBookingState extends State<AddBooking> {
           .map((p) => p['name'].toString())
           .toList();
 
-      await supabase.from('bookings').insert({
+      final booking = await supabase.from('bookings').insert({
         'client_id': selectedClient!['id'].toString(),
         'client_name': selectedClient!['name'],
         'product_ids': productIds,
@@ -144,7 +144,18 @@ class _AddBookingState extends State<AddBooking> {
         'return_datetime': returnDate!.toIso8601String(),
         'status': 'upcoming',
         'total_price': totalPrice,
-      });
+      }).select('id').single();
+
+      final operations = BookingOperationsService(supabase);
+      await operations.syncBookingItems(
+        bookingId: booking['id'].toString(),
+        products: validSelection,
+      );
+      await operations.recordStatus(
+        bookingId: booking['id'].toString(),
+        status: 'upcoming',
+        note: 'Booking created',
+      );
 
       if (!mounted) return;
       Navigator.pop(context);

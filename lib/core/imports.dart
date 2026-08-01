@@ -40,6 +40,7 @@ export 'package:ccr_booking/models/user_model.dart';
 export 'package:ccr_booking/services/auth_service.dart';
 export 'package:ccr_booking/services/supbase_service.dart';
 export 'package:ccr_booking/services/notification_service.dart';
+export 'package:ccr_booking/services/booking_operations_service.dart';
 
 // Pages - Authentication
 export 'package:ccr_booking/pages/auth/login_page.dart';

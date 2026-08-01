@@ -57,6 +57,9 @@ dependencies:
   supabase_flutter: ^2.12.0
   swift_flutter: ^2.3.3
   image_cropper: ^11.0.0
+  record: ^6.0.0
+  audioplayers: ^6.1.0
+  path_provider: ^2.1.4
 
 dev_dependencies:
   flutter_lints: ^6.0.0

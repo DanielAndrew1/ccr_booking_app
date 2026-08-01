@@ -240,6 +240,17 @@ class _EditBookingState extends State<EditBooking> {
           })
           .eq('id', _bookingId!);
 
+      final operations = BookingOperationsService(supabase);
+      await operations.syncBookingItems(
+        bookingId: _bookingId!,
+        products: validSelection,
+      );
+      await operations.recordStatus(
+        bookingId: _bookingId!,
+        status: 'upcoming',
+        note: 'Booking updated',
+      );
+
       if (!mounted) return;
       Provider.of<NavbarProvider>(context, listen: false).setEditMode(false);
 

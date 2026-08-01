@@ -140,13 +140,32 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   ),
                   CustomTile(
-                    title: loc.tr("Home Cards Open Dialog"),
+                    title: loc.tr("Home Cards Open"),
                     imagePath: AppIcons.info,
                     overlayColor: false,
-                    trailing: CupertinoSwitch(
-                      value: _homeStatsDialog,
-                      activeTrackColor: AppColors.primary,
-                      onChanged: _setHomeStatsDialog,
+                    trailing: DropdownButtonHideUnderline(
+                      child: DropdownButton<bool>(
+                        value: _homeStatsDialog,
+                        dropdownColor: isDark
+                            ? const Color(0xFF1E1E1E)
+                            : Colors.white,
+                        iconEnabledColor: isDark
+                            ? Colors.white70
+                            : Colors.black54,
+                        items: [
+                          DropdownMenuItem(
+                            value: true,
+                            child: Text(loc.tr("Dialog")),
+                          ),
+                          DropdownMenuItem(
+                            value: false,
+                            child: Text(loc.tr("Page")),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) _setHomeStatsDialog(value);
+                        },
+                      ),
                     ),
                   ),
                   CustomTile(

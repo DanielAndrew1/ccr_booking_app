@@ -3,6 +3,9 @@
 import 'package:ccr_booking/core/imports.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
+import 'package:record/record.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:path_provider/path_provider.dart';
 
 class MessageThreadPage extends StatefulWidget {
   final Map<String, dynamic> otherUser;
@@ -30,11 +33,20 @@ class _MessageThreadPageState extends State<MessageThreadPage>
 
   RealtimeChannel? _channel;
   RealtimeChannel? _reactionsChannel;
+  RealtimeChannel? _typingSendChannel;
+  Timer? _typingIdleTimer;
+  bool _lastSentTyping = false;
   late final AnimationController _outgoingBubbleController;
 
   static const String _imagePrefix = '__img__::';
+  static const String _voicePrefix = '__voice__::';
   static const String _mediaBucket = 'profile-pics';
   static final Map<String, List<AppMessage>> _threadCache = {};
+
+  final AudioRecorder _audioRecorder = AudioRecorder();
+  bool _isRecording = false;
+  Duration _recordingDuration = Duration.zero;
+  Timer? _recordingTicker;
 
   bool _loadingMessages = true;
   bool _sendingMessage = false;
@@ -69,6 +81,199 @@ class _MessageThreadPageState extends State<MessageThreadPage>
     }
 
     _subscribeRealtime();
+    _initTypingChannel();
+  }
+
+  /// Channel used only to SEND typing broadcasts. The chat list page
+  /// listens on this same channel name ('typing-status') and shows
+  /// "typing..." for whichever otherUserId matches the 'from' field.
+  void _initTypingChannel() {
+    _typingSendChannel = _supabase.channel('typing-status');
+    _typingSendChannel!.subscribe();
+  }
+
+  void _sendTyping(bool isTyping) {
+    final channel = _typingSendChannel;
+    if (channel == null) return;
+    if (_lastSentTyping == isTyping) return;
+    _lastSentTyping = isTyping;
+    channel.sendBroadcastMessage(
+      event: 'typing',
+      payload: {
+        'from': widget.currentUserId,
+        'to': _otherUserId,
+        'isTyping': isTyping,
+      },
+    );
+  }
+
+  void _onComposerTextChanged(String value) {
+    if (value.trim().isEmpty) {
+      _typingIdleTimer?.cancel();
+      _sendTyping(false);
+      return;
+    }
+    _sendTyping(true);
+    _typingIdleTimer?.cancel();
+    _typingIdleTimer = Timer(const Duration(seconds: 2), () {
+      _sendTyping(false);
+    });
+  }
+
+  Future<void> _startRecording() async {
+    if (_sendingMessage || _isRecording || _otherUserId.isEmpty) return;
+
+    try {
+      final hasPermission = await _audioRecorder.hasPermission();
+      if (!hasPermission) {
+        if (mounted) {
+          CustomSnackBar.show(context, 'Microphone permission is required.');
+        }
+        return;
+      }
+
+      final dir = await getTemporaryDirectory();
+      final path =
+          '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
+
+      await _audioRecorder.start(
+        const RecordConfig(encoder: AudioEncoder.aacLc),
+        path: path,
+      );
+
+      _typingIdleTimer?.cancel();
+      _sendTyping(false);
+      _messageFocusNode.unfocus();
+
+      if (!mounted) return;
+      setState(() {
+        _isRecording = true;
+        _recordingDuration = Duration.zero;
+      });
+
+      _recordingTicker?.cancel();
+      _recordingTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (!mounted) return;
+        setState(() => _recordingDuration += const Duration(seconds: 1));
+      });
+    } catch (e) {
+      if (mounted) {
+        CustomSnackBar.show(context, 'Could not start recording: $e');
+      }
+    }
+  }
+
+  Future<void> _cancelRecording() async {
+    _recordingTicker?.cancel();
+    if (_isRecording) {
+      try {
+        final path = await _audioRecorder.stop();
+        if (path != null) {
+          final file = File(path);
+          if (await file.exists()) await file.delete();
+        }
+      } catch (_) {
+        // Ignore cleanup failures.
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _isRecording = false;
+      _recordingDuration = Duration.zero;
+    });
+  }
+
+  Future<void> _stopAndSendRecording() async {
+    if (!_isRecording) return;
+    _recordingTicker?.cancel();
+
+    String? path;
+    try {
+      path = await _audioRecorder.stop();
+    } catch (e) {
+      if (mounted) CustomSnackBar.show(context, 'Recording failed: $e');
+    }
+
+    final duration = _recordingDuration;
+    if (mounted) {
+      setState(() {
+        _isRecording = false;
+        _recordingDuration = Duration.zero;
+      });
+    }
+
+    if (path == null) return;
+
+    if (duration.inSeconds < 1) {
+      final file = File(path);
+      if (await file.exists()) await file.delete();
+      if (mounted) CustomSnackBar.show(context, 'Recording too short.');
+      return;
+    }
+
+    await _sendVoiceNote(File(path), duration);
+  }
+
+  Future<void> _sendVoiceNote(File file, Duration duration) async {
+    if (_otherUserId.isEmpty) return;
+
+    if (mounted) setState(() => _sendingMessage = true);
+    try {
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}.m4a';
+      final filePath =
+          'messages/${widget.currentUserId}/$_otherUserId/$fileName';
+
+      await _supabase.storage
+          .from(_mediaBucket)
+          .upload(
+            filePath,
+            file,
+            fileOptions: const FileOptions(cacheControl: '3600', upsert: false),
+          );
+
+      final publicUrl = _supabase.storage
+          .from(_mediaBucket)
+          .getPublicUrl(filePath);
+
+      final inserted = await _supabase
+          .from('messages')
+          .insert({
+            'sender_id': widget.currentUserId,
+            'receiver_id': _otherUserId,
+            'body': '$_voicePrefix${duration.inSeconds}::$publicUrl',
+          })
+          .select('id,sender_id,receiver_id,body,created_at,read_at')
+          .single();
+
+      final message = AppMessage.fromJson(Map<String, dynamic>.from(inserted));
+      if (mounted) {
+        _appendMessage(message);
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomSnackBar.show(context, 'Voice note send failed: $e');
+      }
+    } finally {
+      try {
+        if (await file.exists()) await file.delete();
+      } catch (_) {
+        // Ignore cleanup failures.
+      }
+      if (mounted) setState(() => _sendingMessage = false);
+    }
+  }
+
+  bool _isVoiceMessage(String text) => text.startsWith(_voicePrefix);
+
+  Map<String, dynamic>? _extractVoiceData(String text) {
+    if (!_isVoiceMessage(text)) return null;
+    final rest = text.substring(_voicePrefix.length);
+    final separatorIndex = rest.indexOf('::');
+    if (separatorIndex < 0) return null;
+    final seconds = int.tryParse(rest.substring(0, separatorIndex)) ?? 0;
+    final url = rest.substring(separatorIndex + 2).trim();
+    if (url.isEmpty) return null;
+    return {'duration': seconds, 'url': url};
   }
 
   String _threadFilter() {
@@ -745,6 +950,9 @@ class _MessageThreadPageState extends State<MessageThreadPage>
     final body = _messageController.text.trim();
     if (body.isEmpty || _otherUserId.isEmpty) return;
 
+    _typingIdleTimer?.cancel();
+    _sendTyping(false);
+
     String? unsentBody;
     setState(() => _sendingMessage = true);
     try {
@@ -1027,11 +1235,18 @@ class _MessageThreadPageState extends State<MessageThreadPage>
     _messageFocusNode.dispose();
     _messagesScrollController.dispose();
     _outgoingBubbleController.dispose();
+    _typingIdleTimer?.cancel();
+    _sendTyping(false);
+    _recordingTicker?.cancel();
+    _audioRecorder.dispose();
     if (_channel != null) {
       _supabase.removeChannel(_channel!);
     }
     if (_reactionsChannel != null) {
       _supabase.removeChannel(_reactionsChannel!);
+    }
+    if (_typingSendChannel != null) {
+      _supabase.removeChannel(_typingSendChannel!);
     }
     super.dispose();
   }
@@ -1043,6 +1258,7 @@ class _MessageThreadPageState extends State<MessageThreadPage>
   }) {
     final isMe = msg.senderId == widget.currentUserId;
     final imageUrl = _extractImageUrl(msg.body);
+    final voiceData = _extractVoiceData(msg.body);
     final reaction = _myReactionsByMessageId[msg.id];
 
     return GestureDetector(
@@ -1113,6 +1329,13 @@ class _MessageThreadPageState extends State<MessageThreadPage>
                       ),
                     ),
                   ),
+                )
+              else if (voiceData != null)
+                _VoiceMessagePlayer(
+                  url: voiceData['url'] as String,
+                  durationSeconds: voiceData['duration'] as int,
+                  isMe: isMe,
+                  isDark: isDark,
                 )
               else
                 Text(
@@ -1383,117 +1606,241 @@ class _MessageThreadPageState extends State<MessageThreadPage>
                       child: Row(
                         children: [
                           Expanded(
-                            child: Container(
-                              key: _composerTextFieldKey,
-                              constraints: BoxConstraints(
-                                minHeight: composerHeight,
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? const Color(0xFF212121)
-                                    : Colors.white,
-                                borderRadius: BorderRadius.circular(
-                                  borderRadius,
-                                ),
-                                border: Border.all(
-                                  color: isDark
-                                      ? Colors.white10
-                                      : Colors.black12,
-                                ),
-                              ),
-                              child: TextField(
-                                controller: _messageController,
-                                focusNode: _messageFocusNode,
-                                textInputAction: TextInputAction.send,
-                                textCapitalization:
-                                    TextCapitalization.sentences,
-                                onSubmitted: (_) => _sendMessage(),
-                                style: TextStyle(
-                                  color: isDark ? Colors.white : Colors.black87,
-                                  fontSize: 14.5,
-                                ),
-                                decoration: InputDecoration(
-                                  hintText: _editingMessage != null
-                                      ? 'Edit your message...'
-                                      : 'Message ${name.split(" ").first.replaceFirst(name[0], name[0].toUpperCase())}',
-                                  hintStyle: TextStyle(
-                                    color: isDark
-                                        ? Colors.white54
-                                        : Colors.black45,
+                            child: _isRecording
+                                ? Container(
+                                    constraints: BoxConstraints(
+                                      minHeight: composerHeight,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: isDark
+                                          ? const Color(0xFF212121)
+                                          : Colors.white,
+                                      borderRadius: BorderRadius.circular(
+                                        borderRadius,
+                                      ),
+                                      border: Border.all(
+                                        color: AppColors.red.withValues(
+                                          alpha: 0.4,
+                                        ),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 10,
+                                          height: 10,
+                                          decoration: BoxDecoration(
+                                            color: AppColors.red,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Text(
+                                          'Recording  ${_recordingDuration.inMinutes.remainder(60).toString().padLeft(1, '0')}:${_recordingDuration.inSeconds.remainder(60).toString().padLeft(2, '0')}',
+                                          style: TextStyle(
+                                            color: isDark
+                                                ? Colors.white
+                                                : Colors.black87,
+                                            fontSize: 14.5,
+                                          ),
+                                        ),
+                                        const Spacer(),
+                                        GestureDetector(
+                                          onTap: _cancelRecording,
+                                          child: Icon(
+                                            Icons.delete_outline,
+                                            color: isDark
+                                                ? Colors.white70
+                                                : Colors.black54,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : Container(
+                                    key: _composerTextFieldKey,
+                                    constraints: BoxConstraints(
+                                      minHeight: composerHeight,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: isDark
+                                          ? const Color(0xFF212121)
+                                          : Colors.white,
+                                      borderRadius: BorderRadius.circular(
+                                        borderRadius,
+                                      ),
+                                      border: Border.all(
+                                        color: isDark
+                                            ? Colors.white10
+                                            : Colors.black12,
+                                      ),
+                                    ),
+                                    child: TextField(
+                                      controller: _messageController,
+                                      focusNode: _messageFocusNode,
+                                      textInputAction: TextInputAction.send,
+                                      textCapitalization:
+                                          TextCapitalization.sentences,
+                                      onChanged: _onComposerTextChanged,
+                                      onSubmitted: (_) => _sendMessage(),
+                                      style: TextStyle(
+                                        color: isDark
+                                            ? Colors.white
+                                            : Colors.black87,
+                                        fontSize: 14.5,
+                                      ),
+                                      decoration: InputDecoration(
+                                        hintText: _editingMessage != null
+                                            ? 'Edit your message...'
+                                            : 'Message ${name.split(" ").first.replaceFirst(name[0], name[0].toUpperCase())}',
+                                        hintStyle: TextStyle(
+                                          color: isDark
+                                              ? Colors.white54
+                                              : Colors.black45,
+                                        ),
+                                        border: InputBorder.none,
+                                      ),
+                                    ),
                                   ),
-                                  border: InputBorder.none,
+                          ),
+                          if (!_isRecording) ...[
+                            const SizedBox(width: 10),
+                            AnimatedOpacity(
+                              duration: const Duration(milliseconds: 180),
+                              opacity: _editingMessage != null ? 0.45 : 1,
+                              child: GestureDetector(
+                                onTap: _editingMessage != null
+                                    ? null
+                                    : _showImageSourceSheet,
+                                child: Container(
+                                  width: actionButtonSize,
+                                  height: actionButtonSize,
+                                  decoration: BoxDecoration(
+                                    color: isDark
+                                        ? const Color(0xFF212121)
+                                        : Colors.white,
+                                    borderRadius: BorderRadius.circular(
+                                      borderRadius,
+                                    ),
+                                    border: Border.all(
+                                      color: isDark
+                                          ? Colors.white10
+                                          : Colors.black12,
+                                    ),
+                                  ),
+                                  child: Padding(
+                                    padding: EdgeInsets.all(iconPadding),
+                                    child: IconHandler.buildIcon(
+                                      imagePath: AppIcons.photo,
+                                      color: isDark
+                                          ? Colors.white
+                                          : Colors.black,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
+                          ],
                           const SizedBox(width: 10),
-                          AnimatedOpacity(
-                            duration: const Duration(milliseconds: 180),
-                            opacity: _editingMessage != null ? 0.45 : 1,
-                            child: GestureDetector(
-                              onTap: _editingMessage != null
-                                  ? null
-                                  : _showImageSourceSheet,
+                          if (_isRecording)
+                            GestureDetector(
+                              onTap: _stopAndSendRecording,
                               child: Container(
                                 width: actionButtonSize,
                                 height: actionButtonSize,
                                 decoration: BoxDecoration(
-                                  color: isDark
-                                      ? const Color(0xFF212121)
-                                      : Colors.white,
+                                  color: AppColors.primary,
                                   borderRadius: BorderRadius.circular(
                                     borderRadius,
                                   ),
-                                  border: Border.all(
-                                    color: isDark
-                                        ? Colors.white10
-                                        : Colors.black12,
-                                  ),
                                 ),
-                                child: Padding(
-                                  padding: EdgeInsets.all(iconPadding),
-                                  child: IconHandler.buildIcon(
-                                    imagePath: AppIcons.photo,
-                                    color: isDark ? Colors.white : Colors.black,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          GestureDetector(
-                            onTap: _sendMessage,
-                            child: Container(
-                              width: actionButtonSize,
-                              height: actionButtonSize,
-                              decoration: BoxDecoration(
-                                color: AppColors.primary,
-                                borderRadius: BorderRadius.circular(
-                                  borderRadius,
-                                ),
-                              ),
-                              child: _sendingMessage
-                                  ? Center(
-                                      child: CustomLoader(
-                                        size: 20,
-                                        strokeWidth: 2,
-                                        color: Colors.white,
+                                child: _sendingMessage
+                                    ? Center(
+                                        child: CustomLoader(
+                                          size: 20,
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Padding(
+                                        padding: EdgeInsets.all(12),
+                                        child: Icon(
+                                          Icons.check_rounded,
+                                          color: Colors.white,
+                                        ),
                                       ),
-                                    )
-                                  : Padding(
-                                      padding: EdgeInsets.all(iconPadding),
-                                      child: IconHandler.buildIcon(
-                                        imagePath: _editingMessage != null
-                                            ? AppIcons.tick
-                                            : AppIcons.send,
-                                        color: Colors.white,
+                              ),
+                            )
+                          else
+                            ValueListenableBuilder<TextEditingValue>(
+                              valueListenable: _messageController,
+                              builder: (context, value, _) {
+                                final hasText = value.text.trim().isNotEmpty;
+                                if (!hasText && _editingMessage == null) {
+                                  return GestureDetector(
+                                    onTap: _sendingMessage
+                                        ? null
+                                        : _startRecording,
+                                    child: Container(
+                                      width: actionButtonSize,
+                                      height: actionButtonSize,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primary,
+                                        borderRadius: BorderRadius.circular(
+                                          borderRadius,
+                                        ),
+                                      ),
+                                      child: const Padding(
+                                        padding: EdgeInsets.all(12),
+                                        child: Icon(
+                                          Icons.mic_none_rounded,
+                                          color: Colors.white,
+                                        ),
                                       ),
                                     ),
+                                  );
+                                }
+                                return GestureDetector(
+                                  onTap: _sendMessage,
+                                  child: Container(
+                                    width: actionButtonSize,
+                                    height: actionButtonSize,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary,
+                                      borderRadius: BorderRadius.circular(
+                                        borderRadius,
+                                      ),
+                                    ),
+                                    child: _sendingMessage
+                                        ? Center(
+                                            child: CustomLoader(
+                                              size: 20,
+                                              strokeWidth: 2,
+                                              color: Colors.white,
+                                            ),
+                                          )
+                                        : Padding(
+                                            padding: EdgeInsets.all(
+                                              iconPadding,
+                                            ),
+                                            child: IconHandler.buildIcon(
+                                              imagePath:
+                                                  _editingMessage != null
+                                                  ? AppIcons.tick
+                                                  : AppIcons.send,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                  ),
+                                );
+                              },
                             ),
-                          ),
                         ],
                       ),
                     ),
@@ -1503,6 +1850,158 @@ class _MessageThreadPageState extends State<MessageThreadPage>
             },
           ),
           _buildOutgoingBubbleOverlay(isDark),
+        ],
+      ),
+    );
+  }
+}
+
+class _VoiceMessagePlayer extends StatefulWidget {
+  final String url;
+  final int durationSeconds;
+  final bool isMe;
+  final bool isDark;
+
+  const _VoiceMessagePlayer({
+    required this.url,
+    required this.durationSeconds,
+    required this.isMe,
+    required this.isDark,
+  });
+
+  @override
+  State<_VoiceMessagePlayer> createState() => _VoiceMessagePlayerState();
+}
+
+class _VoiceMessagePlayerState extends State<_VoiceMessagePlayer> {
+  final AudioPlayer _player = AudioPlayer();
+  bool _isPlaying = false;
+  bool _isLoading = false;
+  Duration _position = Duration.zero;
+  Duration _total = Duration.zero;
+  StreamSubscription<Duration>? _positionSub;
+  StreamSubscription<Duration>? _durationSub;
+  StreamSubscription<PlayerState>? _stateSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _total = Duration(seconds: widget.durationSeconds);
+    _positionSub = _player.onPositionChanged.listen((p) {
+      if (mounted) setState(() => _position = p);
+    });
+    _durationSub = _player.onDurationChanged.listen((d) {
+      if (mounted && d.inMilliseconds > 0) setState(() => _total = d);
+    });
+    _stateSub = _player.onPlayerStateChanged.listen((s) {
+      if (!mounted) return;
+      setState(() {
+        _isPlaying = s == PlayerState.playing;
+        _isLoading = false;
+      });
+      if (s == PlayerState.completed) {
+        setState(() => _position = Duration.zero);
+      }
+    });
+  }
+
+  Future<void> _toggle() async {
+    try {
+      if (_isPlaying) {
+        await _player.pause();
+        return;
+      }
+      setState(() => _isLoading = true);
+      if (_position >= _total && _total.inMilliseconds > 0) {
+        await _player.seek(Duration.zero);
+      }
+      await _player.play(UrlSource(widget.url));
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  String _fmt(Duration d) {
+    final m = d.inMinutes.remainder(60).toString();
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
+
+  @override
+  void dispose() {
+    _positionSub?.cancel();
+    _durationSub?.cancel();
+    _stateSub?.cancel();
+    _player.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = _total.inMilliseconds > 0
+        ? (_position.inMilliseconds / _total.inMilliseconds).clamp(0.0, 1.0)
+        : 0.0;
+    final color = widget.isMe
+        ? AppColors.primary
+        : (widget.isDark ? Colors.white70 : Colors.black54);
+    final timeLabel = _fmt(
+      _isPlaying || _position.inMilliseconds > 0 ? _position : _total,
+    );
+
+    return SizedBox(
+      width: 190,
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: _isLoading ? null : _toggle,
+            child: Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: color.withValues(alpha: 0.18),
+              ),
+              child: _isLoading
+                  ? Padding(
+                      padding: const EdgeInsets.all(9),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: color,
+                      ),
+                    )
+                  : Icon(
+                      _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                      color: color,
+                      size: 20,
+                    ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 3,
+                    backgroundColor: color.withValues(alpha: 0.15),
+                    valueColor: AlwaysStoppedAnimation(color),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  timeLabel,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: widget.isDark ? Colors.white54 : Colors.black45,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
