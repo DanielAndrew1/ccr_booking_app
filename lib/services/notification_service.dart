@@ -77,20 +77,9 @@ class NotificationService {
         onDidReceiveNotificationResponse: (details) {},
       );
 
-      // Foreground Message Listener
-      FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
-        // Gate: Only show if enabled in settings
-        if (await isEnabled()) {
-          RemoteNotification? notification = message.notification;
-          if (notification != null) {
-            showNotification(
-              id: notification.hashCode,
-              title: notification.title,
-              body: notification.body,
-            );
-          }
-        }
-      });
+      // Foreground pushes are intentionally silent. The system still shows
+      // notifications when the app is backgrounded or closed.
+      FirebaseMessaging.onMessage.listen((RemoteMessage _) {});
 
       _fcm.onTokenRefresh.listen((newToken) async {
         if (await isEnabled()) {
@@ -219,7 +208,7 @@ class NotificationService {
       android: AndroidNotificationDetails(
         "ccr_id",
         "CCR",
-        channelDescription: "Booking Updates",
+        channelDescription: "Project Updates",
         importance: Importance.max,
         priority: Priority.high,
         ticker: 'ticker',

@@ -3,7 +3,7 @@
 
 import 'package:path/path.dart' as p;
 import 'package:image_cropper/image_cropper.dart';
-import 'package:ccr_booking/core/imports.dart';
+import 'package:site_lapse/core/imports.dart';
 
 class EditInfoPage extends StatefulWidget {
   final VoidCallback? onSaved;

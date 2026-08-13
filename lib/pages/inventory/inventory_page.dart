@@ -1,7 +1,7 @@
 // ignore_for_file: deprecated_member_use, unused_field
 
 import 'package:flutter/cupertino.dart';
-import 'package:ccr_booking/core/imports.dart';
+import 'package:site_lapse/core/imports.dart';
 
 class InventoryPage extends StatefulWidget {
   const InventoryPage({super.key});
@@ -50,7 +50,6 @@ class _InventoryPageState extends State<InventoryPage> {
   @override
   Widget build(BuildContext context) {
     final isDark = context.isDarkMode;
-    final navProvider = Provider.of<NavbarProvider>(context, listen: false);
 
     // Determine the refresh indicator color based on your requirements
     final Color refreshColor = isDark ? AppColors.primary : AppColors.secondary;
@@ -145,7 +144,9 @@ class _InventoryPageState extends State<InventoryPage> {
           padding: const EdgeInsets.only(bottom: 50),
           child: FloatingActionButton(
             onPressed: () {
-              navProvider.setIndex(5);
+              Navigator.push(context, MaterialPageRoute(
+                builder: (context) => AddProduct(),
+              ));
             },
             backgroundColor: AppColors.primary,
             child: SvgPicture.asset(
@@ -195,6 +196,7 @@ class _InventoryPageState extends State<InventoryPage> {
                         stream: Supabase.instance.client
                             .from('products')
                             .stream(primaryKey: ['id'])
+                            .eq('is_active', true)
                             .order('name'),
                         builder: (context, snapshot) {
                           if (snapshot.connectionState ==

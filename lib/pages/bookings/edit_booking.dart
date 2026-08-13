@@ -1,6 +1,6 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously, unnecessary_underscores, unused_element_parameter
 import 'package:intl/intl.dart';
-import 'package:ccr_booking/core/imports.dart';
+import 'package:site_lapse/core/imports.dart';
 
 class EditBooking extends StatefulWidget {
   final bool isRoot;
@@ -22,6 +22,14 @@ class _EditBookingState extends State<EditBooking> {
   DateTime? pickupDate;
   DateTime? returnDate;
   List<Map<String, dynamic>?> selectedProducts = [null];
+  final _projectPriceController = TextEditingController();
+  final _installmentController = TextEditingController();
+  final _downPaymentController = TextEditingController();
+  String _paymentPlanType = 'one_time_end';
+  String _paymentFrequency = 'month';
+  int _paymentInterval = 1;
+  File? _contractImage;
+  int _currentStep = 0;
 
   final NumberFormat _currencyFormat = NumberFormat("#,##0", "en_US");
 
@@ -41,14 +49,129 @@ class _EditBookingState extends State<EditBooking> {
     return difference < 0 ? 0 : difference;
   }
 
+  String get projectDuration => _formatProjectDuration(pickupDate, returnDate);
+
   double get totalPrice {
-    double sum = 0;
-    for (var product in selectedProducts) {
-      if (product != null) {
-        sum += (double.tryParse(product['price'].toString()) ?? 0);
-      }
+    return selectedProducts.whereType<Map<String, dynamic>>().fold(0, (
+      sum,
+      product,
+    ) {
+      final value = product['project_price'] ?? product['price'] ?? 0;
+      return sum +
+          (value is num ? value.toDouble() : double.tryParse('$value') ?? 0);
+    });
+  }
+
+  String _friendlyProjectError(Object error) {
+    final message = error.toString().toLowerCase();
+    if (message.contains('booking_items') &&
+        message.contains('row-level security')) {
+      return 'Project saved, but its products could not be linked. Run the booking-items SQL policy fix in Supabase.';
     }
-    return sum * totalDays;
+    if (message.contains('down_payment_amount') ||
+        message.contains('payment_plan_type')) {
+      return 'Your database needs the latest project payment SQL update in Supabase.';
+    }
+    if (message.contains('row-level security')) {
+      return 'You do not have permission to complete this action. Check the Supabase table policies.';
+    }
+    if (message.contains('network') || message.contains('socket')) {
+      return 'Could not reach the server. Check your internet connection and try again.';
+    }
+    return 'Could not save the project changes. Please try again.';
+  }
+
+  Future<void> _recordNextPayment() async {
+    if (_bookingId == null || selectedClient == null) return;
+    final finance = ProjectFinanceService(supabase);
+    final schedules = await finance.schedules(_bookingId!);
+    final pending = schedules
+        .where(
+          (schedule) =>
+              schedule['status'] != 'paid' && schedule['status'] != 'cancelled',
+        )
+        .toList();
+    if (pending.isEmpty) {
+      if (mounted) CustomSnackBar.show(context, 'No outstanding payments');
+      return;
+    }
+    final schedule = pending.first;
+    final amountController = TextEditingController(
+      text: schedule['amount'].toString(),
+    );
+    String method = 'cash';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Record payment'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Due ${DateFormat('dd MMM yyyy').format(DateTime.parse(schedule['due_at']))}',
+              ),
+              TextField(
+                controller: amountController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(
+                  labelText: 'Amount',
+                  suffixText: 'EGP',
+                ),
+              ),
+              DropdownButtonFormField<String>(
+                initialValue: method,
+                items: const [
+                  DropdownMenuItem(value: 'cash', child: Text('Cash')),
+                  DropdownMenuItem(
+                    value: 'bank_transfer',
+                    child: Text('Bank transfer'),
+                  ),
+                  DropdownMenuItem(value: 'card', child: Text('Card')),
+                ],
+                onChanged: (value) => setDialogState(() => method = value!),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Record'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true) return;
+    final amount = double.tryParse(amountController.text.trim()) ?? 0;
+    if (amount <= 0) return;
+    await finance.recordPayment(
+      scheduleId: schedule['id'].toString(),
+      amount: amount,
+      method: method,
+    );
+    final payments = await supabase
+        .from('payments')
+        .select()
+        .eq('payment_schedule_id', schedule['id'])
+        .order('created_at', ascending: false)
+        .limit(1);
+    if (!mounted || payments.isEmpty) return;
+    final payment = Map<String, dynamic>.from(payments.first);
+    await ProjectQuoteService.shareReceipt(
+      receiptNumber:
+          payment['receipt_number']?.toString() ??
+          'SLR-${payment['id'].toString().substring(0, 8)}',
+      clientName: selectedClient!['name'].toString(),
+      amount: amount,
+      method: method,
+    );
   }
 
   @override
@@ -121,6 +244,22 @@ class _EditBookingState extends State<EditBooking> {
       pickupDate = parsedPickup;
       returnDate = parsedReturn;
       selectedProducts = prefilledProducts;
+      _projectPriceController.text = _currencyFormat.format(
+        double.tryParse(booking['total_price']?.toString() ?? '') ?? 0,
+      );
+      _installmentController.text =
+          (double.tryParse(booking['installment_amount']?.toString() ?? '') ??
+                  0)
+              .toStringAsFixed(2);
+      _downPaymentController.text =
+          (double.tryParse(booking['down_payment_amount']?.toString() ?? '') ??
+                  0)
+              .toStringAsFixed(2);
+      _paymentPlanType =
+          booking['payment_plan_type']?.toString() ?? 'one_time_end';
+      _paymentFrequency = booking['payment_frequency']?.toString() ?? 'month';
+      _paymentInterval =
+          int.tryParse(booking['payment_interval']?.toString() ?? '') ?? 1;
     });
     _searchKey.currentState?.setSelectedClientName(clientName);
   }
@@ -143,7 +282,8 @@ class _EditBookingState extends State<EditBooking> {
     if (selectedClient == null ||
         pickupDate == null ||
         returnDate == null ||
-        isProductsEmpty) {
+        isProductsEmpty ||
+        totalPrice <= 0) {
       CustomSnackBar.show(context, "Please fill in all details");
       return;
     }
@@ -167,6 +307,7 @@ class _EditBookingState extends State<EditBooking> {
 
       for (var product in validSelection) {
         final String productId = product['id'].toString();
+        if (product['is_unlimited'] == true) continue;
         final int totalQuantity =
             int.tryParse(product['quantity']?.toString() ?? '1') ?? 1;
 
@@ -237,19 +378,54 @@ class _EditBookingState extends State<EditBooking> {
             'return_datetime': returnDate!.toIso8601String(),
             'status': 'upcoming',
             'total_price': totalPrice,
+            'payment_plan_type': _paymentPlanType,
+            'payment_frequency': _paymentPlanType == 'down_payment_installments'
+                ? _paymentFrequency
+                : null,
+            'payment_interval': _paymentInterval,
+            'installment_amount':
+                double.tryParse(_installmentController.text.trim()) ??
+                totalPrice,
+            'down_payment_amount':
+                double.tryParse(_downPaymentController.text.trim()) ?? 0,
           })
           .eq('id', _bookingId!);
 
       final operations = BookingOperationsService(supabase);
-      await operations.syncBookingItems(
-        bookingId: _bookingId!,
-        products: validSelection,
-      );
-      await operations.recordStatus(
-        bookingId: _bookingId!,
-        status: 'upcoming',
-        note: 'Booking updated',
-      );
+      if (_contractImage != null) {
+        final contractPath = await ProjectCommercialService(
+          supabase,
+        ).uploadContract(projectId: _bookingId!, imageFile: _contractImage!);
+        await supabase
+            .from('bookings')
+            .update({'contract_path': contractPath})
+            .eq('id', _bookingId!);
+      }
+      try {
+        await ProjectFinanceService(supabase).syncProjectFinance(_bookingId!);
+      } catch (error) {
+        debugPrint('Project finance setup failed: $error');
+      }
+      try {
+        await operations.syncBookingItems(
+          bookingId: _bookingId!,
+          products: validSelection,
+        );
+        await operations.recordStatus(
+          bookingId: _bookingId!,
+          status: 'upcoming',
+          note: 'Booking updated',
+        );
+      } catch (error) {
+        debugPrint('Project detail update failed: $error');
+        if (mounted) {
+          CustomSnackBar.show(
+            context,
+            'Project saved. Run the booking-items SQL policy fix to update its products.',
+            color: AppColors.red,
+          );
+        }
+      }
 
       if (!mounted) return;
       Provider.of<NavbarProvider>(context, listen: false).setEditMode(false);
@@ -267,7 +443,7 @@ class _EditBookingState extends State<EditBooking> {
 
       CustomSnackBar.show(
         context,
-        "Booking Updated Successfully!",
+        "Project Updated Successfully!",
         color: AppColors.green,
       );
 
@@ -282,7 +458,7 @@ class _EditBookingState extends State<EditBooking> {
     } catch (e) {
       if (!mounted) return;
       Navigator.pop(context);
-      CustomSnackBar.show(context, "Error: ${e.toString()}");
+      CustomSnackBar.show(context, _friendlyProjectError(e));
     }
   }
 
@@ -318,7 +494,10 @@ class _EditBookingState extends State<EditBooking> {
   }
 
   void _showProductSearch(int index) async {
-    final response = await supabase.from('products').select();
+    final response = await supabase
+        .from('products')
+        .select()
+        .eq('is_active', true);
     List<Map<String, dynamic>> allProducts = List<Map<String, dynamic>>.from(
       response,
     );
@@ -405,14 +584,15 @@ class _EditBookingState extends State<EditBooking> {
                           ),
                         ),
                         subtitle: Text(
-                          "${_currencyFormat.format(product['price'])} EGP/Day",
-                          style: const TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          '${_currencyFormat.format(product['price'] ?? 0)} EGP/month default',
                         ),
                         onTap: () {
-                          setState(() => selectedProducts[index] = product);
+                          setState(
+                            () => selectedProducts[index] = {
+                              ...product,
+                              'project_price': product['price'] ?? 0,
+                            },
+                          );
                           Navigator.pop(context);
                         },
                       );
@@ -491,9 +671,27 @@ class _EditBookingState extends State<EditBooking> {
             Scaffold(
               backgroundColor: Colors.transparent,
               appBar: CustomAppBar(
-                text: isEditing ? "Edit Booking" : "Add Booking",
+                text: isEditing ? "Edit Project" : "Add Project",
                 showPfp: true,
                 actions: [
+                  if (isEditing && _bookingId != null)
+                    IconButton(
+                      tooltip: 'Site setup',
+                      icon: const Icon(Icons.location_on_outlined),
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ProjectSiteSetupPage(
+                            bookingId: _bookingId!,
+                            clientName:
+                                selectedClient?['name']?.toString() ?? '',
+                            products: selectedProducts
+                                .whereType<Map<String, dynamic>>()
+                                .toList(),
+                          ),
+                        ),
+                      ),
+                    ),
                   Padding(
                     padding: const EdgeInsets.only(right: 12),
                     child: IconButton(
@@ -529,262 +727,481 @@ class _EditBookingState extends State<EditBooking> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    CustomSearch(
-                      key: _searchKey, // Applied the key here
-                      onClientSelected: (client) =>
-                          setState(() => selectedClient = client),
-                    ),
-                    const SizedBox(height: 25),
-                    Text(
-                      "Products",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: isDark ? Colors.white : Colors.black,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: selectedProducts.length,
-                      itemBuilder: (context, index) {
-                        bool isLast = index == selectedProducts.length - 1;
-                        final product = selectedProducts[index];
-                        final imageUrl =
-                            product?['image_url'] ?? product?['image'];
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12.0),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: InkWell(
-                                  onTap: () => _showProductSearch(index),
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: isDark
-                                          ? const Color(0xFF2A2A2A)
-                                          : Colors.white,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        _buildImageOrIcon(imageUrl, isDark),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                product?['name'] ??
-                                                    "Select Product",
-                                                style: TextStyle(
-                                                  fontSize: 16,
-                                                  color: isDark
-                                                      ? Colors.white
-                                                      : const Color(0xFF6A6A6A),
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                              if (product != null)
-                                                Text(
-                                                  "${_currencyFormat.format(product['price'])} EGP / Day",
-                                                  style: const TextStyle(
-                                                    fontSize: 13,
-                                                    color: AppColors.primary,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              if (isLast)
-                                GestureDetector(
-                                  onTap: selectedProducts[index] != null
-                                      ? () => setState(
-                                          () => selectedProducts.add(null),
-                                        )
-                                      : null,
-                                  child: Container(
-                                    width: 50,
-                                    height: 50,
-                                    decoration: const BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: AppColors.primary,
-                                    ),
-                                    child: Center(
-                                      child: _buildImageOrIcon(
-                                        AppIcons.add,
-                                        isDark,
-                                        size: 28,
-                                        tintColor: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                )
-                              else
-                                GestureDetector(
-                                  onTap: () => setState(
-                                    () => selectedProducts.removeAt(index),
-                                  ),
-                                  child: Container(
-                                    width: 50,
-                                    height: 50,
-                                    decoration: BoxDecoration(
-                                      color: Colors.red.withOpacity(0.3),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.close,
-                                      color: Colors.red,
-                                      size: 26,
-                                    ),
-                                  ),
-                                ),
-                            ],
+                    _EditStepHeader(currentStep: _currentStep, isDark: isDark),
+                    const SizedBox(height: 24),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 350),
+                      transitionBuilder: (child, animation) => FadeTransition(
+                        opacity: CurvedAnimation(
+                          parent: animation,
+                          curve: Curves.easeOutCubic,
+                        ),
+                        child: ScaleTransition(
+                          scale: Tween<double>(begin: .96, end: 1).animate(
+                            CurvedAnimation(
+                              parent: animation,
+                              curve: Curves.easeOutCubic,
+                            ),
                           ),
-                        );
-                      },
-                    ),
-                    Text(
-                      "Pickup Date",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.white : Colors.black,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    _PickerTile(
-                      imagePath: AppIcons.pickUp,
-                      label: pickupDate == null
-                          ? "Select Pickup Date"
-                          : DateFormat('dd/MM/yyyy').format(pickupDate!),
-                      onTap: () => _showCustomDatePicker(isPickup: true),
-                      isDark: isDark,
-                    ),
-                    const SizedBox(height: 15),
-                    Text(
-                      "Return Date",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.white : Colors.black,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    _PickerTile(
-                      imagePath: AppIcons.returns,
-                      label: returnDate == null
-                          ? "Select Return Date"
-                          : DateFormat('dd/MM/yyyy').format(returnDate!),
-                      onTap: () => _showCustomDatePicker(isPickup: false),
-                      isDark: isDark,
-                    ),
-                    const SizedBox(height: 30),
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? AppColors.primary.withOpacity(0.1)
-                            : AppColors.secondary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(15),
-                        border: Border.all(
-                          color: isDark
-                              ? AppColors.primary
-                              : AppColors.secondary,
+                          child: child,
                         ),
                       ),
                       child: Column(
+                        key: ValueKey(_currentStep),
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                "Duration:",
-                                style: TextStyle(
-                                  color: isDark
-                                      ? Colors.white70
-                                      : Colors.black54,
-                                  fontSize: 14,
+                          if (_currentStep == 0) ...[
+                            CustomSearch(
+                              key: _searchKey, // Applied the key here
+                              onClientSelected: (client) =>
+                                  setState(() => selectedClient = client),
+                            ),
+                            const SizedBox(height: 25),
+                            Text(
+                              "Products",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: isDark ? Colors.white : Colors.black,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            ListView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: selectedProducts.length,
+                              itemBuilder: (context, index) {
+                                bool isLast =
+                                    index == selectedProducts.length - 1;
+                                final product = selectedProducts[index];
+                                final imageUrl =
+                                    product?['image_url'] ?? product?['image'];
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 12.0),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: InkWell(
+                                          onTap: () =>
+                                              _showProductSearch(index),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          child: Container(
+                                            padding: const EdgeInsets.all(12),
+                                            decoration: BoxDecoration(
+                                              color: isDark
+                                                  ? const Color(0xFF2A2A2A)
+                                                  : Colors.white,
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                _buildImageOrIcon(
+                                                  imageUrl,
+                                                  isDark,
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Text(
+                                                        product?['name'] ??
+                                                            "Select Product",
+                                                        style: TextStyle(
+                                                          fontSize: 16,
+                                                          color: isDark
+                                                              ? Colors.white
+                                                              : const Color(
+                                                                  0xFF6A6A6A,
+                                                                ),
+                                                          fontWeight:
+                                                              FontWeight.w500,
+                                                        ),
+                                                      ),
+                                                      if (product != null)
+                                                        TextFormField(
+                                                          key: ValueKey(
+                                                            '${product['id']}-$index',
+                                                          ),
+                                                          initialValue:
+                                                              '${product['project_price'] ?? product['price'] ?? 0}',
+                                                          keyboardType:
+                                                              const TextInputType.numberWithOptions(
+                                                                decimal: true,
+                                                              ),
+                                                          inputFormatters: const [
+                                                            CurrencyAmountFormatter(),
+                                                          ],
+                                                          decoration:
+                                                              const InputDecoration(
+                                                                labelText:
+                                                                    'Monthly price per item',
+                                                                suffixText:
+                                                                    'EGP/month',
+                                                                isDense: true,
+                                                              ),
+                                                          onChanged: (value) {
+                                                            product['project_price'] =
+                                                                double.tryParse(
+                                                                  value
+                                                                      .replaceAll(
+                                                                        ',',
+                                                                        '',
+                                                                      ),
+                                                                ) ??
+                                                                0;
+                                                            setState(() {});
+                                                          },
+                                                        ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      if (isLast)
+                                        GestureDetector(
+                                          onTap: selectedProducts[index] != null
+                                              ? () => setState(
+                                                  () => selectedProducts.add(
+                                                    null,
+                                                  ),
+                                                )
+                                              : null,
+                                          child: Container(
+                                            width: 50,
+                                            height: 50,
+                                            decoration: const BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: AppColors.primary,
+                                            ),
+                                            child: Center(
+                                              child: _buildImageOrIcon(
+                                                AppIcons.add,
+                                                isDark,
+                                                size: 28,
+                                                tintColor: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                      else
+                                        GestureDetector(
+                                          onTap: () => setState(
+                                            () => selectedProducts.removeAt(
+                                              index,
+                                            ),
+                                          ),
+                                          child: Container(
+                                            width: 50,
+                                            height: 50,
+                                            decoration: BoxDecoration(
+                                              color: Colors.red.withOpacity(
+                                                0.3,
+                                              ),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const Icon(
+                                              Icons.close,
+                                              color: Colors.red,
+                                              size: 26,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                          if (_currentStep == 1) ...[
+                            Text(
+                              "Pickup Date",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? Colors.white : Colors.black,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            _PickerTile(
+                              imagePath: AppIcons.pickUp,
+                              label: pickupDate == null
+                                  ? "Select Pickup Date"
+                                  : DateFormat(
+                                      'dd/MM/yyyy',
+                                    ).format(pickupDate!),
+                              onTap: () =>
+                                  _showCustomDatePicker(isPickup: true),
+                              isDark: isDark,
+                            ),
+                            const SizedBox(height: 15),
+                            Text(
+                              "Return Date",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? Colors.white : Colors.black,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            _PickerTile(
+                              imagePath: AppIcons.returns,
+                              label: returnDate == null
+                                  ? "Select Return Date"
+                                  : DateFormat(
+                                      'dd/MM/yyyy',
+                                    ).format(returnDate!),
+                              onTap: () =>
+                                  _showCustomDatePicker(isPickup: false),
+                              isDark: isDark,
+                            ),
+                            const SizedBox(height: 30),
+                            Text(
+                              'Signed contract',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? Colors.white : Colors.black,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            ProjectCommercialFields(
+                              isDark: isDark,
+                              priceController: _projectPriceController,
+                              installmentController: _installmentController,
+                              downPaymentController: _downPaymentController,
+                              paymentPlanType: _paymentPlanType,
+                              paymentFrequency: _paymentFrequency,
+                              paymentInterval: _paymentInterval,
+                              contractImage: _contractImage,
+                              showPayment: false,
+                              onPaymentPlanChanged: (value) =>
+                                  setState(() => _paymentPlanType = value),
+                              onPaymentFrequencyChanged: (value) =>
+                                  setState(() => _paymentFrequency = value),
+                              onPaymentIntervalChanged: (value) =>
+                                  setState(() => _paymentInterval = value),
+                              onContractChanged: (value) =>
+                                  setState(() => _contractImage = value),
+                            ),
+                          ],
+                          if (_currentStep == 2) ...[
+                            ProjectCommercialFields(
+                              isDark: isDark,
+                              priceController: _projectPriceController,
+                              installmentController: _installmentController,
+                              downPaymentController: _downPaymentController,
+                              paymentPlanType: _paymentPlanType,
+                              paymentFrequency: _paymentFrequency,
+                              paymentInterval: _paymentInterval,
+                              contractImage: _contractImage,
+                              showContract: false,
+                              showPrice: false,
+                              onPaymentPlanChanged: (value) =>
+                                  setState(() => _paymentPlanType = value),
+                              onPaymentFrequencyChanged: (value) =>
+                                  setState(() => _paymentFrequency = value),
+                              onPaymentIntervalChanged: (value) =>
+                                  setState(() => _paymentInterval = value),
+                              onContractChanged: (value) =>
+                                  setState(() => _contractImage = value),
+                            ),
+                            const SizedBox(height: 20),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed:
+                                    _bookingId == null ||
+                                        selectedClient == null ||
+                                        pickupDate == null ||
+                                        returnDate == null ||
+                                        totalPrice <= 0
+                                    ? null
+                                    : () => ProjectQuoteService.shareQuote(
+                                        projectId: _bookingId!,
+                                        clientName: selectedClient!['name']
+                                            .toString(),
+                                        startDate: pickupDate!,
+                                        endDate: returnDate!,
+                                        products: selectedProducts
+                                            .whereType<Map<String, dynamic>>()
+                                            .toList(),
+                                        totalAmount: totalPrice,
+                                        paymentPlanType: _paymentPlanType,
+                                        paymentFrequency: _paymentFrequency,
+                                        paymentInterval: _paymentInterval,
+                                        installmentAmount:
+                                            double.tryParse(
+                                              _installmentController.text
+                                                  .trim(),
+                                            ) ??
+                                            totalPrice,
+                                        downPaymentAmount:
+                                            double.tryParse(
+                                              _downPaymentController.text
+                                                  .trim(),
+                                            ) ??
+                                            0,
+                                      ),
+                                icon: const Icon(Icons.picture_as_pdf_outlined),
+                                label: const Text('Share PDF Quote'),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: _bookingId == null
+                                    ? null
+                                    : _recordNextPayment,
+                                icon: const Icon(Icons.payments_outlined),
+                                label: const Text(
+                                  'Record Payment & Share Receipt',
                                 ),
                               ),
-                              Text(
-                                "$totalDays ${totalDays == 1 ? 'Day' : 'Days'}",
-                                style: TextStyle(
-                                  color: isDark ? Colors.white : Colors.black,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                            ),
+                            const SizedBox(height: 10),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed:
+                                    _bookingId == null ||
+                                        selectedClient == null ||
+                                        totalPrice <= 0
+                                    ? null
+                                    : () => ProjectQuoteService.shareInvoice(
+                                        projectId: _bookingId!,
+                                        clientName: selectedClient!['name']
+                                            .toString(),
+                                        totalAmount: totalPrice,
+                                      ),
+                                icon: const Icon(Icons.receipt_long_outlined),
+                                label: const Text('Share PDF Invoice'),
                               ),
-                            ],
-                          ),
-                          const Divider(height: 20),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                "Total Amount:",
-                                style: TextStyle(
-                                  color: isDark ? Colors.white : Colors.black,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                "${_currencyFormat.format(totalPrice)} EGP",
-                                style: TextStyle(
+                            ),
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? AppColors.primary.withOpacity(0.1)
+                                    : AppColors.secondary.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(15),
+                                border: Border.all(
                                   color: isDark
                                       ? AppColors.primary
                                       : AppColors.secondary,
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 55,
-                      child: ElevatedButton(
-                        onPressed: _saveBooking,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            SvgPicture.asset(
-                              AppIcons.save,
-                              color: Colors.white,
-                            ),
-                            SizedBox(width: 6),
-                            Text(
-                              isEditing ? "Save Changes" : "Confirm Booking",
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
+                              child: Column(
+                                children: [
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        "Duration:",
+                                        style: TextStyle(
+                                          color: isDark
+                                              ? Colors.white70
+                                              : Colors.black54,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      Text(
+                                        projectDuration,
+                                        style: TextStyle(
+                                          color: isDark
+                                              ? Colors.white
+                                              : Colors.black,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const Divider(height: 20),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        "Total Amount:",
+                                        style: TextStyle(
+                                          color: isDark
+                                              ? Colors.white
+                                              : Colors.black,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      Text(
+                                        "${_currencyFormat.format(totalPrice)} EGP",
+                                        style: TextStyle(
+                                          color: isDark
+                                              ? AppColors.primary
+                                              : AppColors.secondary,
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
                             ),
                           ],
-                        ),
+                        ],
                       ),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        if (_currentStep > 0)
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => setState(() => _currentStep--),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.primary,
+                                minimumSize: const Size.fromHeight(52),
+                                side: const BorderSide(
+                                  color: AppColors.primary,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              child: const Text('Back'),
+                            ),
+                          ),
+                        if (_currentStep > 0) const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: _currentStep == 2
+                                ? _saveBooking
+                                : () => setState(() => _currentStep++),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              minimumSize: const Size.fromHeight(52),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            child: Text(
+                              _currentStep == 2 ? 'Save Changes' : 'Continue',
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 120),
                   ],
@@ -796,6 +1213,110 @@ class _EditBookingState extends State<EditBooking> {
       ),
     );
   }
+}
+
+class _EditStepHeader extends StatelessWidget {
+  const _EditStepHeader({required this.currentStep, required this.isDark});
+  final int currentStep;
+  final bool isDark;
+  @override
+  Widget build(BuildContext context) {
+    const labels = ['Client & products', 'Dates & contract', 'Payment'];
+    return Row(
+      children: List.generate(3, (index) {
+        final active = index <= currentStep;
+        return Expanded(
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      height: 3,
+                      color: index == 0
+                          ? Colors.transparent
+                          : (active
+                                ? AppColors.primary
+                                : (isDark ? Colors.white12 : Colors.black12)),
+                    ),
+                  ),
+                  Container(
+                    width: 25,
+                    height: 25,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: active
+                          ? AppColors.primary
+                          : (isDark ? Colors.white12 : Colors.black12),
+                    ),
+                    child: Center(
+                      child: Text(
+                        '${index + 1}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: active ? Colors.white : Colors.grey,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Container(
+                      height: 3,
+                      color: index == 2
+                          ? Colors.transparent
+                          : (index < currentStep
+                                ? AppColors.primary
+                                : (isDark ? Colors.white12 : Colors.black12)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                labels[index],
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: active
+                      ? (isDark ? Colors.white : Colors.black)
+                      : Colors.grey,
+                ),
+              ),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+}
+
+String _formatProjectDuration(DateTime? start, DateTime? end) {
+  if (start == null || end == null || end.isBefore(start)) {
+    return 'Select dates';
+  }
+  var months = (end.year - start.year) * 12 + end.month - start.month;
+  DateTime anniversary(int value) {
+    final monthEnd = DateTime(start.year, start.month + value + 1, 0).day;
+    return DateTime(
+      start.year,
+      start.month + value,
+      start.day.clamp(1, monthEnd),
+    );
+  }
+
+  if (anniversary(months).isAfter(end)) {
+    months--;
+  }
+  final remainingDays = end.difference(anniversary(months)).inDays;
+  final parts = <String>[];
+  if (months > 0) {
+    parts.add('$months ${months == 1 ? 'month' : 'months'}');
+  }
+  if (remainingDays > 0 || parts.isEmpty) {
+    parts.add('$remainingDays ${remainingDays == 1 ? 'day' : 'days'}');
+  }
+  return parts.join(', ');
 }
 
 class _CustomDatePickerSheet extends StatefulWidget {

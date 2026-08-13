@@ -1,6 +1,6 @@
 // ignore_for_file: use_build_context_synchronously, deprecated_member_use
 
-import 'package:ccr_booking/core/imports.dart';
+import 'package:site_lapse/core/imports.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:intl/intl.dart';
@@ -328,17 +328,14 @@ class _MessagesPageState extends State<MessagesPage> {
     });
 
     try {
-      await _supabase.from('chat_preferences').upsert(
-        {
-          'user_id': userId,
-          'other_user_id': otherUserId,
-          'pinned': newPinned,
-          'archived': newArchived,
-          'muted': newMuted,
-          'updated_at': DateTime.now().toIso8601String(),
-        },
-        onConflict: 'user_id,other_user_id',
-      );
+      await _supabase.from('chat_preferences').upsert({
+        'user_id': userId,
+        'other_user_id': otherUserId,
+        'pinned': newPinned,
+        'archived': newArchived,
+        'muted': newMuted,
+        'updated_at': DateTime.now().toIso8601String(),
+      }, onConflict: 'user_id,other_user_id');
     } catch (e) {
       if (mounted) {
         CustomSnackBar.show(context, 'Failed to update chat: $e');
@@ -382,7 +379,9 @@ class _MessagesPageState extends State<MessagesPage> {
                 ),
                 title: Text(
                   pinned ? 'Unpin chat' : 'Pin chat',
-                  style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                  style: TextStyle(
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
                 ),
                 onTap: () {
                   Navigator.pop(sheetContext);
@@ -391,12 +390,16 @@ class _MessagesPageState extends State<MessagesPage> {
               ),
               ListTile(
                 leading: Icon(
-                  muted ? Icons.notifications_off : Icons.notifications_off_outlined,
+                  muted
+                      ? Icons.notifications_off
+                      : Icons.notifications_off_outlined,
                   color: isDark ? Colors.white : Colors.black87,
                 ),
                 title: Text(
                   muted ? 'Unmute notifications' : 'Mute notifications',
-                  style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                  style: TextStyle(
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
                 ),
                 onTap: () {
                   Navigator.pop(sheetContext);
@@ -410,7 +413,9 @@ class _MessagesPageState extends State<MessagesPage> {
                 ),
                 title: Text(
                   archived ? 'Unarchive chat' : 'Archive chat',
-                  style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                  style: TextStyle(
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
                 ),
                 onTap: () {
                   Navigator.pop(sheetContext);
@@ -448,7 +453,9 @@ class _MessagesPageState extends State<MessagesPage> {
 
   List<Map<String, dynamic>> get _visibleThreads {
     final query = _searchQuery.trim().toLowerCase();
-    final base = _threads.where((t) => (t['archived'] == true) == _showArchived);
+    final base = _threads.where(
+      (t) => (t['archived'] == true) == _showArchived,
+    );
     if (query.isEmpty) return base.toList();
     return base.where((thread) {
       final user = Map<String, dynamic>.from(thread['user'] as Map);
@@ -746,7 +753,9 @@ class _MessagesPageState extends State<MessagesPage> {
   }
 
   Widget _buildReadReceipt(Map<String, dynamic> thread, bool isDark) {
-    if (thread['last_sender_id'] != _currentUserId) return const SizedBox.shrink();
+    if (thread['last_sender_id'] != _currentUserId) {
+      return const SizedBox.shrink();
+    }
     final read = thread['last_read'] == true;
     return Padding(
       padding: const EdgeInsets.only(right: 3),
@@ -771,196 +780,224 @@ class _MessagesPageState extends State<MessagesPage> {
     final pinned = thread['pinned'] == true;
     final isTyping = _typingUsers[otherUserId] == true;
 
-    return Slidable(
-      key: ValueKey(otherUserId),
-      startActionPane: ActionPane(
-        motion: const DrawerMotion(),
-        extentRatio: 0.25,
-        children: [
-          SlidableAction(
-            onPressed: (_) => _updateChatPref(
-              otherUserId,
-              archived: !(thread['archived'] == true),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Slidable(
+          key: ValueKey(otherUserId),
+          startActionPane: ActionPane(
+            motion: const DrawerMotion(),
+            extentRatio: 0.25,
+            dismissible: DismissiblePane(
+              closeOnCancel: true,
+              confirmDismiss: () async {
+                await _updateChatPref(
+                  otherUserId,
+                  archived: !(thread['archived'] == true),
+                );
+                return false;
+              },
+              onDismissed: () {},
             ),
-            backgroundColor: const Color(0xFF6B8E9C),
-            foregroundColor: Colors.white,
-            icon: Icons.archive_outlined,
-            label: thread['archived'] == true ? 'Unarchive' : 'Archive',
-            borderRadius: BorderRadius.circular(14),
+            children: [
+              SlidableAction(
+                onPressed: (_) => _updateChatPref(
+                  otherUserId,
+                  archived: !(thread['archived'] == true),
+                ),
+                backgroundColor: Color.fromARGB(255, 210, 0, 0),
+                foregroundColor: Colors.white,
+                icon: Icons.archive_outlined,
+                label: thread['archived'] == true ? 'Unarchive' : 'Archive',
+              ),
+            ],
           ),
-        ],
-      ),
-      endActionPane: ActionPane(
-        motion: const DrawerMotion(),
-        extentRatio: 0.5,
-        children: [
-          SlidableAction(
-            onPressed: (_) => _updateChatPref(otherUserId, pinned: !pinned),
-            backgroundColor: const Color(0xFFDDA15E),
-            foregroundColor: Colors.white,
-            icon: pinned ? Icons.push_pin : Icons.push_pin_outlined,
-            label: pinned ? 'Unpin' : 'Pin',
-            borderRadius: BorderRadius.circular(14),
-          ),
-          SlidableAction(
-            onPressed: (_) => _updateChatPref(otherUserId, muted: !muted),
-            backgroundColor: const Color(0xFF6C757D),
-            foregroundColor: Colors.white,
-            icon: muted ? Icons.notifications_off : Icons.notifications_off_outlined,
-            label: muted ? 'Unmute' : 'Mute',
-            borderRadius: BorderRadius.circular(14),
-          ),
-        ],
-      ),
-      child: GestureDetector(
-      onTap: () async {
-        setState(() {
-          thread['unread_count'] = 0;
-          final userId = _currentUserId;
-          if (userId != null) {
-            _threadsCacheByUser[userId] = _cloneThreads(_threads);
-          }
-        });
-        await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => MessageThreadPage(
-              otherUser: user,
-              currentUserId: _currentUserId!,
+          endActionPane: ActionPane(
+            motion: const DrawerMotion(),
+            extentRatio: 0.5,
+            dismissible: DismissiblePane(
+              closeOnCancel: true,
+              confirmDismiss: () async {
+                await _updateChatPref(otherUserId, pinned: !pinned);
+                return false;
+              },
+              onDismissed: () {},
             ),
+            children: [
+              SlidableAction(
+                onPressed: (_) => _updateChatPref(otherUserId, pinned: !pinned),
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                icon: pinned ? Icons.push_pin : Icons.push_pin_outlined,
+                label: pinned ? 'Unpin' : 'Pin',
+              ),
+              SlidableAction(
+                onPressed: (_) => _updateChatPref(otherUserId, muted: !muted),
+                backgroundColor: const Color(0xFF6C757D),
+                foregroundColor: Colors.white,
+                icon: muted
+                    ? Icons.notifications_off
+                    : Icons.notifications_off_outlined,
+                label: muted ? 'Unmute' : 'Mute',
+              ),
+            ],
           ),
-        );
-      },
-      onLongPress: () => _showChatOptions(thread),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: isDark ? Color(0xFF2D2D2D).withOpacity(0.6)
-              : Color(0xFFD0C9C9).withOpacity(0.6),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Row(
-          children: [
-            CustomPfp(
-              dimentions: 48,
-              fontSize: 22,
-              nameOverride: userName,
-              imageUrlOverride: user['avatar_url']?.toString(),
-              disableTap: true,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          userName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: isDark ? Colors.white : Colors.black87,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      if (pinned) ...[
-                        const SizedBox(width: 4),
-                        Icon(
-                          Icons.push_pin,
-                          size: 13,
-                          color: isDark ? Colors.white38 : Colors.black38,
-                        ),
-                      ],
-                      if (muted) ...[
-                        const SizedBox(width: 4),
-                        Icon(
-                          Icons.notifications_off,
-                          size: 13,
-                          color: isDark ? Colors.white38 : Colors.black38,
-                        ),
-                      ],
-                    ],
+          child: GestureDetector(
+            onTap: () async {
+              setState(() {
+                thread['unread_count'] = 0;
+                final userId = _currentUserId;
+                if (userId != null) {
+                  _threadsCacheByUser[userId] = _cloneThreads(_threads);
+                }
+              });
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => MessageThreadPage(
+                    otherUser: user,
+                    currentUserId: _currentUserId!,
                   ),
-                  if (isTyping)
-                    Text(
-                      'typing...',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontSize: 13.5,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    )
-                  else if (lastMessage.isNotEmpty)
-                    Row(
+                ),
+              );
+            },
+            onLongPress: () => _showChatOptions(thread),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? Color(0xFF2D2D2D).withOpacity(0.6)
+                    : Color(0xFFD0C9C9).withOpacity(0.6),
+                borderRadius: BorderRadius.zero,
+              ),
+              child: Row(
+                children: [
+                  CustomPfp(
+                    dimentions: 48,
+                    fontSize: 22,
+                    nameOverride: userName,
+                    imageUrlOverride: user['avatar_url']?.toString(),
+                    disableTap: true,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildReadReceipt(thread, isDark),
-                        Flexible(
-                          child: Text(
-                            _previewText(lastMessage),
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                userName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: isDark ? Colors.white : Colors.black87,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            if (pinned) ...[
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.push_pin,
+                                size: 13,
+                                color: isDark ? Colors.white38 : Colors.black38,
+                              ),
+                            ],
+                            if (muted) ...[
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.notifications_off,
+                                size: 13,
+                                color: isDark ? Colors.white38 : Colors.black38,
+                              ),
+                            ],
+                          ],
+                        ),
+                        if (isTyping)
+                          Text(
+                            'typing...',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              color: unreadCount > 0
-                                  ? (isDark ? Colors.white : Colors.black87)
-                                  : (isDark ? Colors.white60 : Colors.black54),
+                              color: AppColors.primary,
                               fontSize: 13.5,
-                              fontWeight: unreadCount > 0
-                                  ? FontWeight.w600
-                                  : FontWeight.normal,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          )
+                        else if (lastMessage.isNotEmpty)
+                          Row(
+                            children: [
+                              _buildReadReceipt(thread, isDark),
+                              Flexible(
+                                child: Text(
+                                  _previewText(lastMessage),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: unreadCount > 0
+                                        ? (isDark
+                                              ? Colors.white
+                                              : Colors.black87)
+                                        : (isDark
+                                              ? Colors.white60
+                                              : Colors.black54),
+                                    fontSize: 13.5,
+                                    fontWeight: unreadCount > 0
+                                        ? FontWeight.w600
+                                        : FontWeight.normal,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      if (dateLabel.isNotEmpty)
+                        Text(
+                          dateLabel,
+                          style: TextStyle(
+                            color: isDark ? Colors.white54 : Colors.black45,
+                            fontSize: 11.5,
+                          ),
+                        ),
+                      const SizedBox(height: 6),
+                      if (unreadCount > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: muted
+                                ? (isDark ? Colors.white24 : Colors.black26)
+                                : AppColors.primary,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            unreadCount > 9 ? '9+' : unreadCount.toString(),
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 10.5,
                             ),
                           ),
                         ),
-                      ],
-                    ),
+                    ],
+                  ),
                 ],
               ),
             ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                if (dateLabel.isNotEmpty)
-                  Text(
-                    dateLabel,
-                    style: TextStyle(
-                      color: isDark ? Colors.white54 : Colors.black45,
-                      fontSize: 11.5,
-                    ),
-                  ),
-                const SizedBox(height: 6),
-                if (unreadCount > 0)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 7,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: muted
-                          ? (isDark ? Colors.white24 : Colors.black26)
-                          : AppColors.primary,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      unreadCount > 9 ? '9+' : unreadCount.toString(),
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 10.5,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -972,13 +1009,17 @@ class _MessagesPageState extends State<MessagesPage> {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
-          color: isDark ? Color(0xFF2D2D2D).withOpacity(0.6)
+          color: isDark
+              ? Color(0xFF2D2D2D).withOpacity(0.6)
               : Color(0xFFD0C9C9).withOpacity(0.6),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Row(
           children: [
-            Icon(Icons.archive_outlined, color: isDark ? Colors.white70 : Colors.black54),
+            Icon(
+              Icons.archive_outlined,
+              color: isDark ? Colors.white70 : Colors.black54,
+            ),
             const SizedBox(width: 10),
             Text(
               'Archived',
@@ -1094,14 +1135,17 @@ class _MessagesPageState extends State<MessagesPage> {
                       const SliverFillRemaining(
                         child: Center(child: CustomLoader()),
                       )
-                    else if (visibleThreads.isEmpty && !(_archivedCount > 0 && !_showArchived))
+                    else if (visibleThreads.isEmpty &&
+                        !(_archivedCount > 0 && !_showArchived))
                       SliverFillRemaining(
                         hasScrollBody: false,
                         child: Center(
                           child: Text(
                             _searchQuery.isNotEmpty
                                 ? 'No users match your search'
-                                : (_showArchived ? 'No archived chats' : 'No users available'),
+                                : (_showArchived
+                                      ? 'No archived chats'
+                                      : 'No users available'),
                             style: TextStyle(
                               color: isDark ? Colors.white70 : Colors.black54,
                             ),
@@ -1121,16 +1165,21 @@ class _MessagesPageState extends State<MessagesPage> {
                                 return _buildArchivedBanner(isDark);
                               }
                               final offset =
-                                  (!_showArchived && _archivedCount > 0 && _searchQuery.isEmpty)
-                                      ? 1
-                                      : 0;
+                                  (!_showArchived &&
+                                      _archivedCount > 0 &&
+                                      _searchQuery.isEmpty)
+                                  ? 1
+                                  : 0;
                               return _buildChatRow(
                                 visibleThreads[index - offset],
                                 isDark,
                               );
                             },
-                            childCount: visibleThreads.length +
-                                ((!_showArchived && _archivedCount > 0 && _searchQuery.isEmpty)
+                            childCount:
+                                visibleThreads.length +
+                                ((!_showArchived &&
+                                        _archivedCount > 0 &&
+                                        _searchQuery.isEmpty)
                                     ? 1
                                     : 0),
                           ),

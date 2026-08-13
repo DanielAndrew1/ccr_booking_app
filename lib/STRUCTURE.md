@@ -41,5 +41,5 @@ This folder layout is organized by feature first, then by shared layers.
 - If a screen file grows too much, split to:
   - `page.dart` for screen layout/state
   - `page_widgets.dart` (or `part`) for local builders/helpers
-- Prefer `package:ccr_booking/core/imports.dart` for shared imports.
+- Prefer `package:site_lapse/core/imports.dart` for shared imports.
 - Keep one responsibility per service/provider file.

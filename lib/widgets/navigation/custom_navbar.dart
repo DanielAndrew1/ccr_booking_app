@@ -1,6 +1,6 @@
 // ignore_for_file: deprecated_member_use, unused_element_parameter, must_be_immutable
 
-import 'package:ccr_booking/core/imports.dart';
+import 'package:site_lapse/core/imports.dart';
 
 class CustomNavbar extends StatefulWidget {
   int initialIndex;

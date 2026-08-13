@@ -1,6 +1,6 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously
 import 'package:path/path.dart' as p;
-import 'package:ccr_booking/core/imports.dart';
+import 'package:site_lapse/core/imports.dart';
 
 class AddProduct extends StatefulWidget {
   final bool isRoot; // Logic to determine if this is a main tab in Navbar
@@ -12,9 +12,9 @@ class AddProduct extends StatefulWidget {
 
 class _AddProductState extends State<AddProduct> {
   final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _priceController = TextEditingController();
-  final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _quantityController = TextEditingController();
+  bool _isUnlimited = false;
+  bool _tracksSerialNumbers = false;
 
   File? _imageFile;
 
@@ -34,14 +34,10 @@ class _AddProductState extends State<AddProduct> {
 
   Future<void> _saveProduct() async {
     final name = _nameController.text.trim();
-    final priceText = _priceController.text.trim();
-    final description = _descriptionController.text.trim();
     final quantityText = _quantityController.text.trim();
 
     if (name.isEmpty ||
-        priceText.isEmpty ||
-        description.isEmpty ||
-        quantityText.isEmpty ||
+        (!_isUnlimited && quantityText.isEmpty) ||
         _imageFile == null) {
       CustomSnackBar.show(
         context,
@@ -73,9 +69,10 @@ class _AddProductState extends State<AddProduct> {
       // 3. Save to Database
       await supabase.from('products').insert({
         'name': name,
-        'price': double.parse(priceText),
-        'description': description,
-        'quantity': int.parse(quantityText),
+        'price': 0,
+        'quantity': _isUnlimited ? 0 : int.parse(quantityText),
+        'is_unlimited': _isUnlimited,
+        'tracks_serial_numbers': _tracksSerialNumbers,
         'image_url': imageUrl,
       });
 
@@ -87,10 +84,12 @@ class _AddProductState extends State<AddProduct> {
         );
         // Clear fields
         _nameController.clear();
-        _priceController.clear();
-        _descriptionController.clear();
         _quantityController.clear();
-        setState(() => _imageFile = null);
+        setState(() {
+          _imageFile = null;
+          _isUnlimited = false;
+          _tracksSerialNumbers = false;
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -179,26 +178,35 @@ class _AddProductState extends State<AddProduct> {
                     isDark: isDark,
                   ),
                   const SizedBox(height: 16),
-                  _buildThemedTextField(
-                    controller: _priceController,
-                    label: 'Price',
-                    isDark: isDark,
-                    suffix: 'EGP/Day',
-                    keyboardType: TextInputType.number,
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Unlimited availability'),
+                    subtitle: const Text(
+                      'Use for cloud subscriptions or services',
+                    ),
+                    value: _isUnlimited,
+                    activeColor: AppColors.primary,
+                    onChanged: (value) => setState(() => _isUnlimited = value),
                   ),
-                  const SizedBox(height: 16),
-                  _buildThemedTextField(
-                    controller: _quantityController,
-                    label: 'Quantity',
-                    isDark: isDark,
-                    keyboardType: TextInputType.number,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildThemedTextField(
-                    controller: _descriptionController,
-                    label: 'Description',
-                    isDark: isDark,
-                    maxLines: 4,
+                  if (!_isUnlimited) ...[
+                    const SizedBox(height: 8),
+                    _buildThemedTextField(
+                      controller: _quantityController,
+                      label: 'Quantity',
+                      isDark: isDark,
+                      keyboardType: TextInputType.number,
+                    ),
+                  ],
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Track camera serials'),
+                    subtitle: const Text(
+                      'Assign each installed camera to a client',
+                    ),
+                    value: _tracksSerialNumbers,
+                    activeColor: AppColors.primary,
+                    onChanged: (value) =>
+                        setState(() => _tracksSerialNumbers = value),
                   ),
                   const SizedBox(height: 32),
                   CustomButton(

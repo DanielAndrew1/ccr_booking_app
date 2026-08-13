@@ -1,10 +1,27 @@
-import 'package:ccr_booking/core/app_theme.dart';
+import 'package:site_lapse/core/app_theme.dart';
 import 'package:flutter/material.dart';
 
-class NoInternetPage extends StatelessWidget {
+class NoInternetPage extends StatefulWidget {
   final Future<void> Function()? onRetry;
 
   const NoInternetPage({super.key, this.onRetry});
+
+  @override
+  State<NoInternetPage> createState() => _NoInternetPageState();
+}
+
+class _NoInternetPageState extends State<NoInternetPage> {
+  bool _isRetrying = false;
+
+  Future<void> _retry() async {
+    if (_isRetrying) return;
+    setState(() => _isRetrying = true);
+    try {
+      await widget.onRetry?.call();
+    } finally {
+      if (mounted) setState(() => _isRetrying = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,9 +62,7 @@ class NoInternetPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 22),
                 ElevatedButton(
-                  onPressed: () async {
-                    await onRetry?.call();
-                  },
+                  onPressed: _isRetrying ? null : _retry,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: AppColors.lightcolor,
@@ -56,10 +71,19 @@ class NoInternetPage extends StatelessWidget {
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                  child: const Text(
-                    'Reload',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
+                  child: _isRetrying
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text(
+                          'Reload',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
                 ),
               ],
             ),

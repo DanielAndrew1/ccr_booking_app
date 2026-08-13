@@ -1,6 +1,6 @@
 import 'dart:ui' as ui;
 
-import 'package:ccr_booking/core/imports.dart';
+import 'package:site_lapse/core/imports.dart';
 
 class SplashOverlay extends StatefulWidget {
   final VoidCallback onAnimationComplete;
@@ -103,11 +103,12 @@ class _SplashOverlayState extends State<SplashOverlay>
   }
 
   Widget _buildLogoWithGlow(bool isDark) {
+    final logoAsset = AppImages.markFor(isDark);
     final pulse = _isPulsing ? _pulseAnimation.value : 0.0;
-    final logoWidth = MediaQuery.of(context).size.width.clamp(260.0, 420.0);
-    final sigmaInner = 6 + (pulse * 10);
-    final outerOpacity = (isDark ? 0.80 : 0.66) + (pulse * 0.16);
-    final innerOpacity = (isDark ? 0.55 : 0.45) + (pulse * 0.12);
+    final logoWidth = MediaQuery.of(context).size.width.clamp(200.0, 300.0);
+    final sigmaInner = 2 + (pulse * 3);
+    final outerOpacity = 0.18 + (pulse * 0.08);
+    final innerOpacity = 0.14 + (pulse * 0.08);
 
     return Transform.scale(
       scale: _isDataReady ? _scaleAnimation.value : 1,
@@ -122,14 +123,13 @@ class _SplashOverlayState extends State<SplashOverlay>
               IgnorePointer(
                 child: Opacity(
                   opacity: outerOpacity,
-                  child: 
-                  Image.asset(
-                      AppImages.logo,
-                      width: logoWidth,
-                      filterQuality: FilterQuality.high,
-                    ),
+                  child: Image.asset(
+                    logoAsset,
+                    width: logoWidth,
+                    filterQuality: FilterQuality.high,
                   ),
                 ),
+              ),
               IgnorePointer(
                 child: Opacity(
                   opacity: innerOpacity,
@@ -139,7 +139,7 @@ class _SplashOverlayState extends State<SplashOverlay>
                       sigmaY: sigmaInner,
                     ),
                     child: Image.asset(
-                      AppImages.logo,
+                      logoAsset,
                       width: logoWidth,
                       filterQuality: FilterQuality.high,
                     ),
@@ -147,7 +147,7 @@ class _SplashOverlayState extends State<SplashOverlay>
                 ),
               ),
               Image.asset(
-                AppImages.logo,
+                logoAsset,
                 width: logoWidth,
                 filterQuality: FilterQuality.high,
               ),

@@ -1,6 +1,6 @@
 // ignore_for_file: deprecated_member_use, unnecessary_underscores
 
-import 'package:ccr_booking/core/imports.dart';
+import 'package:site_lapse/core/imports.dart';
 
 class CustomSearch extends StatefulWidget {
   final Function(Map<String, dynamic>) onClientSelected;
@@ -207,7 +207,15 @@ class CustomSearchState extends State<CustomSearch> {
                                 ),
                               ),
                               subtitle: Text(
-                                client['phone'],
+                                [
+                                      client['phone']?.toString(),
+                                      client['email']?.toString(),
+                                    ]
+                                    .where(
+                                      (value) =>
+                                          value != null && value.isNotEmpty,
+                                    )
+                                    .join(' • '),
                                 style: TextStyle(
                                   color: isDark
                                       ? Colors.white54

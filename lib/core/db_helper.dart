@@ -13,7 +13,7 @@ class DBHelper {
 
   static Future<sqflite.Database> _initDB() async {
     final dbPath = await sqflite.getDatabasesPath();
-    final path = join(dbPath, 'ccr_booking.db');
+    final path = join(dbPath, 'site_lapse.db');
 
     return await sqflite.openDatabase(
       path,

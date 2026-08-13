@@ -1,6 +1,6 @@
 // ignore_for_file: deprecated_member_use, no_leading_underscores_for_local_identifiers
 
-import 'package:ccr_booking/core/imports.dart';
+import 'package:site_lapse/core/imports.dart';
 
 class AboutPage extends StatelessWidget {
   const AboutPage({super.key});
@@ -26,17 +26,10 @@ class AboutPage extends StatelessWidget {
                 children: [
                   // App Logo or Icon Placeholder
                   Center(
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Image.asset(
-                        AppImages.icon,
-                        width: 90,
-                        color: AppColors.primary,
-                      ),
+                    child: Image.asset(
+                      AppImages.darkIcon,
+                      width: 100,
+                      height: 100,
                     ),
                   ),
 
@@ -47,7 +40,7 @@ class AboutPage extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        "CCR Booking System",
+                        "Site Lapse",
                         style: AppFontStyle.subTitleBold().copyWith(
                           color: isDark ? Colors.white : Colors.black,
                           fontSize: 24,
@@ -88,7 +81,7 @@ class AboutPage extends StatelessWidget {
                   _buildSectionTitle("Our Humble Beginnings", isDark),
                   const SizedBox(height: 12),
                   _buildDescriptionText(
-                    '''Starting with just a handful of lenses in 2012, -Andrew Emil- set out to make gear more affordable through rentals. As word spread about our services, Andrew made every effort to hire great, local talent who are dedicated to great customer service and deeply passionate about photography and videography. For years since, customers have entrusted the CCR team to provide an ever growing selection of cameras, lenses, lighting kits, audio equipment, and production support systems that are suitable for both novices and pros. The most important element of our success has always been our dedicated, passionate, and loyal customers, who we consider to all be “silent partners” of CairoCameraRentals.com. We have been entrusted by our customers to take us along with them on their photographic and cinematic journey.''',
+                    '''Site Lapse helps teams manage installation projects, connected cameras, subscriptions, payments, and client communication in one clear workspace.''',
                     isDark,
                   ),
 
@@ -99,7 +92,7 @@ class AboutPage extends StatelessWidget {
                   const SizedBox(height: 12),
                   _buildFeatureItem(
                     context,
-                    "Real-time Booking Tracking",
+                    "Real-time Project Tracking",
                     isDark,
                   ),
                   _buildFeatureItem(
@@ -154,17 +147,17 @@ class AboutPage extends StatelessWidget {
                         const SizedBox(height: 12),
                         _buildContactRow(
                           AppIcons.phone,
-                          "+20 120 7577739",
+                          "+20 1282040613",
                           isDark,
                         ),
                         _buildContactRow(
                           AppIcons.email,
-                          "info@cairocamerarentals.com",
+                          "info@site-lapse.com",
                           isDark,
                         ),
                         _buildContactRow(
                           AppIcons.globe,
-                          "www.cairocamerarentals.com",
+                          "www.site-lapse.com",
                           isDark,
                         ),
                       ],
@@ -201,11 +194,7 @@ class AboutPage extends StatelessWidget {
     );
   }
 
-  Widget _buildFeatureItem(
-    BuildContext context,
-    String text,
-    bool isDark,
-  ) {
+  Widget _buildFeatureItem(BuildContext context, String text, bool isDark) {
     final loc = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),

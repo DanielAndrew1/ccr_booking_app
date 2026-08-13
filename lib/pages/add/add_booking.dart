@@ -1,6 +1,7 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously, unnecessary_underscores, unused_element_parameter
 import 'package:intl/intl.dart';
-import 'package:ccr_booking/core/imports.dart';
+import 'package:printing/printing.dart';
+import 'package:site_lapse/core/imports.dart';
 
 class AddBooking extends StatefulWidget {
   final bool isRoot;
@@ -21,6 +22,14 @@ class _AddBookingState extends State<AddBooking> {
   DateTime? pickupDate;
   DateTime? returnDate;
   List<Map<String, dynamic>?> selectedProducts = [null];
+  final _projectPriceController = TextEditingController();
+  final _installmentController = TextEditingController();
+  final _downPaymentController = TextEditingController();
+  String? _paymentPlanType;
+  String _paymentFrequency = 'month';
+  int _paymentInterval = 1;
+  File? _contractImage;
+  int _currentStep = 0;
 
   final NumberFormat _currencyFormat = NumberFormat("#,##0", "en_US");
 
@@ -40,14 +49,94 @@ class _AddBookingState extends State<AddBooking> {
     return difference < 0 ? 0 : difference;
   }
 
+  String get projectDuration => _formatDuration(pickupDate, returnDate);
+
   double get totalPrice {
-    double sum = 0;
-    for (var product in selectedProducts) {
-      if (product != null) {
-        sum += (double.tryParse(product['price'].toString()) ?? 0);
-      }
+    return selectedProducts.whereType<Map<String, dynamic>>().fold(0, (
+      sum,
+      product,
+    ) {
+      final value = product['project_price'] ?? product['price'] ?? 0;
+      return sum +
+          (value is num ? value.toDouble() : double.tryParse('$value') ?? 0);
+    });
+  }
+
+  Future<void> _previewQuote() async {
+    if (selectedClient == null ||
+        pickupDate == null ||
+        returnDate == null ||
+        totalPrice <= 0 ||
+        _paymentPlanType == null) {
+      CustomSnackBar.show(
+        context,
+        'Add the client, dates, price, and payment plan first',
+      );
+      return;
     }
-    return sum * totalDays;
+    final bytes = await ProjectQuoteService.buildQuote(
+      projectId: 'preview00',
+      clientName: selectedClient!['name'].toString(),
+      startDate: pickupDate!,
+      endDate: returnDate!,
+      products: selectedProducts.whereType<Map<String, dynamic>>().toList(),
+      totalAmount: totalPrice,
+      paymentPlanType: _paymentPlanType!,
+      paymentFrequency: _paymentFrequency,
+      paymentInterval: _paymentInterval,
+      installmentAmount:
+          double.tryParse(_installmentController.text.trim()) ?? totalPrice,
+      downPaymentAmount:
+          double.tryParse(_downPaymentController.text.trim()) ?? 0,
+    );
+    if (!mounted) return;
+    final fileName =
+        '${selectedClient!['name'].toString().trim().replaceAll(RegExp(r'[^A-Za-z0-9]+'), '-').replaceAll(RegExp(r'^-+|-+$'), '').toLowerCase()}-quote-${DateFormat('yyyy-MM-dd').format(DateTime.now())}.pdf';
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: CustomAppBar(
+            text: 'Quote preview',
+            showPfp: false,
+            actions: [
+              IconButton(
+                tooltip: 'Share quote',
+                icon: Icon(Icons.adaptive.share_outlined),
+                onPressed: () =>
+                    Printing.sharePdf(bytes: bytes, filename: fileName),
+              ),
+            ],
+          ),
+          body: PdfPreview(
+            build: (_) async => bytes,
+            canChangePageFormat: false,
+            useActions: false,
+            allowPrinting: false,
+            allowSharing: false,
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _friendlyProjectError(Object error) {
+    final message = error.toString().toLowerCase();
+    if (message.contains('booking_items') &&
+        message.contains('row-level security')) {
+      return 'Project saved, but its products could not be linked. Run the booking-items SQL policy fix in Supabase.';
+    }
+    if (message.contains('down_payment_amount') ||
+        message.contains('payment_plan_type')) {
+      return 'Your database needs the latest project payment SQL update in Supabase.';
+    }
+    if (message.contains('row-level security')) {
+      return 'You do not have permission to complete this action. Check the Supabase table policies.';
+    }
+    if (message.contains('network') || message.contains('socket')) {
+      return 'Could not reach the server. Check your internet connection and try again.';
+    }
+    return 'Could not save the project. Please try again.';
   }
 
   Future<void> _saveBooking() async {
@@ -56,7 +145,9 @@ class _AddBookingState extends State<AddBooking> {
     if (selectedClient == null ||
         pickupDate == null ||
         returnDate == null ||
-        isProductsEmpty) {
+        isProductsEmpty ||
+        _paymentPlanType == null ||
+        totalPrice <= 0) {
       CustomSnackBar.show(context, "Please fill in all details");
       return;
     }
@@ -80,6 +171,7 @@ class _AddBookingState extends State<AddBooking> {
 
       for (var product in validSelection) {
         final String productId = product['id'].toString();
+        if (product['is_unlimited'] == true) continue;
         final int totalQuantity =
             int.tryParse(product['quantity']?.toString() ?? '1') ?? 1;
 
@@ -135,27 +227,70 @@ class _AddBookingState extends State<AddBooking> {
           .map((p) => p['name'].toString())
           .toList();
 
-      final booking = await supabase.from('bookings').insert({
-        'client_id': selectedClient!['id'].toString(),
-        'client_name': selectedClient!['name'],
-        'product_ids': productIds,
-        'product_names': productNames,
-        'pickup_datetime': pickupDate!.toIso8601String(),
-        'return_datetime': returnDate!.toIso8601String(),
-        'status': 'upcoming',
-        'total_price': totalPrice,
-      }).select('id').single();
+      final booking = await supabase
+          .from('bookings')
+          .insert({
+            'client_id': selectedClient!['id'].toString(),
+            'client_name': selectedClient!['name'],
+            'product_ids': productIds,
+            'product_names': productNames,
+            'pickup_datetime': pickupDate!.toIso8601String(),
+            'return_datetime': returnDate!.toIso8601String(),
+            'status': 'upcoming',
+            'total_price': totalPrice,
+            'payment_plan_type': _paymentPlanType,
+            'payment_frequency': _paymentPlanType == 'down_payment_installments'
+                ? _paymentFrequency
+                : null,
+            'payment_interval': _paymentInterval,
+            'installment_amount':
+                double.tryParse(_installmentController.text.trim()) ??
+                totalPrice,
+            'down_payment_amount':
+                double.tryParse(_downPaymentController.text.trim()) ?? 0,
+          })
+          .select('id')
+          .single();
 
       final operations = BookingOperationsService(supabase);
-      await operations.syncBookingItems(
-        bookingId: booking['id'].toString(),
-        products: validSelection,
-      );
-      await operations.recordStatus(
-        bookingId: booking['id'].toString(),
-        status: 'upcoming',
-        note: 'Booking created',
-      );
+      if (_contractImage != null) {
+        final contractPath = await ProjectCommercialService(supabase)
+            .uploadContract(
+              projectId: booking['id'].toString(),
+              imageFile: _contractImage!,
+            );
+        await supabase
+            .from('bookings')
+            .update({'contract_path': contractPath})
+            .eq('id', booking['id']);
+      }
+      try {
+        await ProjectFinanceService(
+          supabase,
+        ).syncProjectFinance(booking['id'].toString());
+      } catch (error) {
+        debugPrint('Project finance setup failed: $error');
+      }
+      try {
+        await operations.syncBookingItems(
+          bookingId: booking['id'].toString(),
+          products: validSelection,
+        );
+        await operations.recordStatus(
+          bookingId: booking['id'].toString(),
+          status: 'upcoming',
+          note: 'Booking created',
+        );
+      } catch (error) {
+        debugPrint('Project detail setup failed: $error');
+        if (mounted) {
+          CustomSnackBar.show(
+            context,
+            'Project saved. Run the booking-items SQL policy fix to save its products.',
+            color: AppColors.red,
+          );
+        }
+      }
 
       if (!mounted) return;
       Navigator.pop(context);
@@ -166,14 +301,19 @@ class _AddBookingState extends State<AddBooking> {
         pickupDate = null;
         returnDate = null;
         selectedProducts = [null];
+        _contractImage = null;
+        _currentStep = 0;
       });
+      _projectPriceController.clear();
+      _installmentController.clear();
+      _downPaymentController.clear();
 
       // Explicitly clear the CustomSearch internal state
       _searchKey.currentState?.clear();
 
       CustomSnackBar.show(
         context,
-        "Booking Created Successfully!",
+        "Project Created Successfully!",
         color: AppColors.green,
         icon: Icons.check_circle_outline,
       );
@@ -182,7 +322,7 @@ class _AddBookingState extends State<AddBooking> {
     } catch (e) {
       if (!mounted) return;
       Navigator.pop(context);
-      CustomSnackBar.show(context, "Error: ${e.toString()}");
+      CustomSnackBar.show(context, _friendlyProjectError(e));
     }
   }
 
@@ -218,7 +358,10 @@ class _AddBookingState extends State<AddBooking> {
   }
 
   void _showProductSearch(int index) async {
-    final response = await supabase.from('products').select();
+    final response = await supabase
+        .from('products')
+        .select()
+        .eq('is_active', true);
     List<Map<String, dynamic>> allProducts = List<Map<String, dynamic>>.from(
       response,
     );
@@ -305,14 +448,15 @@ class _AddBookingState extends State<AddBooking> {
                           ),
                         ),
                         subtitle: Text(
-                          "${_currencyFormat.format(product['price'])} EGP/Day",
-                          style: const TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          '${_currencyFormat.format(product['price'] ?? 0)} EGP/month default',
                         ),
                         onTap: () {
-                          setState(() => selectedProducts[index] = product);
+                          setState(
+                            () => selectedProducts[index] = {
+                              ...product,
+                              'project_price': product['price'] ?? 0,
+                            },
+                          );
                           Navigator.pop(context);
                         },
                       );
@@ -388,7 +532,7 @@ class _AddBookingState extends State<AddBooking> {
             const CustomBgSvg(),
             Scaffold(
               backgroundColor: Colors.transparent,
-              appBar: CustomAppBar(text: "Add Booking", showPfp: widget.isRoot),
+              appBar: CustomAppBar(text: "Add Project", showPfp: widget.isRoot),
               body: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
                 padding: const EdgeInsets.symmetric(
@@ -398,253 +542,453 @@ class _AddBookingState extends State<AddBooking> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    CustomSearch(
-                      key: _searchKey, // Applied the key here
-                      onClientSelected: (client) =>
-                          setState(() => selectedClient = client),
+                    _ProjectStepIndicator(
+                      currentStep: _currentStep,
+                      isDark: isDark,
                     ),
-                    const SizedBox(height: 25),
-                    Text(
-                      "Products",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: isDark ? Colors.white : Colors.black,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: selectedProducts.length,
-                      itemBuilder: (context, index) {
-                        bool isLast = index == selectedProducts.length - 1;
-                        final product = selectedProducts[index];
-                        final imageUrl =
-                            product?['image_url'] ?? product?['image'];
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12.0),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: InkWell(
-                                  onTap: () => _showProductSearch(index),
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: isDark
-                                          ? const Color(0xFF2A2A2A)
-                                          : Colors.white,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        _buildImageOrIcon(imageUrl, isDark),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                product?['name'] ??
-                                                    "Select Product",
-                                                style: TextStyle(
-                                                  fontSize: 16,
-                                                  color: isDark
-                                                      ? Colors.white
-                                                      : const Color(0xFF6A6A6A),
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                              if (product != null)
-                                                Text(
-                                                  "${_currencyFormat.format(product['price'])} EGP / Day",
-                                                  style: const TextStyle(
-                                                    fontSize: 13,
-                                                    color: AppColors.primary,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
+                    const SizedBox(height: 24),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 350),
+                      transitionBuilder: (child, animation) {
+                        return FadeTransition(
+                          opacity: CurvedAnimation(
+                            parent: animation,
+                            curve: Curves.easeOutCubic,
+                          ),
+                          child: ScaleTransition(
+                            scale: Tween<double>(begin: .96, end: 1).animate(
+                              CurvedAnimation(
+                                parent: animation,
+                                curve: Curves.easeOutCubic,
                               ),
-                              const SizedBox(width: 10),
-                              if (isLast)
-                                GestureDetector(
-                                  onTap: selectedProducts[index] != null
-                                      ? () => setState(
-                                          () => selectedProducts.add(null),
-                                        )
-                                      : null,
-                                  child: Container(
-                                    width: 50,
-                                    height: 50,
-                                    decoration: const BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: AppColors.primary,
-                                    ),
-                                    child: Center(
-                                      child: _buildImageOrIcon(
-                                        AppIcons.add,
-                                        isDark,
-                                        size: 28,
-                                        tintColor: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                )
-                              else
-                                GestureDetector(
-                                  onTap: () => setState(
-                                    () => selectedProducts.removeAt(index),
-                                  ),
-                                  child: Container(
-                                    width: 50,
-                                    height: 50,
-                                    decoration: BoxDecoration(
-                                      color: Colors.red.withOpacity(0.3),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.close,
-                                      color: Colors.red,
-                                      size: 26,
-                                    ),
-                                  ),
-                                ),
-                            ],
+                            ),
+                            child: child,
                           ),
                         );
                       },
-                    ),
-                    Text(
-                      "Pickup Date",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.white : Colors.black,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    _PickerTile(
-                      imagePath: AppIcons.pickUp,
-                      label: pickupDate == null
-                          ? "Select Pickup Date"
-                          : DateFormat('dd/MM/yyyy').format(pickupDate!),
-                      onTap: () => _showCustomDatePicker(isPickup: true),
-                      isDark: isDark,
-                    ),
-                    const SizedBox(height: 15),
-                    Text(
-                      "Return Date",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.white : Colors.black,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    _PickerTile(
-                      imagePath: AppIcons.returns,
-                      label: returnDate == null
-                          ? "Select Return Date"
-                          : DateFormat('dd/MM/yyyy').format(returnDate!),
-                      onTap: () => _showCustomDatePicker(isPickup: false),
-                      isDark: isDark,
-                    ),
-                    const SizedBox(height: 30),
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? AppColors.primary.withOpacity(0.1)
-                            : AppColors.secondary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(15),
-                        border: Border.all(
-                          color: isDark
-                              ? AppColors.primary
-                              : AppColors.secondary,
-                        ),
-                      ),
                       child: Column(
+                        key: ValueKey(_currentStep),
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                "Duration:",
-                                style: TextStyle(
-                                  color: isDark
-                                      ? Colors.white70
-                                      : Colors.black54,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              Text(
-                                "$totalDays ${totalDays == 1 ? 'Day' : 'Days'}",
-                                style: TextStyle(
-                                  color: isDark ? Colors.white : Colors.black,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                          if (_currentStep == 0) ...[
+                            CustomSearch(
+                              key: _searchKey, // Applied the key here
+                              onClientSelected: (client) =>
+                                  setState(() => selectedClient = client),
+                            ),
+                            if (selectedClient != null) ...[
+                              const SizedBox(height: 12),
+                              ProjectClientCard(
+                                client: selectedClient!,
+                                isDark: isDark,
                               ),
                             ],
-                          ),
-                          const Divider(height: 20),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                "Total Amount:",
-                                style: TextStyle(
-                                  color: isDark ? Colors.white : Colors.black,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                            const SizedBox(height: 28),
+                            _SectionHeading(
+                              icon: Icons.inventory_2_outlined,
+                              title: 'Project products',
+                              subtitle:
+                                  'Choose everything included in this project',
+                              isDark: isDark,
+                            ),
+                            const SizedBox(height: 10),
+                            ListView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: selectedProducts.length,
+                              itemBuilder: (context, index) {
+                                bool isLast =
+                                    index == selectedProducts.length - 1;
+                                final product = selectedProducts[index];
+                                final imageUrl =
+                                    product?['image_url'] ?? product?['image'];
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 12.0),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: InkWell(
+                                          onTap: () =>
+                                              _showProductSearch(index),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          child: Container(
+                                            padding: const EdgeInsets.all(12),
+                                            decoration: BoxDecoration(
+                                              color: isDark
+                                                  ? const Color(0xFF2A2A2A)
+                                                  : Colors.white,
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                _buildImageOrIcon(
+                                                  imageUrl,
+                                                  isDark,
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Text(
+                                                        product?['name'] ??
+                                                            "Select Product",
+                                                        style: TextStyle(
+                                                          fontSize: 16,
+                                                          color: isDark
+                                                              ? Colors.white
+                                                              : const Color(
+                                                                  0xFF6A6A6A,
+                                                                ),
+                                                          fontWeight:
+                                                              FontWeight.w500,
+                                                        ),
+                                                      ),
+                                                      if (product != null)
+                                                        TextFormField(
+                                                          key: ValueKey(
+                                                            '${product['id']}-$index',
+                                                          ),
+                                                          initialValue:
+                                                              '${product['project_price'] ?? product['price'] ?? 0}',
+                                                          keyboardType:
+                                                              const TextInputType.numberWithOptions(
+                                                                decimal: true,
+                                                              ),
+                                                          inputFormatters: const [
+                                                            CurrencyAmountFormatter(),
+                                                          ],
+                                                          decoration:
+                                                              const InputDecoration(
+                                                                labelText:
+                                                                    'Monthly price per item',
+                                                                suffixText:
+                                                                    'EGP/month',
+                                                                isDense: true,
+                                                              ),
+                                                          onChanged: (value) {
+                                                            product['project_price'] =
+                                                                double.tryParse(
+                                                                  value
+                                                                      .replaceAll(
+                                                                        ',',
+                                                                        '',
+                                                                      ),
+                                                                ) ??
+                                                                0;
+                                                            setState(() {});
+                                                          },
+                                                        ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      if (isLast)
+                                        GestureDetector(
+                                          onTap: selectedProducts[index] != null
+                                              ? () => setState(
+                                                  () => selectedProducts.add(
+                                                    null,
+                                                  ),
+                                                )
+                                              : null,
+                                          child: Container(
+                                            width: 50,
+                                            height: 50,
+                                            decoration: const BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: AppColors.primary,
+                                            ),
+                                            child: Center(
+                                              child: _buildImageOrIcon(
+                                                AppIcons.add,
+                                                isDark,
+                                                size: 28,
+                                                tintColor: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                      else
+                                        GestureDetector(
+                                          onTap: () => setState(
+                                            () => selectedProducts.removeAt(
+                                              index,
+                                            ),
+                                          ),
+                                          child: Container(
+                                            width: 50,
+                                            height: 50,
+                                            decoration: BoxDecoration(
+                                              color: Colors.red.withOpacity(
+                                                0.3,
+                                              ),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const Icon(
+                                              Icons.close,
+                                              color: Colors.red,
+                                              size: 26,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                          if (_currentStep == 1) ...[
+                            const SizedBox(height: 10),
+                            _SectionHeading(
+                              icon: Icons.calendar_month_outlined,
+                              title: 'Project schedule',
+                              subtitle:
+                                  'Set the planned start and finish dates',
+                              isDark: isDark,
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Start date',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? Colors.white70 : Colors.black54,
                               ),
-                              Text(
-                                "${_currencyFormat.format(totalPrice)} EGP",
-                                style: TextStyle(
+                            ),
+                            const SizedBox(height: 6),
+                            _PickerTile(
+                              imagePath: AppIcons.pickUp,
+                              label: pickupDate == null
+                                  ? "Select Pickup Date"
+                                  : DateFormat(
+                                      'dd/MM/yyyy',
+                                    ).format(pickupDate!),
+                              onTap: () =>
+                                  _showCustomDatePicker(isPickup: true),
+                              isDark: isDark,
+                            ),
+                            const SizedBox(height: 15),
+                            Text(
+                              'End date',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? Colors.white70 : Colors.black54,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            _PickerTile(
+                              imagePath: AppIcons.returns,
+                              label: returnDate == null
+                                  ? "Select Return Date"
+                                  : DateFormat(
+                                      'dd/MM/yyyy',
+                                    ).format(returnDate!),
+                              onTap: () =>
+                                  _showCustomDatePicker(isPickup: false),
+                              isDark: isDark,
+                            ),
+                            const SizedBox(height: 28),
+                            _SectionHeading(
+                              icon: Icons.description_outlined,
+                              title: 'Signed contract',
+                              subtitle: 'Take or upload the signed agreement',
+                              isDark: isDark,
+                            ),
+                            const SizedBox(height: 12),
+                            ProjectCommercialFields(
+                              isDark: isDark,
+                              priceController: _projectPriceController,
+                              installmentController: _installmentController,
+                              downPaymentController: _downPaymentController,
+                              paymentPlanType: _paymentPlanType,
+                              paymentFrequency: _paymentFrequency,
+                              paymentInterval: _paymentInterval,
+                              contractImage: _contractImage,
+                              showPayment: false,
+                              onPaymentPlanChanged: (value) =>
+                                  setState(() => _paymentPlanType = value),
+                              onPaymentFrequencyChanged: (value) =>
+                                  setState(() => _paymentFrequency = value),
+                              onPaymentIntervalChanged: (value) =>
+                                  setState(() => _paymentInterval = value),
+                              onContractChanged: (value) =>
+                                  setState(() => _contractImage = value),
+                            ),
+                          ],
+                          if (_currentStep == 2) ...[
+                            _SectionHeading(
+                              icon: Icons.payments_outlined,
+                              title: 'Price and payment',
+                              subtitle:
+                                  'Set the project value and how the client pays',
+                              isDark: isDark,
+                            ),
+                            const SizedBox(height: 12),
+                            ProjectCommercialFields(
+                              isDark: isDark,
+                              priceController: _projectPriceController,
+                              installmentController: _installmentController,
+                              downPaymentController: _downPaymentController,
+                              paymentPlanType: _paymentPlanType,
+                              paymentFrequency: _paymentFrequency,
+                              paymentInterval: _paymentInterval,
+                              contractImage: _contractImage,
+                              showContract: false,
+                              showPrice: false,
+                              onPaymentPlanChanged: (value) =>
+                                  setState(() => _paymentPlanType = value),
+                              onPaymentFrequencyChanged: (value) =>
+                                  setState(() => _paymentFrequency = value),
+                              onPaymentIntervalChanged: (value) =>
+                                  setState(() => _paymentInterval = value),
+                              onContractChanged: (value) =>
+                                  setState(() => _contractImage = value),
+                            ),
+                            const SizedBox(height: 30),
+                            Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? AppColors.primary.withOpacity(0.1)
+                                    : AppColors.secondary.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(15),
+                                border: Border.all(
                                   color: isDark
                                       ? AppColors.primary
                                       : AppColors.secondary,
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
-                            ],
-                          ),
+                              child: Column(
+                                children: [
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        "Duration:",
+                                        style: TextStyle(
+                                          color: isDark
+                                              ? Colors.white70
+                                              : Colors.black54,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      Text(
+                                        projectDuration,
+                                        style: TextStyle(
+                                          color: isDark
+                                              ? Colors.white
+                                              : Colors.black,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const Divider(height: 20),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        "Total Amount:",
+                                        style: TextStyle(
+                                          color: isDark
+                                              ? Colors.white
+                                              : Colors.black,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      Text(
+                                        "${_currencyFormat.format(totalPrice)} EGP",
+                                        style: TextStyle(
+                                          color: isDark
+                                              ? AppColors.primary
+                                              : AppColors.secondary,
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 55,
-                      child: ElevatedButton(
-                        onPressed: _saveBooking,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        if (_currentStep > 0)
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => setState(() => _currentStep--),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.primary,
+                                minimumSize: const Size.fromHeight(52),
+                                side: const BorderSide(
+                                  color: AppColors.primary,
+                                  width: 1.4,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              child: const Text('Back'),
+                            ),
+                          ),
+                        if (_currentStep > 0) const SizedBox(width: 12),
+                        Expanded(
+                          child: GestureDetector(
+                            onLongPress: _currentStep == 2
+                                ? _previewQuote
+                                : null,
+                            child: ElevatedButton(
+                              onPressed: _currentStep == 2
+                                  ? _saveBooking
+                                  : () => setState(() => _currentStep++),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size.fromHeight(52),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              child: Text(
+                                _currentStep == 2
+                                    ? 'Confirm Project'
+                                    : 'Continue',
+                              ),
+                            ),
                           ),
                         ),
-                        child: const Text(
-                          "Confirm Booking",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
+                      ],
+                    ),
+                    if (_currentStep == 2)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: Center(
+                          child: Text(
+                            'Hold Confirm Project to preview the PDF quote',
+                            style: TextStyle(color: Colors.grey, fontSize: 12),
                           ),
                         ),
                       ),
-                    ),
                     const SizedBox(height: 120),
                   ],
                 ),
@@ -655,6 +999,170 @@ class _AddBookingState extends State<AddBooking> {
       ),
     );
   }
+}
+
+class _ProjectStepIndicator extends StatelessWidget {
+  const _ProjectStepIndicator({
+    required this.currentStep,
+    required this.isDark,
+  });
+
+  final int currentStep;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    const labels = ['Client & products', 'Dates & contract', 'Payment'];
+    return Row(
+      children: List.generate(labels.length, (index) {
+        final active = index <= currentStep;
+        return Expanded(
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      height: 3,
+                      color: index == 0
+                          ? Colors.transparent
+                          : (active
+                                ? AppColors.primary
+                                : (isDark ? Colors.white12 : Colors.black12)),
+                    ),
+                  ),
+                  Container(
+                    width: 25,
+                    height: 25,
+                    decoration: BoxDecoration(
+                      color: active
+                          ? AppColors.primary
+                          : (isDark ? Colors.white12 : Colors.black12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        '${index + 1}',
+                        style: TextStyle(
+                          color: active
+                              ? Colors.white
+                              : (isDark ? Colors.white60 : Colors.black54),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Container(
+                      height: 3,
+                      color: index == labels.length - 1
+                          ? Colors.transparent
+                          : (index < currentStep
+                                ? AppColors.primary
+                                : (isDark ? Colors.white12 : Colors.black12)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                labels[index],
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: active
+                      ? (isDark ? Colors.white : Colors.black)
+                      : (isDark ? Colors.white54 : Colors.black45),
+                ),
+              ),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+}
+
+String _formatDuration(DateTime? start, DateTime? end) {
+  if (start == null || end == null || end.isBefore(start)) {
+    return 'Select dates';
+  }
+  var months = (end.year - start.year) * 12 + end.month - start.month;
+  DateTime anniversary(int value) {
+    final monthEnd = DateTime(start.year, start.month + value + 1, 0).day;
+    return DateTime(
+      start.year,
+      start.month + value,
+      start.day.clamp(1, monthEnd),
+    );
+  }
+
+  if (anniversary(months).isAfter(end)) {
+    months--;
+  }
+  final remainingDays = end.difference(anniversary(months)).inDays;
+  final parts = <String>[];
+  if (months > 0) {
+    parts.add('$months ${months == 1 ? 'month' : 'months'}');
+  }
+  if (remainingDays > 0 || parts.isEmpty) {
+    parts.add('$remainingDays ${remainingDays == 1 ? 'day' : 'days'}');
+  }
+  return parts.join(', ');
+}
+
+class _SectionHeading extends StatelessWidget {
+  const _SectionHeading({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.isDark,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: AppColors.primary.withOpacity(.12),
+          borderRadius: BorderRadius.circular(11),
+        ),
+        child: Icon(icon, color: AppColors.primary, size: 20),
+      ),
+      const SizedBox(width: 10),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+                color: isDark ? Colors.white : Colors.black,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 12,
+                color: isDark ? Colors.white54 : Colors.black45,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
 }
 
 class _CustomDatePickerSheet extends StatefulWidget {

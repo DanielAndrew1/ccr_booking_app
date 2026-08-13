@@ -1,10 +1,10 @@
 // ignore_for_file: deprecated_member_use
 
-import 'package:ccr_booking/core/app_theme.dart';
+import 'package:site_lapse/core/app_theme.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:ccr_booking/localization/app_localizations.dart';
+import 'package:site_lapse/localization/app_localizations.dart';
 
 class CustomAlertDialogue extends StatelessWidget {
   final String icon;

@@ -2,7 +2,7 @@
 
 import 'package:intl/intl.dart';
 
-import 'package:ccr_booking/core/imports.dart';
+import 'package:site_lapse/core/imports.dart';
 
 class CalendarPage extends StatefulWidget {
   const CalendarPage({super.key});

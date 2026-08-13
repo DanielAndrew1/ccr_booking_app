@@ -1,4 +1,4 @@
-import 'package:ccr_booking/core/imports.dart';
+import 'package:site_lapse/core/imports.dart';
 
 class BookingOperationsService {
   BookingOperationsService(this._client);
@@ -32,7 +32,7 @@ class BookingOperationsService {
     for (final product in products) {
       final productId = product['id'].toString();
       quantities[productId] = (quantities[productId] ?? 0) + 1;
-      final price = product['price'];
+      final price = product['project_price'] ?? product['price'];
       prices[productId] = price is num ? price : num.tryParse('$price') ?? 0;
     }
 

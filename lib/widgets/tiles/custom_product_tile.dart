@@ -1,6 +1,6 @@
 // ignore_for_file: deprecated_member_use
 
-import 'package:ccr_booking/core/imports.dart';
+import 'package:site_lapse/core/imports.dart';
 
 class CustomProductTile extends StatelessWidget {
   final String title;
@@ -95,7 +95,7 @@ class CustomProductTile extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    "${price.toInt()} EGP/Day",
+                    "${price.toInt()} EGP/month",
                     style: const TextStyle(
                       fontSize: 14,
                       color: AppColors.primary,

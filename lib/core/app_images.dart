@@ -41,10 +41,19 @@ abstract class AppIcons {
 }
 
 abstract class AppImages {
+  static const String _brandingFolder = 'assets/branding/';
   static String appIcon = "${imgFolder}App_Icon.png";
   static String darkAppIcon = "${imgFolder}Dark_App_Icon.png";
-  static String icon = "${imgFolder}icon.png";
-  static String logo = "${imgFolder}logo.png";
+  static String icon = "${_brandingFolder}site_lapse_icon_light.png";
+  static String darkIcon = "${_brandingFolder}site_lapse_icon_dark.png";
+  static String mark = "${_brandingFolder}site_lapse_mark_light.png";
+  static String darkMark = "${_brandingFolder}site_lapse_mark_dark.png";
+  static String logo = "${_brandingFolder}site_lapse_logo_light.png";
+  static String darkLogo = "${_brandingFolder}site_lapse_logo_dark.png";
+
+  static String logoFor(bool isDark) => isDark ? darkLogo : logo;
+  static String iconFor(bool isDark) => isDark ? darkIcon : icon;
+  static String markFor(bool isDark) => isDark ? darkMark : mark;
   static String onBoarding1 = "${iconFolder}onBoarding.svg";
   static String onBoarding2 = "${iconFolder}onBoarding2.svg";
 }

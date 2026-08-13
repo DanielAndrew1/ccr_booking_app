@@ -1,6 +1,6 @@
 // ignore_for_file: use_build_context_synchronously
 
-import 'package:ccr_booking/core/imports.dart';
+import 'package:site_lapse/core/imports.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 import 'package:record/record.dart';

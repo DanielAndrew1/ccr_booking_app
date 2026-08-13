@@ -1,4 +1,4 @@
-import 'package:ccr_booking/core/imports.dart';
+import 'package:site_lapse/core/imports.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../pages/onboarding/onboarding_flow.dart';
@@ -43,15 +43,27 @@ class _RootPageState extends State<RootPage> {
 
   Future<void> _initConnectivity() async {
     final result = await Connectivity().checkConnectivity();
-    _updateConnectivity(result);
+    await _updateConnectivity(result);
   }
 
-  void _updateConnectivity(List<ConnectivityResult> result) {
-    final hasInternet = !result.contains(ConnectivityResult.none);
+  Future<void> _updateConnectivity(List<ConnectivityResult> result) async {
+    final hasInternet =
+        !result.contains(ConnectivityResult.none) && await _canReachInternet();
     if (!mounted) return;
     setState(() {
       _hasInternet = hasInternet;
     });
+  }
+
+  Future<bool> _canReachInternet() async {
+    try {
+      final result = await InternetAddress.lookup(
+        'one.one.one.one',
+      ).timeout(const Duration(seconds: 4));
+      return result.isNotEmpty && result.first.rawAddress.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
   }
 
   @override

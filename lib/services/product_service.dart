@@ -1,4 +1,4 @@
-import 'package:ccr_booking/models/product_model.dart';
+import 'package:site_lapse/models/product_model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ProductService {

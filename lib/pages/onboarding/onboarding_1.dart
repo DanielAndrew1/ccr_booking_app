@@ -1,4 +1,4 @@
-import 'package:ccr_booking/core/imports.dart';
+import 'package:site_lapse/core/imports.dart';
 
 class OnboardingOne extends StatelessWidget {
   const OnboardingOne({super.key});
@@ -18,7 +18,7 @@ class OnboardingOne extends StatelessWidget {
                 SvgPicture.asset(AppImages.onBoarding1, width: 400),
                 const SizedBox(height: 24),
                 Text(
-                  "Manage Booking Easily",
+                  "Manage Projects Easily",
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: isDark ? Colors.white : Colors.black,

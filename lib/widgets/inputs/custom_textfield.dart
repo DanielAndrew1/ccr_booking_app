@@ -1,4 +1,4 @@
-import 'package:ccr_booking/core/imports.dart';
+import 'package:site_lapse/core/imports.dart';
 
 class CustomTextfield extends StatelessWidget {
   final TextEditingController textEditingController;
@@ -53,17 +53,14 @@ class CustomTextfield extends StatelessWidget {
         // Label color when not focused
         labelStyle: TextStyle(color: hintColor),
 
-        // Active (Focused) underline
         focusedBorder: UnderlineInputBorder(
           borderSide: BorderSide(color: AppColors.primary, width: 2),
         ),
 
-        // Inactive (Enabled) underline
         enabledBorder: UnderlineInputBorder(
           borderSide: BorderSide(color: inactiveUnderlineColor, width: 2),
         ),
 
-        // Label color (When focused/floating)
         floatingLabelStyle: const TextStyle(color: AppColors.primary),
       ),
     );

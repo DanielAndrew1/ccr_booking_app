@@ -1,4 +1,4 @@
-import 'package:ccr_booking/core/imports.dart';
+import 'package:site_lapse/core/imports.dart';
 
 class BookingProvider extends ChangeNotifier {
   final SupabaseClient supabase = Supabase.instance.client;

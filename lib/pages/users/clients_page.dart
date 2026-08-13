@@ -1,7 +1,7 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously, unused_field, unused_element
 
 import 'package:flutter/cupertino.dart';
-import 'package:ccr_booking/core/imports.dart';
+import 'package:site_lapse/core/imports.dart';
 
 class ClientsPage extends StatefulWidget {
   const ClientsPage({super.key});
@@ -381,7 +381,7 @@ class _ClientsPageState extends State<ClientsPage> {
           Row(
             children: [
               _buildStatBox(
-                "Total Bookings",
+                "Total Projects",
                 "$bookings",
                 AppIcons.medal,
                 isDark,

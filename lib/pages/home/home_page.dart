@@ -2,7 +2,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:ccr_booking/core/imports.dart';
+import 'package:site_lapse/core/imports.dart';
 part 'home_page_widgets.dart';
 
 class HomePage extends StatefulWidget {
@@ -90,8 +90,9 @@ class _HomePageState extends State<HomePage>
   String _getEmptyDialogMessage(String title) {
     final t = title.toLowerCase();
 
-    if (t.contains('pickup')) return "No pickups for today";
-    if (t.contains('return')) return "No returns for today";
+    if (t.contains('install')) return "No projects to install today";
+    if (t.contains('remove')) return "No projects to remove today";
+    if (t.contains('active')) return "No active projects";
     if (t.contains('product')) return "No products found";
     if (t.contains('client')) return "No clients found";
     if (t.contains('employee') || t.contains('user')) {
@@ -192,7 +193,15 @@ class _HomePageState extends State<HomePage>
   Future<Map<String, int>> _getOwnerStats() async {
     try {
       final range = _getTodayRange();
-      final pickups = await supabase
+      final activeProjects = await supabase
+          .from('bookings')
+          .select('id')
+          .neq('status', 'canceled')
+          .neq('status', 'cancelled')
+          .neq('status', 'deleted')
+          .lte('pickup_datetime', DateTime.now().toIso8601String())
+          .gte('return_datetime', DateTime.now().toIso8601String());
+      final projectsToInstall = await supabase
           .from('bookings')
           .select('id')
           .neq('status', 'canceled')
@@ -200,7 +209,7 @@ class _HomePageState extends State<HomePage>
           .neq('status', 'deleted')
           .gte('pickup_datetime', range['start']!)
           .lte('pickup_datetime', range['end']!);
-      final returns = await supabase
+      final projectsToRemove = await supabase
           .from('bookings')
           .select('id')
           .neq('status', 'canceled')
@@ -213,20 +222,30 @@ class _HomePageState extends State<HomePage>
       final products = await supabase.from('products').select('id');
 
       return {
-        'pickups': (pickups as List).length,
-        'returns': (returns as List).length,
+        'activeProjects': (activeProjects as List).length,
+        'projectsToInstall': (projectsToInstall as List).length,
+        'projectsToRemove': (projectsToRemove as List).length,
         'clients': (clients as List).length,
         'employees': (employees as List).length,
         'products': (products as List).length,
       };
     } catch (e) {
       return {
-        'pickups': 0,
-        'returns': 0,
+        'activeProjects': 0,
+        'projectsToInstall': 0,
+        'projectsToRemove': 0,
         'clients': 0,
         'employees': 0,
         'products': 0,
       };
+    }
+  }
+
+  Future<Map<String, dynamic>> _getFinanceStats() async {
+    try {
+      return ProjectFinanceService(supabase).dashboard();
+    } catch (_) {
+      return <String, dynamic>{};
     }
   }
 
@@ -346,8 +365,10 @@ class _HomePageState extends State<HomePage>
                           .eq('id', data['id']);
 
                       await _notifyAdminsAndOwners(
-                        isPickup ? "Pickup Confirmed" : "Return Confirmed",
-                        "${data['client_name']} has ${isPickup ? 'picked up' : 'returned'} items.",
+                        isPickup
+                            ? "Installation Confirmed"
+                            : "Removal Confirmed",
+                        "${data['client_name']}'s project has been ${isPickup ? 'installed' : 'removed'}.",
                       );
 
                       Navigator.pop(context);
@@ -442,7 +463,7 @@ class _HomePageState extends State<HomePage>
                   Widget subtitleWidget;
                   if (isProduct && item['price'] != null) {
                     subtitleWidget = Text(
-                      "${item['price']} EGP/Day",
+                      "${item['price']} EGP/month",
                       style: const TextStyle(
                         color: AppColors.primary,
                         fontSize: 12,

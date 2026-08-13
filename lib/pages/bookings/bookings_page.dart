@@ -3,7 +3,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
-import 'package:ccr_booking/core/imports.dart';
+import 'package:site_lapse/core/imports.dart';
 
 class BookingsPage extends StatefulWidget {
   final bool showPfp;
@@ -22,8 +22,18 @@ class BookingsPageState extends State<BookingsPage> {
   List<Map<String, dynamic>> _pickups = [];
   List<Map<String, dynamic>> _returns = [];
 
-  final int daysBehind = 30;
-  final int daysAhead = 30;
+  DateTime get _calendarStart {
+    final now = DateTime.now();
+    return DateTime(now.year - 5, now.month, now.day);
+  }
+
+  DateTime get _calendarEnd {
+    final now = DateTime.now();
+    return DateTime(now.year + 10, now.month, now.day);
+  }
+
+  int get _calendarDayCount =>
+      _calendarEnd.difference(_calendarStart).inDays + 1;
 
   @override
   void initState() {
@@ -36,7 +46,7 @@ class BookingsPageState extends State<BookingsPage> {
   }
 
   int _indexForDate(DateTime date) {
-    final start = DateTime.now().subtract(Duration(days: daysBehind));
+    final start = _calendarStart;
     final startDay = DateTime(start.year, start.month, start.day);
     final targetDay = DateTime(date.year, date.month, date.day);
     return targetDay.difference(startDay).inDays;
@@ -124,7 +134,7 @@ class BookingsPageState extends State<BookingsPage> {
         });
       }
     } catch (e) {
-      if (mounted) CustomSnackBar.show(context, "Error loading bookings: $e");
+      if (mounted) CustomSnackBar.show(context, "Error loading projects: $e");
     }
   }
 
@@ -135,11 +145,11 @@ class BookingsPageState extends State<BookingsPage> {
           .update({'status': 'cancelled'})
           .eq('id', id);
 
-      CustomSnackBar.show(context, "Booking deleted successfully");
+      CustomSnackBar.show(context, "Project deleted successfully");
 
       _fetchDayBookings();
     } catch (e) {
-      CustomSnackBar.show(context, "Error deleting booking: $e");
+      CustomSnackBar.show(context, "Error deleting project: $e");
     }
   }
 
@@ -149,8 +159,8 @@ class BookingsPageState extends State<BookingsPage> {
       context: context,
       builder: (context) => CustomAlertDialogue(
         icon: AppIcons.trash,
-        title: "Delete Booking",
-        body: 'Are you sure you want to delete booking for "$clientName"?',
+        title: "Delete Project",
+        body: 'Are you sure you want to delete the project for "$clientName"?',
         confirm: "Delete",
       ),
     );
@@ -196,7 +206,7 @@ class BookingsPageState extends State<BookingsPage> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        "Booking Details",
+                        "Project Details",
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
@@ -390,7 +400,7 @@ class BookingsPageState extends State<BookingsPage> {
                 _scrollToToday();
               }
             : null,
-        text: "Bookings",
+        text: "Projects",
         showPfp: widget.showPfp,
       ),
       body: Stack(
@@ -436,7 +446,7 @@ class BookingsPageState extends State<BookingsPage> {
                             children: [
                               const SizedBox(height: 10),
                               _buildSectionHeader(
-                                "Pickups",
+                                "To Install",
                                 _pickups.length,
                                 AppColors.primary,
                                 isDark,
@@ -449,7 +459,7 @@ class BookingsPageState extends State<BookingsPage> {
                               ),
                               const SizedBox(height: 32),
                               _buildSectionHeader(
-                                "Returns",
+                                "To Remove",
                                 _returns.length,
                                 AppColors.secondary,
                                 isDark,
@@ -484,11 +494,9 @@ class BookingsPageState extends State<BookingsPage> {
         controller: _calendarScrollController,
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
-        itemCount: daysBehind + 1 + daysAhead,
+        itemCount: _calendarDayCount,
         itemBuilder: (context, index) {
-          final date = DateTime.now()
-              .subtract(Duration(days: daysBehind))
-              .add(Duration(days: index));
+          final date = _calendarStart.add(Duration(days: index));
           final isSelected = DateUtils.isSameDay(date, _selectedDate);
           final isToday = DateUtils.isSameDay(date, DateTime.now());
 
@@ -647,7 +655,7 @@ class BookingsPageState extends State<BookingsPage> {
             ),
             const SizedBox(height: 12),
             Text(
-              "No ${isPickup ? 'pickups' : 'returns'} for today",
+              "No projects to ${isPickup ? 'install' : 'remove'} today",
               style: TextStyle(
                 color: isDark ? Colors.white70 : Colors.black54,
                 fontWeight: FontWeight.w500,
@@ -731,7 +739,7 @@ class BookingsPageState extends State<BookingsPage> {
                 dismissThreshold: 0.75,
                 closeOnCancel: true,
                 confirmDismiss: () async {
-                  final name = booking['client_name'] ?? 'this booking';
+                  final name = booking['client_name'] ?? 'this project';
                   return _confirmDeleteBooking(name);
                 },
                 onDismissed: () {
@@ -741,7 +749,7 @@ class BookingsPageState extends State<BookingsPage> {
               children: [
                 CustomSlidableAction(
                   onPressed: (context) async {
-                    final name = booking['client_name'] ?? 'this booking';
+                    final name = booking['client_name'] ?? 'this project';
                     final ok = await _confirmDeleteBooking(name);
                     if (ok) {
                       _deleteBooking(booking['id'].toString());

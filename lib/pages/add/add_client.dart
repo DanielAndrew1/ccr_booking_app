@@ -1,6 +1,6 @@
 // ignore_for_file: deprecated_member_use, unused_field
 
-import 'package:ccr_booking/core/imports.dart';
+import 'package:site_lapse/core/imports.dart';
 
 class AddClient extends StatefulWidget {
   final bool isRoot; // Logic to determine if this is a main tab in Navbar

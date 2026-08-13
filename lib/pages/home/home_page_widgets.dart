@@ -80,7 +80,7 @@ extension _HomePageWidgets on _HomePageState {
         if (role == 'Warehouse' || role == 'Admin') ...[
           _buildAsyncList(
             _getUpcomingBookings(),
-            loc.tr("Today's Pickups"),
+            loc.tr("Projects to Install"),
             isDark,
             AppColors.secondary,
             isPickup: true,
@@ -88,7 +88,7 @@ extension _HomePageWidgets on _HomePageState {
           const SizedBox(height: 30),
           _buildAsyncList(
             _getReturningBookings(),
-            loc.tr("Today's Returns"),
+            loc.tr("Projects to Remove"),
             isDark,
             AppColors.primary,
             isPickup: false,
@@ -167,7 +167,7 @@ extension _HomePageWidgets on _HomePageState {
           isDark: isDark,
           onTap: () => _notificationService.showNotification(
             id: 1,
-            title: "CCR Booking",
+            title: "Site Lapse",
             body: "Notification triggered successfully",
           ),
         ),
@@ -184,8 +184,9 @@ extension _HomePageWidgets on _HomePageState {
         final stats =
             snapshot.data ??
             {
-              'pickups': 0,
-              'returns': 0,
+              'activeProjects': 0,
+              'projectsToInstall': 0,
+              'projectsToRemove': 0,
               'clients': 0,
               'employees': 0,
               'products': 0,
@@ -227,71 +228,71 @@ extension _HomePageWidgets on _HomePageState {
               ],
             ),
             const SizedBox(height: 15),
-            _buildStatCard(
-              loc.tr("Products"),
-              "${stats['products']}",
-              null,
-              AppIcons.inventory,
-              accent,
-              isDark,
-              isFullWidth: true,
-              route: InventoryPage(),
-              dialogAction: () => _showDetailsDialog(
-                loc.tr("All Products"),
-                supabase.from('products').select(),
-                isDark,
-              ),
+            Row(
+              children: [
+                _buildStatCard(
+                  loc.tr("Products"),
+                  "${stats['products']}",
+                  null,
+                  AppIcons.inventory,
+                  accent,
+                  isDark,
+                  route: InventoryPage(),
+                  dialogAction: () => _showDetailsDialog(
+                    loc.tr("All Products"),
+                    supabase.from('products').select(),
+                    isDark,
+                  ),
+                ),
+                const SizedBox(width: 15),
+                _buildStatCard(
+                  loc.tr("Active Projects"),
+                  "${stats['activeProjects']}",
+                  null,
+                  AppIcons.booking,
+                  accent,
+                  isDark,
+                  route: const BookingsPage(showPfp: false),
+                  dialogAction: () {
+                    final now = DateTime.now().toIso8601String();
+                    _showDetailsDialog(
+                      loc.tr("Active Projects"),
+                      supabase
+                          .from('bookings')
+                          .select()
+                          .neq('status', 'canceled')
+                          .neq('status', 'cancelled')
+                          .neq('status', 'deleted')
+                          .lte('pickup_datetime', now)
+                          .gte('return_datetime', now),
+                      isDark,
+                    );
+                  },
+                ),
+              ],
             ),
             const SizedBox(height: 15),
             Row(
               children: [
                 _buildStatCard(
-                  loc.tr("Today's Pickups"),
-                  "${stats['pickups']}",
+                  loc.tr("To Install"),
+                  "${stats['projectsToInstall']}",
                   null,
                   AppIcons.pickUp,
                   accent,
                   isDark,
                   mirrorIcon: true,
                   route: const BookingsPage(showPfp: false),
-                  dialogAction: () {
-                    final range = _getTodayRange();
-                    _showDetailsDialog(
-                      loc.tr("Today's Pickups"),
-                      supabase
-                          .from('bookings')
-                          .select()
-                          .neq('status', 'canceled')
-                          .neq('status', 'deleted')
-                          .gte('pickup_datetime', range['start']!)
-                          .lte('pickup_datetime', range['end']!),
-                      isDark,
-                    );
-                  },
                 ),
                 const SizedBox(width: 15),
                 _buildStatCard(
-                  loc.tr("Today's Returns"),
-                  "${stats['returns']}",
+                  loc.tr("To Remove"),
+                  "${stats['projectsToRemove']}",
                   null,
                   AppIcons.returns,
                   accent,
                   isDark,
                   route: const BookingsPage(showPfp: false),
-                  dialogAction: () {
-                    final range = _getTodayRange();
-                    _showDetailsDialog(
-                      loc.tr("Today's Returns"),
-                      supabase
-                          .from('bookings')
-                          .select()
-                          .neq('status', 'canceled')
-                          .neq('status', 'deleted')
-                          .gte('return_datetime', range['start']!)
-                          .lte('return_datetime', range['end']!),
-                      isDark,
-                    );
-                  },
                 ),
               ],
             ),
@@ -335,8 +336,8 @@ extension _HomePageWidgets on _HomePageState {
                   padding: const EdgeInsets.all(20),
                   child: Text(
                     isPickup
-                        ? loc.tr("No pickups for today.")
-                        : loc.tr("No returns for today"),
+                        ? loc.tr("No projects to install today")
+                        : loc.tr("No projects to remove today"),
                     style: TextStyle(
                       color: isDark ? Colors.white : Colors.black,
                     ),

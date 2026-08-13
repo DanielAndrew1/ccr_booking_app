@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  static const Color primary = Color(0xFFfdb913);
-  static const Color secondary = Color(0xFF005587);
+  static const Color primary = Color(0xFF984848);
+  static const Color secondary = Color(0xFF642E32);
   static const Color red = Color(0xFFFF1100);
   static const Color green = Color(0xFF2DDD09);
   static const Color lightbg = Color(0xFFF9F9F9);
   static const Color darkbg = Color(0xFF151515);
   static const Color lightcolor = Color(0xFFF0F0F0);
   static const Color darkcolor = Color(0xFF000000);
+  static const Color lightSurface = Color(0xFFFFFFFF);
+  static const Color darkSurface = Color(0xFF242424);
+  static const Color lightBorder = Color(0xFFE3E3E3);
+  static const Color darkBorder = Color(0xFF3A3A3A);
 
   static Gradient pfpGradient(bool isDark) {
     return LinearGradient(
@@ -16,7 +20,7 @@ class AppColors {
       end: Alignment.bottomRight,
       colors: [
         isDark ? AppColors.primary : AppColors.secondary,
-        isDark ? const Color(0xFF794F07) : const Color(0xFF0B0E20),
+        isDark ? const Color(0xFFC97A76) : const Color(0xFF3D1D21),
       ],
     );
   }

@@ -1,7 +1,7 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously, unused_field, non_constant_identifier_names, unnecessary_string_interpolations
 
 import 'package:flutter/cupertino.dart';
-import 'package:ccr_booking/core/imports.dart';
+import 'package:site_lapse/core/imports.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -128,7 +128,6 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildStickyAppBar(dynamic currentUser, bool isDark) {
     final isRtl = Directionality.of(context) == TextDirection.rtl;
-    final loc = AppLocalizations.of(context);
     return ClipRRect(
       child: Container(
         color: isDark ? AppColors.secondary : AppColors.primary,
@@ -160,38 +159,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      if (currentUser.name == "Daniel Andrew" &&
-                          currentUser.email ==
-                              "danielandrew1207@gmail.com") ...{
-                        const SizedBox(width: 8),
-                        SvgPicture.asset(
-                          AppIcons.verify,
-                          width: 18,
-                          color: Colors.white,
-                        ),
-                      },
                     ],
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? AppColors.primary.withOpacity(0.1)
-                          : AppColors.secondary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      loc.tr(currentUser.role),
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? AppColors.primary : AppColors.secondary,
-                      ),
-                    ),
                   ),
                 ],
               ),
@@ -264,16 +232,6 @@ class _ProfilePageState extends State<ProfilePage> {
                                   color: isDark ? Colors.white : Colors.black,
                                 ),
                               ),
-                              if (currentUser.name == "Daniel Andrew" &&
-                                  currentUser.email ==
-                                      "danielandrew1207@gmail.com") ...{
-                                const SizedBox(width: 8),
-                                SvgPicture.asset(
-                                  AppIcons.verify,
-                                  width: 22,
-                                  color: isDark ? Colors.white : Colors.black,
-                                ),
-                              },
                             ],
                           ),
                           const SizedBox(height: 6),

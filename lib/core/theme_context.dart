@@ -1,4 +1,4 @@
-import 'package:ccr_booking/core/theme.dart';
+import 'package:site_lapse/core/theme.dart';
 import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 

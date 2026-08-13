@@ -1,4 +1,4 @@
-import 'package:ccr_booking/core/imports.dart';
+import 'package:site_lapse/core/imports.dart';
 
 class OnboardingTwo extends StatelessWidget {
   const OnboardingTwo({super.key});
@@ -18,7 +18,7 @@ class OnboardingTwo extends StatelessWidget {
                 SvgPicture.asset(AppImages.onBoarding2, width: 400),
                 const SizedBox(height: 24),
                 Text(
-                  "Track Bookings in Real-Time",
+                  "Track Projects in Real-Time",
                   textAlign: TextAlign.center,
                   style: AppFontStyle.subTitleBold().copyWith(
                     color: isDark ? Colors.white : Colors.black,
@@ -26,7 +26,7 @@ class OnboardingTwo extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  "Stay updated with instant status changes, pickup and return reminders, and live inventory availability.",
+                  "Stay updated with instant status changes, installation and removal reminders, and live inventory availability.",
                   textAlign: TextAlign.center,
                   style: AppFontStyle.textRegular().copyWith(
                     color: isDark ? Colors.white70 : Colors.black54,

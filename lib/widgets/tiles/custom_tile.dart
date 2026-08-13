@@ -1,5 +1,5 @@
 // ignore_for_file: deprecated_member_use, dead_code, unrelated_type_equality_checks
-import 'package:ccr_booking/core/imports.dart';
+import 'package:site_lapse/core/imports.dart';
 
 class CustomTile extends StatelessWidget {
   final String title;

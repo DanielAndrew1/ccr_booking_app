@@ -118,33 +118,13 @@ class _MyAppState extends State<MyApp> with TickerProviderStateMixin {
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'bookings',
-          callback: (payload) async {
+          callback: (_) async {
             if (!mounted) return;
 
             Provider.of<BookingProvider>(
               context,
               listen: false,
             ).fetchAllBookings();
-
-            final newRecord = payload.newRecord;
-            String title = "Booking Update";
-            String body = "Changes detected in your bookings.";
-
-            if (payload.eventType == PostgresChangeEvent.insert) {
-              title = "Booking Created";
-              body = "New booking for ${newRecord['client_name'] ?? 'Client'}";
-            } else if (payload.eventType == PostgresChangeEvent.update) {
-              title = "Booking Updated";
-              body = "Booking status: ${newRecord['status']}";
-            }
-
-            if (await NotificationService.isEnabled()) {
-              NotificationService().showNotification(
-                id: DateTime.now().millisecond % 100000,
-                title: title,
-                body: body,
-              );
-            }
           },
         )
         .subscribe();
@@ -162,51 +142,10 @@ class _MyAppState extends State<MyApp> with TickerProviderStateMixin {
               column: 'receiver_id',
               value: currentUserId,
             ),
-            callback: (payload) async {
-              await _showIncomingMessageNotification(payload.newRecord);
-            },
+            callback: (_) {},
           )
           .subscribe();
     }
-  }
-
-  Future<void> _showIncomingMessageNotification(
-    Map<String, dynamic> newRecord,
-  ) async {
-    if (!(await NotificationService.isEnabled())) return;
-
-    final supabase = Supabase.instance.client;
-    final senderId = newRecord['sender_id']?.toString() ?? '';
-    final rawBody = newRecord['body']?.toString() ?? '';
-
-    String title = 'New message';
-    if (senderId.isNotEmpty) {
-      try {
-        final sender = await supabase
-            .from('users')
-            .select('name')
-            .eq('id', senderId)
-            .maybeSingle();
-        if (sender != null && sender['name'] != null) {
-          title = sender['name'].toString();
-        }
-      } catch (_) {}
-    }
-
-    String body;
-    if (rawBody.startsWith('__img__::')) {
-      body = 'sent a photo';
-    } else if (rawBody.trim().isEmpty) {
-      body = 'sent a message';
-    } else {
-      body = rawBody;
-    }
-
-    NotificationService().showNotification(
-      id: DateTime.now().millisecondsSinceEpoch % 1000000,
-      title: title,
-      body: body,
-    );
   }
 
   void _stopSupabaseListener() {
@@ -348,6 +287,15 @@ class _MyAppState extends State<MyApp> with TickerProviderStateMixin {
           fontFamily: GoogleFonts.poppins().fontFamily,
           textTheme: GoogleFonts.poppinsTextTheme(),
           primaryTextTheme: GoogleFonts.poppinsTextTheme(),
+          textSelectionTheme: TextSelectionThemeData(
+            cursorColor: AppColors.primary,
+            selectionColor: AppColors.primary.withValues(alpha: 0.28),
+            selectionHandleColor: AppColors.primary,
+          ),
+          colorScheme: const ColorScheme.light(
+            primary: AppColors.primary,
+            secondary: AppColors.secondary,
+          ),
           pageTransitionsTheme: const PageTransitionsTheme(
             builders: {
               TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
@@ -365,6 +313,15 @@ class _MyAppState extends State<MyApp> with TickerProviderStateMixin {
           ),
           primaryTextTheme: GoogleFonts.poppinsTextTheme(
             ThemeData(brightness: Brightness.dark).textTheme,
+          ),
+          textSelectionTheme: TextSelectionThemeData(
+            cursorColor: AppColors.primary,
+            selectionColor: AppColors.primary.withValues(alpha: 0.35),
+            selectionHandleColor: AppColors.primary,
+          ),
+          colorScheme: const ColorScheme.dark(
+            primary: AppColors.primary,
+            secondary: AppColors.secondary,
           ),
           pageTransitionsTheme: const PageTransitionsTheme(
             builders: {

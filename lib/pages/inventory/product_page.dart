@@ -1,7 +1,7 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously
 
 import 'package:flutter/cupertino.dart';
-import 'package:ccr_booking/core/imports.dart';
+import 'package:site_lapse/core/imports.dart';
 
 class ProductPage extends StatefulWidget {
   final String productId;
@@ -14,16 +14,16 @@ class ProductPage extends StatefulWidget {
 
 class _ProductPageState extends State<ProductPage> {
   String? name;
-  String? description;
   String? imageUrl;
   int? price;
   int? quantity;
+  bool isUnlimited = false;
+  bool tracksSerialNumbers = false;
   bool isLoading = true;
   bool isAdmin = false;
   String? error;
 
   final _nameController = TextEditingController();
-  final _descriptionController = TextEditingController();
   final _priceController = TextEditingController();
   final _quantityController = TextEditingController();
 
@@ -40,7 +40,6 @@ class _ProductPageState extends State<ProductPage> {
   @override
   void dispose() {
     _nameController.dispose();
-    _descriptionController.dispose();
     _priceController.dispose();
     _quantityController.dispose();
     super.dispose();
@@ -78,13 +77,13 @@ class _ProductPageState extends State<ProductPage> {
 
       setState(() {
         name = data['name'];
-        description = data['description'];
         imageUrl = data['image_url'];
         price = (data['price'] as num?)?.toInt();
         quantity = (data['quantity'] as num?)?.toInt() ?? 0;
+        isUnlimited = data['is_unlimited'] == true;
+        tracksSerialNumbers = data['tracks_serial_numbers'] == true;
 
         _nameController.text = name ?? '';
-        _descriptionController.text = description ?? '';
         _priceController.text = price?.toString() ?? '';
         _quantityController.text = quantity?.toString() ?? '';
         isLoading = false;
@@ -107,6 +106,8 @@ class _ProductPageState extends State<ProductPage> {
       barrierDismissible: false,
       builder: (context) {
         bool isSaving = false;
+        bool editIsUnlimited = isUnlimited;
+        bool editTracksSerialNumbers = tracksSerialNumbers;
         return StatefulBuilder(
           builder: (context, setDialogState) {
             final isDark = context.isDarkMode;
@@ -197,15 +198,15 @@ class _ProductPageState extends State<ProductPage> {
                         isDark: isDark,
                       ),
                       const SizedBox(height: 15),
-                      _buildTextField(
-                        _descriptionController,
-                        TextCapitalization.sentences,
-                        'Description',
-                        Icons.description,
-                        maxLines: 3,
-                        isDark: isDark,
+                      SwitchListTile.adaptive(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Unlimited availability'),
+                        subtitle: const Text('For subscriptions and services'),
+                        value: editIsUnlimited,
+                        activeColor: AppColors.primary,
+                        onChanged: (value) =>
+                            setDialogState(() => editIsUnlimited = value),
                       ),
-                      const SizedBox(height: 15),
                       Row(
                         children: [
                           Expanded(
@@ -219,17 +220,30 @@ class _ProductPageState extends State<ProductPage> {
                             ),
                           ),
                           const SizedBox(width: 10),
-                          Expanded(
-                            child: _buildTextField(
-                              _quantityController,
-                              TextCapitalization.none,
-                              'Total Quantity',
-                              Icons.numbers,
-                              isNum: true,
-                              isDark: isDark,
+                          if (!editIsUnlimited)
+                            Expanded(
+                              child: _buildTextField(
+                                _quantityController,
+                                TextCapitalization.none,
+                                'Total Quantity',
+                                Icons.numbers,
+                                isNum: true,
+                                isDark: isDark,
+                              ),
                             ),
-                          ),
                         ],
+                      ),
+                      SwitchListTile.adaptive(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Track camera serials'),
+                        subtitle: const Text(
+                          'Assign installed cameras to clients',
+                        ),
+                        value: editTracksSerialNumbers,
+                        activeColor: AppColors.primary,
+                        onChanged: (value) => setDialogState(
+                          () => editTracksSerialNumbers = value,
+                        ),
                       ),
                       const SizedBox(height: 25),
                       Row(
@@ -303,19 +317,21 @@ class _ProductPageState extends State<ProductPage> {
                                             .update({
                                               'name': _nameController.text
                                                   .trim(),
-                                              'description':
-                                                  _descriptionController.text
-                                                      .trim(),
                                               'price':
                                                   int.tryParse(
                                                     _priceController.text,
                                                   ) ??
                                                   0,
-                                              'quantity':
-                                                  int.tryParse(
-                                                    _quantityController.text,
-                                                  ) ??
-                                                  0,
+                                              'quantity': editIsUnlimited
+                                                  ? 0
+                                                  : (int.tryParse(
+                                                          _quantityController
+                                                              .text,
+                                                        ) ??
+                                                        0),
+                                              'is_unlimited': editIsUnlimited,
+                                              'tracks_serial_numbers':
+                                                  editTracksSerialNumbers,
                                               'image_url': finalImageUrl,
                                             })
                                             .eq('id', widget.productId);
@@ -409,10 +425,10 @@ class _ProductPageState extends State<ProductPage> {
       context: context,
       builder: (context) => CustomAlertDialogue(
         icon: AppIcons.trash,
-        title: "Delete Product",
+        title: "Remove Product",
         body:
-            "Are you sure you want to delete this product? This will also remove the product image.",
-        confirm: "Delete",
+            "This removes the product from your inventory. Products used in existing projects will be archived to keep project history intact.",
+        confirm: "Remove",
       ),
     );
 
@@ -425,12 +441,29 @@ class _ProductPageState extends State<ProductPage> {
     );
 
     try {
-      // 1. Delete image from Storage if it exists
-      if (imageUrl != null && imageUrl!.isNotEmpty) {
+      var wasArchived = false;
+
+      try {
+        await Supabase.instance.client
+            .from('products')
+            .delete()
+            .eq('id', widget.productId);
+      } catch (error) {
+        if (!error.toString().contains('booking_items_product_id_fkey')) {
+          rethrow;
+        }
+
+        await Supabase.instance.client
+            .from('products')
+            .update({'is_active': false})
+            .eq('id', widget.productId);
+        wasArchived = true;
+      }
+
+      if (!wasArchived && imageUrl != null && imageUrl!.isNotEmpty) {
         try {
           final uri = Uri.parse(imageUrl!);
           final pathSegments = uri.pathSegments;
-          // The path is everything after 'product-images/'
           final int bucketIndex = pathSegments.indexOf('product-images');
           if (bucketIndex != -1 && bucketIndex + 1 < pathSegments.length) {
             final filePath = pathSegments.sublist(bucketIndex + 1).join('/');
@@ -440,23 +473,27 @@ class _ProductPageState extends State<ProductPage> {
           }
         } catch (storageError) {
           debugPrint("Storage deletion error: $storageError");
-          // We continue even if storage delete fails to avoid orphaned DB records
         }
       }
 
-      // 2. Delete product record from DB
-      await Supabase.instance.client
-          .from('products')
-          .delete()
-          .eq('id', widget.productId);
-
       if (!mounted) return;
       Navigator.pop(context); // Close loader
+      CustomSnackBar.show(
+        context,
+        wasArchived
+            ? 'Product archived. It remains in existing projects.'
+            : 'Product removed.',
+        color: AppColors.green,
+      );
       Navigator.pop(context); // Go back to previous page
-    } catch (e) {
+    } catch (error) {
       if (mounted) {
         Navigator.pop(context); // Close loader
-        CustomSnackBar.show(context, 'Delete failed: $e', color: AppColors.red);
+        CustomSnackBar.show(
+          context,
+          'Could not remove this product. Please try again.',
+          color: AppColors.red,
+        );
       }
     }
   }
@@ -543,7 +580,7 @@ class _ProductPageState extends State<ProductPage> {
                               ),
                             ),
                             Text(
-                              '${price ?? 0} EGP/Day',
+                              '${price ?? 0} EGP/month',
                               style: const TextStyle(
                                 fontSize: 20,
                                 color: AppColors.primary,
@@ -566,15 +603,6 @@ class _ProductPageState extends State<ProductPage> {
                               ),
                             ),
                           ),
-                        const SizedBox(height: 15),
-                        Text(
-                          description ?? '',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: isDark ? Colors.white70 : Colors.black54,
-                            height: 1.5,
-                          ),
-                        ),
                         const SizedBox(height: 40),
                         if (isAdmin) ...[
                           CustomButton(

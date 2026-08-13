@@ -1,5 +1,5 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously
-import 'package:ccr_booking/core/imports.dart';
+import 'package:site_lapse/core/imports.dart';
 
 class CustomButton extends StatefulWidget {
   final Future<void> Function()? onPressed;
@@ -66,9 +66,7 @@ class _CustomButtonState extends State<CustomButton> {
         onPressed: isLoading ? null : _handlePress,
         style: ButtonStyle(
           backgroundColor: effectiveColor,
-          foregroundColor: WidgetStateProperty.all(
-            Colors.black,
-          ), // Black for visibility on yellow
+          foregroundColor: WidgetStateProperty.all(Colors.black),
           shape: WidgetStateProperty.all(
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),

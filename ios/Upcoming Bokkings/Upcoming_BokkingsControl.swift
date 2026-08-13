@@ -10,7 +10,7 @@ import SwiftUI
 import WidgetKit
 
 struct Upcoming_BokkingsControl: ControlWidget {
-    static let kind: String = "com.DanielAndrew.ccr-booking.Upcoming Bokkings"
+    static let kind: String = "com.danielandrew.site-lapse.upcoming-projects"
 
     var body: some ControlWidgetConfiguration {
         AppIntentControlConfiguration(

@@ -1,7 +1,7 @@
 // lib/widgets/custom_app_bar.dart
 // ignore_for_file: deprecated_member_use
 
-import 'package:ccr_booking/core/imports.dart';
+import 'package:site_lapse/core/imports.dart';
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String? text;
