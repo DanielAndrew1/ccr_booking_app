@@ -38,17 +38,17 @@
 		<true/>
 	</dict>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>Bluetooth is used to connect to nearby booking kiosks and equipment scanners.</string>
+	<string>Bluetooth is not used.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Site Lapse needs camera access to scan equipment barcodes and take profile photos.</string>
+	<string>Site Lapse needs camera access to take contract photos and take profile photos.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>This app requires location access to provide real-time updates on your equipment delivery status.</string>
+	<string>This app requires location access to be able to find you.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>This app requires background location access to track equipment returns in real-time.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>This app uses your location to show nearby booking centers and ensure accurate network syncing.</string>
+	<string>This app uses your location to add it to the project.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>This app may require microphone access for voice-based search and support calls.</string>
+	<string>This app may require microphone access for voice-notes.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Site Lapse needs access to save and update your profile photo.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
