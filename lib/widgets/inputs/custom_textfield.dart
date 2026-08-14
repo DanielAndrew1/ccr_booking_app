@@ -1,6 +1,6 @@
 import 'package:site_lapse/core/imports.dart';
 
-class CustomTextfield extends StatelessWidget {
+class CustomTextfield extends StatefulWidget {
   final TextEditingController textEditingController;
   final TextInputType keyboardType;
   final bool? isObsecure;
@@ -19,6 +19,27 @@ class CustomTextfield extends StatelessWidget {
   });
 
   @override
+  State<CustomTextfield> createState() => _CustomTextfieldState();
+}
+
+class _CustomTextfieldState extends State<CustomTextfield> {
+  late bool _obscureText;
+
+  @override
+  void initState() {
+    super.initState();
+    _obscureText = widget.isObsecure ?? false;
+  }
+
+  @override
+  void didUpdateWidget(covariant CustomTextfield oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isObsecure != widget.isObsecure) {
+      _obscureText = widget.isObsecure ?? false;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final bool isDark = context.isDarkMode;
 
@@ -29,12 +50,12 @@ class CustomTextfield extends StatelessWidget {
         ? Colors.white60
         : Colors.black26;
 
-    final bool obscure = isObsecure ?? false;
+    final isPassword = widget.isObsecure ?? false;
     return TextFormField(
-      controller: textEditingController,
-      keyboardType: keyboardType,
-      obscureText: obscure,
-      textCapitalization: textCapitalization,
+      controller: widget.textEditingController,
+      keyboardType: widget.keyboardType,
+      obscureText: isPassword && _obscureText,
+      textCapitalization: widget.textCapitalization,
       cursorColor: AppColors.primary,
       textInputAction: TextInputAction.next,
       onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
@@ -44,8 +65,20 @@ class CustomTextfield extends StatelessWidget {
       style: TextStyle(color: textColor),
 
       decoration: InputDecoration(
-        labelText: labelText,
-        hintText: hintText,
+        labelText: widget.labelText,
+        hintText: widget.hintText,
+        suffixIcon: isPassword
+            ? IconButton(
+                tooltip: _obscureText ? 'Show password' : 'Hide password',
+                onPressed: () => setState(() => _obscureText = !_obscureText),
+                icon: Icon(
+                  _obscureText
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                  color: hintColor,
+                ),
+              )
+            : null,
 
         // This controls the hint text color
         hintStyle: TextStyle(color: hintColor),

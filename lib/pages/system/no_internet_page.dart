@@ -1,5 +1,4 @@
-import 'package:site_lapse/core/app_theme.dart';
-import 'package:flutter/material.dart';
+import 'package:site_lapse/core/imports.dart';
 
 class NoInternetPage extends StatefulWidget {
   final Future<void> Function()? onRetry;
@@ -72,13 +71,10 @@ class _NoInternetPageState extends State<NoInternetPage> {
                     ),
                   ),
                   child: _isRetrying
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
+                      ? const CustomLoader(
+                          size: 20,
+                          color: Colors.white,
+                          strokeWidth: 2,
                         )
                       : const Text(
                           'Reload',

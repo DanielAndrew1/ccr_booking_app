@@ -52,14 +52,127 @@ class _EditBookingState extends State<EditBooking> {
   String get projectDuration => _formatProjectDuration(pickupDate, returnDate);
 
   double get totalPrice {
-    return selectedProducts.whereType<Map<String, dynamic>>().fold(0, (
-      sum,
-      product,
-    ) {
-      final value = product['project_price'] ?? product['price'] ?? 0;
-      return sum +
-          (value is num ? value.toDouble() : double.tryParse('$value') ?? 0);
+    final dailySubtotal = selectedProducts
+        .whereType<Map<String, dynamic>>()
+        .fold(0.0, (sum, product) {
+          final value = product['project_price'] ?? product['price'] ?? 0;
+          return sum +
+              (value is num
+                  ? value.toDouble()
+                  : double.tryParse('$value') ?? 0);
+        });
+    return dailySubtotal * _billableProjectDays(pickupDate, returnDate);
+  }
+
+  int get _projectPaymentMonths => _paymentMonths(pickupDate, returnDate);
+  bool get _allowAtEndPayment => _isLessThanOneMonth(pickupDate, returnDate);
+  double get _downPayment =>
+      double.tryParse(_downPaymentController.text.replaceAll(',', '').trim()) ??
+      0;
+  double get _calculatedMonthlyFee =>
+      ((totalPrice - _downPayment).clamp(0, double.infinity)) /
+      _projectPaymentMonths;
+
+  void _syncCalculatedInstallment() {
+    if (_paymentPlanType == 'monthly') {
+      _installmentController.text = (totalPrice / _projectPaymentMonths)
+          .toStringAsFixed(2);
+    } else if (_paymentPlanType == 'down_payment_installments') {
+      _installmentController.text = _calculatedMonthlyFee.toStringAsFixed(2);
+    }
+  }
+
+  void _selectPaymentPlan(String value) {
+    setState(() {
+      _paymentPlanType = value;
+      if (value == 'monthly') {
+        _installmentController.text = (totalPrice / _projectPaymentMonths)
+            .toStringAsFixed(2);
+      } else if (value == 'down_payment_installments') {
+        _installmentController.text = _calculatedMonthlyFee.toStringAsFixed(2);
+      }
     });
+  }
+
+  void _refreshPaymentPlanForDates() {
+    if (_paymentPlanType == 'one_time_end' && !_allowAtEndPayment) {
+      _paymentPlanType = 'one_time_start';
+    }
+    if (_paymentPlanType == 'monthly') {
+      _installmentController.text = (totalPrice / _projectPaymentMonths)
+          .toStringAsFixed(2);
+    } else if (_paymentPlanType == 'down_payment_installments') {
+      _installmentController.text = _calculatedMonthlyFee.toStringAsFixed(2);
+    }
+  }
+
+  Future<void> _selectProduct(int index, Map<String, dynamic> product) async {
+    var selected = <String, dynamic>{
+      ...product,
+      'project_price': product['price'] ?? 0,
+    };
+    if (product['tracks_serial_numbers'] == true) {
+      final rows = await supabase
+          .from('product_serials')
+          .select('id, serial_number')
+          .eq('product_id', product['id'])
+          .eq('is_maintenance', false)
+          .eq('is_retired', false)
+          .order('serial_number');
+      selected = {
+        ...selected,
+        'available_serials': List<Map<String, dynamic>>.from(rows),
+      };
+    }
+    if (!mounted) return;
+    setState(() => selectedProducts[index] = selected);
+  }
+
+  Future<void> _syncSerialAssignments(
+    String bookingId,
+    List<Map<String, dynamic>> products,
+  ) async {
+    await supabase
+        .from('booking_serial_assignments')
+        .delete()
+        .eq('booking_id', bookingId);
+    final assignments = products
+        .where((product) => product['selected_serial_id'] != null)
+        .map(
+          (product) => {
+            'booking_id': bookingId,
+            'product_id': product['id'],
+            'product_serial_id': product['selected_serial_id'],
+          },
+        )
+        .toList();
+    if (assignments.isNotEmpty) {
+      await supabase.from('booking_serial_assignments').insert(assignments);
+    }
+  }
+
+  Future<Set<String>> _reservedSerialIdsForProjectDates() async {
+    if (pickupDate == null || returnDate == null) return <String>{};
+    final overlapping = await supabase
+        .from('bookings')
+        .select('id')
+        .filter('status', 'neq', 'cancelled')
+        .lt('pickup_datetime', returnDate!.toIso8601String())
+        .gt('return_datetime', pickupDate!.toIso8601String());
+    final bookingIds = (overlapping as List)
+        .map((row) => row['id']?.toString())
+        .whereType<String>()
+        .where((id) => id != _bookingId)
+        .toList();
+    if (bookingIds.isEmpty) return <String>{};
+    final assignments = await supabase
+        .from('booking_serial_assignments')
+        .select('product_serial_id')
+        .inFilter('booking_id', bookingIds);
+    return (assignments as List)
+        .map((row) => row['product_serial_id']?.toString())
+        .whereType<String>()
+        .toSet();
   }
 
   String _friendlyProjectError(Object error) {
@@ -228,6 +341,48 @@ class _EditBookingState extends State<EditBooking> {
             .toList();
         built.removeWhere((p) => p == null);
 
+        final serialRows = await supabase
+            .from('product_serials')
+            .select('id, product_id, serial_number, is_maintenance, is_retired')
+            .inFilter('product_id', uniqueIds);
+        final assignedRows = await supabase
+            .from('booking_serial_assignments')
+            .select('product_id, product_serial_id')
+            .eq('booking_id', bookingId!);
+        final availableByProduct = <String, List<Map<String, dynamic>>>{};
+        for (final row in List<Map<String, dynamic>>.from(serialRows)) {
+          final isAssignedToThisProject =
+              List<Map<String, dynamic>>.from(assignedRows).any(
+                (assignment) =>
+                    assignment['product_serial_id'].toString() ==
+                    row['id'].toString(),
+              );
+          if ((row['is_maintenance'] == true || row['is_retired'] == true) &&
+              !isAssignedToThisProject) {
+            continue;
+          }
+          availableByProduct
+              .putIfAbsent(row['product_id'].toString(), () => [])
+              .add(row);
+        }
+        final assignedByProduct = <String, List<String>>{};
+        for (final row in List<Map<String, dynamic>>.from(assignedRows)) {
+          assignedByProduct
+              .putIfAbsent(row['product_id'].toString(), () => [])
+              .add(row['product_serial_id'].toString());
+        }
+        final occurrence = <String, int>{};
+        for (final product in built.whereType<Map<String, dynamic>>()) {
+          final id = product['id'].toString();
+          final position = occurrence[id] ?? 0;
+          occurrence[id] = position + 1;
+          product['available_serials'] = availableByProduct[id] ?? [];
+          final assigned = assignedByProduct[id] ?? [];
+          if (position < assigned.length) {
+            product['selected_serial_id'] = assigned[position];
+          }
+        }
+
         prefilledProducts = List<Map<String, dynamic>?>.from(built);
         if (prefilledProducts.isEmpty || prefilledProducts.last != null) {
           prefilledProducts.add(null);
@@ -265,6 +420,7 @@ class _EditBookingState extends State<EditBooking> {
   }
 
   Future<void> _saveBooking() async {
+    _syncCalculatedInstallment();
     bool isProductsEmpty = !selectedProducts.any((p) => p != null);
 
     if (_bookingId == null) {
@@ -366,6 +522,39 @@ class _EditBookingState extends State<EditBooking> {
       final List<String> productNames = validSelection
           .map((p) => p['name'].toString())
           .toList();
+      final trackedWithoutSerial = validSelection.any(
+        (product) =>
+            product['tracks_serial_numbers'] == true &&
+            product['selected_serial_id'] == null,
+      );
+      final selectedSerialIds = validSelection
+          .map((product) => product['selected_serial_id'])
+          .whereType<String>()
+          .toList();
+      if (trackedWithoutSerial ||
+          selectedSerialIds.toSet().length != selectedSerialIds.length) {
+        Navigator.pop(context);
+        CustomSnackBar.show(
+          context,
+          trackedWithoutSerial
+              ? 'Select a serial number for every tracked item.'
+              : 'Each tracked item needs a different serial number.',
+          color: AppColors.red,
+        );
+        return;
+      }
+      if (selectedSerialIds.isNotEmpty) {
+        final reservedSerialIds = await _reservedSerialIdsForProjectDates();
+        if (selectedSerialIds.any(reservedSerialIds.contains)) {
+          Navigator.pop(context);
+          CustomSnackBar.show(
+            context,
+            'A selected serial is already booked during these dates. Choose another one.',
+            color: AppColors.red,
+          );
+          return;
+        }
+      }
 
       await supabase
           .from('bookings')
@@ -411,6 +600,7 @@ class _EditBookingState extends State<EditBooking> {
           bookingId: _bookingId!,
           products: validSelection,
         );
+        await _syncSerialAssignments(_bookingId!, validSelection);
         await operations.recordStatus(
           bookingId: _bookingId!,
           status: 'upcoming',
@@ -487,6 +677,7 @@ class _EditBookingState extends State<EditBooking> {
             } else {
               returnDate = selectedDate;
             }
+            _refreshPaymentPlanForDates();
           });
         },
       ),
@@ -583,16 +774,18 @@ class _EditBookingState extends State<EditBooking> {
                             color: isDark ? Colors.white : Colors.black,
                           ),
                         ),
-                        subtitle: Text(
-                          '${_currencyFormat.format(product['price'] ?? 0)} EGP/month default',
-                        ),
+                        subtitle:
+                            (product['price'] is num
+                                    ? product['price'] as num
+                                    : num.tryParse('${product['price']}') ??
+                                          0) >
+                                0
+                            ? Text(
+                                '${_currencyFormat.format(product['price'])} EGP/day default',
+                              )
+                            : null,
                         onTap: () {
-                          setState(
-                            () => selectedProducts[index] = {
-                              ...product,
-                              'project_price': product['price'] ?? 0,
-                            },
-                          );
+                          _selectProduct(index, product);
                           Navigator.pop(context);
                         },
                       );
@@ -674,24 +867,6 @@ class _EditBookingState extends State<EditBooking> {
                 text: isEditing ? "Edit Project" : "Add Project",
                 showPfp: true,
                 actions: [
-                  if (isEditing && _bookingId != null)
-                    IconButton(
-                      tooltip: 'Site setup',
-                      icon: const Icon(Icons.location_on_outlined),
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ProjectSiteSetupPage(
-                            bookingId: _bookingId!,
-                            clientName:
-                                selectedClient?['name']?.toString() ?? '',
-                            products: selectedProducts
-                                .whereType<Map<String, dynamic>>()
-                                .toList(),
-                          ),
-                        ),
-                      ),
-                    ),
                   Padding(
                     padding: const EdgeInsets.only(right: 12),
                     child: IconButton(
@@ -842,7 +1017,7 @@ class _EditBookingState extends State<EditBooking> {
                                                                 labelText:
                                                                     'Monthly price per item',
                                                                 suffixText:
-                                                                    'EGP/month',
+                                                                    'EGP/day',
                                                                 isDense: true,
                                                               ),
                                                           onChanged: (value) {
@@ -858,6 +1033,47 @@ class _EditBookingState extends State<EditBooking> {
                                                             setState(() {});
                                                           },
                                                         ),
+                                                      if (product?['tracks_serial_numbers'] ==
+                                                          true) ...[
+                                                        const SizedBox(
+                                                          height: 8,
+                                                        ),
+                                                        DropdownButtonFormField<
+                                                          String
+                                                        >(
+                                                          value:
+                                                              product?['selected_serial_id']
+                                                                  ?.toString(),
+                                                          decoration:
+                                                              const InputDecoration(
+                                                                labelText:
+                                                                    'Select serial',
+                                                                isDense: true,
+                                                              ),
+                                                          items:
+                                                              (product?['available_serials']
+                                                                          as List? ??
+                                                                      [])
+                                                                  .map(
+                                                                    (
+                                                                      serial,
+                                                                    ) => DropdownMenuItem<String>(
+                                                                      value: serial['id']
+                                                                          .toString(),
+                                                                      child: Text(
+                                                                        serial['serial_number']
+                                                                            .toString(),
+                                                                      ),
+                                                                    ),
+                                                                  )
+                                                                  .toList(),
+                                                          onChanged: (value) =>
+                                                              setState(() {
+                                                                product?['selected_serial_id'] =
+                                                                    value;
+                                                              }),
+                                                        ),
+                                                      ],
                                                     ],
                                                   ),
                                                 ),
@@ -933,7 +1149,7 @@ class _EditBookingState extends State<EditBooking> {
                             ),
                             const SizedBox(height: 6),
                             _PickerTile(
-                              imagePath: AppIcons.pickUp,
+                              imagePath: AppIcons.returns,
                               label: pickupDate == null
                                   ? "Select Pickup Date"
                                   : DateFormat(
@@ -954,7 +1170,7 @@ class _EditBookingState extends State<EditBooking> {
                             ),
                             const SizedBox(height: 6),
                             _PickerTile(
-                              imagePath: AppIcons.returns,
+                              imagePath: AppIcons.pickUp,
                               label: returnDate == null
                                   ? "Select Return Date"
                                   : DateFormat(
@@ -992,6 +1208,10 @@ class _EditBookingState extends State<EditBooking> {
                                   setState(() => _paymentInterval = value),
                               onContractChanged: (value) =>
                                   setState(() => _contractImage = value),
+                              onDownPaymentChanged: (_) => setState(() {
+                                _installmentController.text =
+                                    _calculatedMonthlyFee.toStringAsFixed(2);
+                              }),
                             ),
                           ],
                           if (_currentStep == 2) ...[
@@ -1006,8 +1226,8 @@ class _EditBookingState extends State<EditBooking> {
                               contractImage: _contractImage,
                               showContract: false,
                               showPrice: false,
-                              onPaymentPlanChanged: (value) =>
-                                  setState(() => _paymentPlanType = value),
+                              allowAtEnd: _allowAtEndPayment,
+                              onPaymentPlanChanged: _selectPaymentPlan,
                               onPaymentFrequencyChanged: (value) =>
                                   setState(() => _paymentFrequency = value),
                               onPaymentIntervalChanged: (value) =>
@@ -1128,6 +1348,37 @@ class _EditBookingState extends State<EditBooking> {
                                       ),
                                     ],
                                   ),
+                                  if (_paymentPlanType == 'monthly' ||
+                                      _paymentPlanType ==
+                                          'down_payment_installments') ...[
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          _paymentPlanType == 'monthly'
+                                              ? 'Monthly payment:'
+                                              : 'Monthly fee:',
+                                          style: TextStyle(
+                                            color: isDark
+                                                ? Colors.white70
+                                                : Colors.black54,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                        Text(
+                                          '${_currencyFormat.format(_paymentPlanType == 'monthly' ? totalPrice / _projectPaymentMonths : _calculatedMonthlyFee)} EGP',
+                                          style: TextStyle(
+                                            color: isDark
+                                                ? Colors.white
+                                                : Colors.black,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                   const Divider(height: 20),
                                   Row(
                                     mainAxisAlignment:
@@ -1317,6 +1568,27 @@ String _formatProjectDuration(DateTime? start, DateTime? end) {
     parts.add('$remainingDays ${remainingDays == 1 ? 'day' : 'days'}');
   }
   return parts.join(', ');
+}
+
+int _billableProjectDays(DateTime? start, DateTime? end) {
+  if (start == null || end == null || end.isBefore(start)) return 0;
+  final first = DateTime(start.year, start.month, start.day);
+  final last = DateTime(end.year, end.month, end.day);
+  return last.difference(first).inDays + 1;
+}
+
+int _paymentMonths(DateTime? start, DateTime? end) {
+  if (start == null || end == null || end.isBefore(start)) return 1;
+  var months = (end.year - start.year) * 12 + end.month - start.month;
+  final anniversary = DateTime(start.year, start.month + months, start.day);
+  if (anniversary.isBefore(end)) months++;
+  return months < 1 ? 1 : months;
+}
+
+bool _isLessThanOneMonth(DateTime? start, DateTime? end) {
+  if (start == null || end == null || end.isBefore(start)) return true;
+  final nextMonth = DateTime(start.year, start.month + 1, start.day);
+  return end.isBefore(nextMonth);
 }
 
 class _CustomDatePickerSheet extends StatefulWidget {

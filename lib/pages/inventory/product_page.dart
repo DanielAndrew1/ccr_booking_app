@@ -1,4 +1,4 @@
-// ignore_for_file: deprecated_member_use, use_build_context_synchronously
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously, unused_element
 
 import 'package:flutter/cupertino.dart';
 import 'package:site_lapse/core/imports.dart';
@@ -24,7 +24,6 @@ class _ProductPageState extends State<ProductPage> {
   String? error;
 
   final _nameController = TextEditingController();
-  final _priceController = TextEditingController();
   final _quantityController = TextEditingController();
 
   @override
@@ -40,7 +39,6 @@ class _ProductPageState extends State<ProductPage> {
   @override
   void dispose() {
     _nameController.dispose();
-    _priceController.dispose();
     _quantityController.dispose();
     super.dispose();
   }
@@ -84,7 +82,6 @@ class _ProductPageState extends State<ProductPage> {
         tracksSerialNumbers = data['tracks_serial_numbers'] == true;
 
         _nameController.text = name ?? '';
-        _priceController.text = price?.toString() ?? '';
         _quantityController.text = quantity?.toString() ?? '';
         isLoading = false;
       });
@@ -108,6 +105,9 @@ class _ProductPageState extends State<ProductPage> {
         bool isSaving = false;
         bool editIsUnlimited = isUnlimited;
         bool editTracksSerialNumbers = tracksSerialNumbers;
+        if (editIsUnlimited && editTracksSerialNumbers) {
+          editTracksSerialNumbers = false;
+        }
         return StatefulBuilder(
           builder: (context, setDialogState) {
             final isDark = context.isDarkMode;
@@ -198,53 +198,44 @@ class _ProductPageState extends State<ProductPage> {
                         isDark: isDark,
                       ),
                       const SizedBox(height: 15),
-                      SwitchListTile.adaptive(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Unlimited availability'),
-                        subtitle: const Text('For subscriptions and services'),
-                        value: editIsUnlimited,
-                        activeColor: AppColors.primary,
-                        onChanged: (value) =>
-                            setDialogState(() => editIsUnlimited = value),
-                      ),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildTextField(
-                              _priceController,
-                              TextCapitalization.none,
-                              'Price',
-                              Icons.attach_money,
-                              isNum: true,
-                              isDark: isDark,
-                            ),
+                      if (!editIsUnlimited)
+                        _buildTextField(
+                          _quantityController,
+                          TextCapitalization.none,
+                          'Total Quantity',
+                          Icons.numbers_rounded,
+                          isNum: true,
+                          isDark: isDark,
+                        ),
+                      const SizedBox(height: 12),
+                      if (!editTracksSerialNumbers)
+                        SwitchListTile.adaptive(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Unlimited availability'),
+                          subtitle: const Text(
+                            'For subscriptions and services',
                           ),
-                          const SizedBox(width: 10),
-                          if (!editIsUnlimited)
-                            Expanded(
-                              child: _buildTextField(
-                                _quantityController,
-                                TextCapitalization.none,
-                                'Total Quantity',
-                                Icons.numbers,
-                                isNum: true,
-                                isDark: isDark,
-                              ),
-                            ),
-                        ],
-                      ),
-                      SwitchListTile.adaptive(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Track camera serials'),
-                        subtitle: const Text(
-                          'Assign installed cameras to clients',
+                          value: editIsUnlimited,
+                          activeColor: AppColors.primary,
+                          onChanged: (value) => setDialogState(() {
+                            editIsUnlimited = value;
+                            if (value) editTracksSerialNumbers = false;
+                          }),
                         ),
-                        value: editTracksSerialNumbers,
-                        activeColor: AppColors.primary,
-                        onChanged: (value) => setDialogState(
-                          () => editTracksSerialNumbers = value,
+                      if (!editIsUnlimited)
+                        SwitchListTile.adaptive(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Track camera serials'),
+                          subtitle: const Text(
+                            'Assign serials when creating projects',
+                          ),
+                          value: editTracksSerialNumbers,
+                          activeColor: AppColors.primary,
+                          onChanged: (value) => setDialogState(() {
+                            editTracksSerialNumbers = value;
+                            if (value) editIsUnlimited = false;
+                          }),
                         ),
-                      ),
                       const SizedBox(height: 25),
                       Row(
                         children: [
@@ -317,11 +308,6 @@ class _ProductPageState extends State<ProductPage> {
                                             .update({
                                               'name': _nameController.text
                                                   .trim(),
-                                              'price':
-                                                  int.tryParse(
-                                                    _priceController.text,
-                                                  ) ??
-                                                  0,
                                               'quantity': editIsUnlimited
                                                   ? 0
                                                   : (int.tryParse(
@@ -566,27 +552,28 @@ class _ProductPageState extends State<ProductPage> {
                           ),
                         ),
                         const SizedBox(height: 24),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: Text(
-                                name ?? '',
-                                style: TextStyle(
-                                  fontSize: 24,
+                            Text(
+                              name ?? '',
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white : Colors.black,
+                              ),
+                            ),
+                            if ((price ?? 0) > 0) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                '$price EGP/day',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  color: AppColors.primary,
                                   fontWeight: FontWeight.bold,
-                                  color: isDark ? Colors.white : Colors.black,
                                 ),
                               ),
-                            ),
-                            Text(
-                              '${price ?? 0} EGP/month',
-                              style: const TextStyle(
-                                fontSize: 20,
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                            ],
                           ],
                         ),
                         if (isAdmin)
@@ -607,9 +594,22 @@ class _ProductPageState extends State<ProductPage> {
                         if (isAdmin) ...[
                           CustomButton(
                             text: 'Edit Product',
-                            icon: Icons.edit,
-                            color: WidgetStateProperty.all(AppColors.primary),
-                            onPressed: _editProduct,
+                            imagePath: AppIcons.edit,
+                            color: WidgetStateProperty.all(
+                              isDark
+                                  ? const Color(0xFF466A7F)
+                                  : const Color(0xFF3F6175),
+                            ),
+                            onPressed: () async {
+                              final updated = await Navigator.push<bool>(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      AddProduct(productId: widget.productId),
+                                ),
+                              );
+                              if (updated == true) await _fetchProduct();
+                            },
                           ),
                           const SizedBox(height: 12),
                           CustomButton(

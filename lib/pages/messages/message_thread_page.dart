@@ -1830,8 +1830,7 @@ class _MessageThreadPageState extends State<MessageThreadPage>
                                               iconPadding,
                                             ),
                                             child: IconHandler.buildIcon(
-                                              imagePath:
-                                                  _editingMessage != null
+                                              imagePath: _editingMessage != null
                                                   ? AppIcons.tick
                                                   : AppIcons.send,
                                               color: Colors.white,
@@ -1962,15 +1961,11 @@ class _VoiceMessagePlayerState extends State<_VoiceMessagePlayer> {
                 color: color.withValues(alpha: 0.18),
               ),
               child: _isLoading
-                  ? Padding(
-                      padding: const EdgeInsets.all(9),
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: color,
-                      ),
-                    )
+                  ? CustomLoader(size: 18, strokeWidth: 2, color: color)
                   : Icon(
-                      _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                      _isPlaying
+                          ? Icons.pause_rounded
+                          : Icons.play_arrow_rounded,
                       color: color,
                       size: 20,
                     ),

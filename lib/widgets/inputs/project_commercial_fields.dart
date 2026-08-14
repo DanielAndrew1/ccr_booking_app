@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:site_lapse/core/app_theme.dart';
@@ -21,9 +22,11 @@ class ProjectCommercialFields extends StatelessWidget {
     required this.onPaymentFrequencyChanged,
     required this.onPaymentIntervalChanged,
     required this.onContractChanged,
+    this.onDownPaymentChanged,
     this.showPayment = true,
     this.showPrice = true,
     this.showContract = true,
+    this.allowAtEnd = true,
   });
 
   final bool isDark;
@@ -38,9 +41,11 @@ class ProjectCommercialFields extends StatelessWidget {
   final ValueChanged<String> onPaymentFrequencyChanged;
   final ValueChanged<int> onPaymentIntervalChanged;
   final ValueChanged<File?> onContractChanged;
+  final ValueChanged<String>? onDownPaymentChanged;
   final bool showPayment;
   final bool showPrice;
   final bool showContract;
+  final bool allowAtEnd;
 
   Future<void> _pickContract(ImageSource source) async {
     final image = await ImagePicker().pickImage(
@@ -48,6 +53,20 @@ class ProjectCommercialFields extends StatelessWidget {
       imageQuality: 90,
     );
     if (image != null) onContractChanged(File(image.path));
+  }
+
+  Future<void> _pickContractFile() async {
+    final result = await FilePicker.platform.pickFiles(type: FileType.any);
+    final path = result?.files.single.path;
+    if (path != null) onContractChanged(File(path));
+  }
+
+  bool get _contractIsImage {
+    final path = contractImage?.path.toLowerCase() ?? '';
+    return path.endsWith('.jpg') ||
+        path.endsWith('.jpeg') ||
+        path.endsWith('.png') ||
+        path.endsWith('.heic');
   }
 
   @override
@@ -93,29 +112,14 @@ class ProjectCommercialFields extends StatelessWidget {
           _PaymentPlanSelector(
             isDark: isDark,
             selectedValue: paymentPlanType,
+            allowAtEnd: allowAtEnd,
             onChanged: onPaymentPlanChanged,
           ),
-        if (showPayment &&
-            (paymentPlanType == 'monthly' ||
-                paymentPlanType == 'down_payment_installments')) ...[
-          const SizedBox(height: 12),
-          TextField(
-            controller: installmentController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            cursorColor: AppColors.primary,
-            style: TextStyle(color: foreground),
-            decoration: InputDecoration(
-              labelText: paymentPlanType == 'monthly'
-                  ? 'Monthly amount'
-                  : 'Installment amount',
-              suffixText: 'EGP',
-            ),
-          ),
-        ],
         if (showPayment && paymentPlanType == 'down_payment_installments') ...[
           const SizedBox(height: 12),
           TextField(
             controller: downPaymentController,
+            onChanged: onDownPaymentChanged,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             cursorColor: AppColors.primary,
             style: TextStyle(color: foreground),
@@ -123,30 +127,6 @@ class ProjectCommercialFields extends StatelessWidget {
               labelText: 'Down payment',
               suffixText: 'EGP',
             ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _CompactSelector<String>(
-                  label: 'Repeat every',
-                  value: paymentFrequency,
-                  isDark: isDark,
-                  options: const {'week': 'Week', 'month': 'Month'},
-                  onChanged: onPaymentFrequencyChanged,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _CompactSelector<int>(
-                  label: 'Interval',
-                  value: paymentInterval,
-                  isDark: isDark,
-                  options: const {1: '1', 2: '2', 3: '3', 6: '6'},
-                  onChanged: onPaymentIntervalChanged,
-                ),
-              ),
-            ],
           ),
         ],
         if (showContract) const SizedBox(height: 24),
@@ -164,26 +144,71 @@ class ProjectCommercialFields extends StatelessWidget {
           InkWell(
             onTap: () => showModalBottomSheet<void>(
               context: context,
+              backgroundColor: isDark
+                  ? AppColors.darkSurface
+                  : AppColors.lightSurface,
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
               builder: (sheetContext) => SafeArea(
-                child: Wrap(
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.camera_alt_outlined),
-                      title: const Text('Take a photo'),
-                      onTap: () {
-                        Navigator.pop(sheetContext);
-                        _pickContract(ImageSource.camera);
-                      },
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.photo_library_outlined),
-                      title: const Text('Choose from photos'),
-                      onTap: () {
-                        Navigator.pop(sheetContext);
-                        _pickContract(ImageSource.gallery);
-                      },
-                    ),
-                  ],
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 18),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 38,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: muted.withValues(alpha: 0.4),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Upload signed contract',
+                        style: TextStyle(
+                          color: foreground,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ListTile(
+                        leading: const Icon(
+                          Icons.camera_alt_rounded,
+                          color: AppColors.primary,
+                        ),
+                        title: const Text('Take Photo'),
+                        onTap: () {
+                          Navigator.pop(sheetContext);
+                          _pickContract(ImageSource.camera);
+                        },
+                      ),
+                      ListTile(
+                        leading: const Icon(
+                          Icons.photo_library_rounded,
+                          color: AppColors.primary,
+                        ),
+                        title: const Text('Choose Photo'),
+                        onTap: () {
+                          Navigator.pop(sheetContext);
+                          _pickContract(ImageSource.gallery);
+                        },
+                      ),
+                      ListTile(
+                        leading: const Icon(
+                          Icons.folder_rounded,
+                          color: AppColors.primary,
+                        ),
+                        title: const Text('Choose File'),
+                        onTap: () {
+                          Navigator.pop(sheetContext);
+                          _pickContractFile();
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -196,7 +221,7 @@ class ProjectCommercialFields extends StatelessWidget {
                 border: Border.all(
                   color: isDark ? Colors.white24 : Colors.black12,
                 ),
-                image: contractImage == null
+                image: contractImage == null || !_contractIsImage
                     ? null
                     : DecorationImage(
                         image: FileImage(contractImage!),
@@ -211,6 +236,31 @@ class ProjectCommercialFields extends StatelessWidget {
                         const SizedBox(height: 6),
                         Text(
                           'Take or upload a signed contract',
+                          style: TextStyle(color: muted),
+                        ),
+                      ],
+                    )
+                  : !_contractIsImage
+                  ? Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.picture_as_pdf_rounded,
+                          color: AppColors.primary,
+                          size: 32,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          contractImage!.path
+                              .split(Platform.pathSeparator)
+                              .last,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: foreground),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          'Tap to change file',
                           style: TextStyle(color: muted),
                         ),
                       ],
@@ -285,11 +335,13 @@ class _PaymentPlanSelector extends StatelessWidget {
   const _PaymentPlanSelector({
     required this.isDark,
     required this.selectedValue,
+    required this.allowAtEnd,
     required this.onChanged,
   });
 
   final bool isDark;
   final String? selectedValue;
+  final bool allowAtEnd;
   final ValueChanged<String> onChanged;
 
   static const _options = [
@@ -313,7 +365,7 @@ class _PaymentPlanSelector extends StatelessWidget {
     ),
     (
       'down_payment_installments',
-      'Deposit + installments',
+      'Down Payment + Monthly Fee',
       'Deposit, then scheduled payments',
       Icons.account_balance_wallet_outlined,
     ),
@@ -321,109 +373,78 @@ class _PaymentPlanSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Column(
-    children: _options.map((option) {
-      final isSelected = option.$1 == selectedValue;
-      final textColor = isDark ? Colors.white : Colors.black;
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 9),
-        child: InkWell(
-          onTap: () => onChanged(option.$1),
-          borderRadius: BorderRadius.circular(14),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            padding: const EdgeInsets.all(13),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? AppColors.primary.withValues(alpha: isDark ? .22 : .1)
-                  : (isDark
-                        ? Colors.white.withValues(alpha: .05)
-                        : Colors.white),
+    children: _options
+        .where((option) {
+          return option.$1 != 'one_time_end' || allowAtEnd;
+        })
+        .map((option) {
+          final isSelected = option.$1 == selectedValue;
+          final textColor = isDark ? Colors.white : Colors.black;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 9),
+            child: InkWell(
+              onTap: () => onChanged(option.$1),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: isSelected
-                    ? AppColors.primary
-                    : (isDark ? Colors.white12 : Colors.black12),
-                width: isSelected ? 1.5 : 1,
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  option.$4,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.all(13),
+                decoration: BoxDecoration(
                   color: isSelected
-                      ? AppColors.primary
-                      : (isDark ? Colors.white70 : Colors.black54),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        option.$2,
-                        style: TextStyle(
-                          color: textColor,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        option.$3,
-                        style: TextStyle(
-                          color: isDark ? Colors.white60 : Colors.black54,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
+                      ? AppColors.primary.withValues(alpha: isDark ? .22 : .1)
+                      : (isDark
+                            ? Colors.white.withValues(alpha: .05)
+                            : Colors.white),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: isSelected
+                        ? AppColors.primary
+                        : (isDark ? Colors.white12 : Colors.black12),
+                    width: isSelected ? 1.5 : 1,
                   ),
                 ),
-                Icon(
-                  isSelected ? Icons.check_circle : Icons.circle_outlined,
-                  color: isSelected
-                      ? AppColors.primary
-                      : (isDark ? Colors.white38 : Colors.black26),
+                child: Row(
+                  children: [
+                    Icon(
+                      option.$4,
+                      color: isSelected
+                          ? AppColors.primary
+                          : (isDark ? Colors.white70 : Colors.black54),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            option.$2,
+                            style: TextStyle(
+                              color: textColor,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            option.$3,
+                            style: TextStyle(
+                              color: isDark ? Colors.white60 : Colors.black54,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      isSelected ? Icons.check_circle : Icons.circle_outlined,
+                      color: isSelected
+                          ? AppColors.primary
+                          : (isDark ? Colors.white38 : Colors.black26),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
-        ),
-      );
-    }).toList(),
-  );
-}
-
-class _CompactSelector<T> extends StatelessWidget {
-  const _CompactSelector({
-    required this.label,
-    required this.value,
-    required this.isDark,
-    required this.options,
-    required this.onChanged,
-  });
-
-  final String label;
-  final T value;
-  final bool isDark;
-  final Map<T, String> options;
-  final ValueChanged<T> onChanged;
-
-  @override
-  Widget build(BuildContext context) => DropdownButtonFormField<T>(
-    initialValue: value,
-    dropdownColor: isDark ? const Color(0xFF2A2A2A) : Colors.white,
-    style: TextStyle(color: isDark ? Colors.white : Colors.black),
-    decoration: InputDecoration(
-      labelText: label,
-      border: const OutlineInputBorder(),
-    ),
-    items: options.entries
-        .map(
-          (entry) =>
-              DropdownMenuItem(value: entry.key, child: Text(entry.value)),
-        )
+          );
+        })
         .toList(),
-    onChanged: (selected) {
-      if (selected != null) onChanged(selected);
-    },
   );
 }

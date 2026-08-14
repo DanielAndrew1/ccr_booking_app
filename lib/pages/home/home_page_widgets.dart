@@ -75,106 +75,266 @@ extension _HomePageWidgets on _HomePageState {
 
   Widget _buildRoleDashboard(String role, bool isDark) {
     final loc = AppLocalizations.of(context);
-    return Column(
-      children: [
-        if (role == 'Warehouse' || role == 'Admin') ...[
-          _buildAsyncList(
-            _getUpcomingBookings(),
-            loc.tr("Projects to Install"),
-            isDark,
-            AppColors.secondary,
-            isPickup: true,
-          ),
-          const SizedBox(height: 30),
-          _buildAsyncList(
-            _getReturningBookings(),
-            loc.tr("Projects to Remove"),
-            isDark,
-            AppColors.primary,
-            isPickup: false,
-          ),
-          const SizedBox(height: 30),
-        ] else if (role == 'Owner') ...[
-          _buildOwnerStatsView(isDark),
-          const SizedBox(height: 22),
-        ],
-        Row(
-          children: [
-            Expanded(
-              child: Container(
-                height: 1,
-                margin: const EdgeInsets.only(right: 10),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: [
-                      Colors.transparent,
-                      (isDark ? Colors.white70 : Colors.black54),
-                      (isDark ? Colors.white : Colors.black),
-                    ],
-                  ),
+    final sections = <Widget>[];
+    void add(Widget section) {
+      if (sections.isNotEmpty) sections.add(const SizedBox(height: 26));
+      sections.add(section);
+    }
+
+    for (final section in _dashboardSections) {
+      switch (section) {
+        case 'stats' when role == 'Owner':
+          add(_buildOwnerStatsView(isDark));
+        case 'installations' when role == 'Warehouse' || role == 'Admin':
+          add(
+            _buildAsyncList(
+              _getUpcomingBookings(),
+              loc.tr('Projects to Install'),
+              isDark,
+              AppColors.secondary,
+              isPickup: true,
+            ),
+          );
+        case 'removals' when role == 'Warehouse' || role == 'Admin':
+          add(
+            _buildAsyncList(
+              _getReturningBookings(),
+              loc.tr('Projects to Remove'),
+              isDark,
+              AppColors.primary,
+              isPickup: false,
+            ),
+          );
+        case 'quick_actions':
+          add(
+            Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 1,
+                        margin: const EdgeInsets.only(right: 10),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                            colors: [
+                              Colors.transparent,
+                              (isDark ? Colors.white70 : Colors.black54),
+                              (isDark ? Colors.white : Colors.black),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    Text(
+                      loc.tr("Quick Actions"),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white70 : Colors.black54,
+                      ),
+                    ),
+                    Expanded(
+                      child: Container(
+                        height: 1,
+                        margin: const EdgeInsets.only(left: 10),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.centerRight,
+                            end: Alignment.centerLeft,
+                            colors: [
+                              Colors.transparent,
+                              (isDark ? Colors.white70 : Colors.black54),
+                              (isDark ? Colors.white : Colors.black),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
+                const SizedBox(height: 22),
+                ..._buildSelectedQuickActions(role, isDark),
+              ],
             ),
-            Text(
-              loc.tr("Quick Actions"),
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white70 : Colors.black54,
-              ),
-            ),
-            Expanded(
-              child: Container(
-                height: 1,
-                margin: const EdgeInsets.only(left: 10),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.centerRight,
-                    end: Alignment.centerLeft,
-                    colors: [
-                      Colors.transparent,
-                      (isDark ? Colors.white70 : Colors.black54),
-                      (isDark ? Colors.white : Colors.black),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-        SizedBox(height: 22),
-        if (role == 'Admin' || role == 'Owner') ...[
-          _buildActionButton(
-            title: loc.tr("Add Client"),
-            subtitle: loc.tr("Add a new client to your database"),
-            imagePath: AppIcons.userAdd,
-            isFilled: true,
-            color: isDark ? AppColors.primary : AppColors.secondary,
-            isDark: isDark,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const AddClient()),
-            ),
-          ),
-          const SizedBox(height: 20),
-        ],
-        _buildActionButton(
-          title: loc.tr("Receive a notification"),
-          subtitle: loc.tr("Test the notification system"),
-          imagePath: AppIcons.notification,
-          color: isDark ? AppColors.primary : AppColors.secondary,
-          isDark: isDark,
-          onTap: () => _notificationService.showNotification(
-            id: 1,
-            title: "Site Lapse",
-            body: "Notification triggered successfully",
-          ),
-        ),
-        const SizedBox(height: 120),
-      ],
-    );
+          );
+      }
+    }
+    return Column(children: [...sections, const SizedBox(height: 120)]);
   }
+
+  List<Widget> _buildSelectedQuickActions(String role, bool isDark) {
+    final canManage = role == 'Admin' || role == 'Owner';
+    final widgets = <Widget>[];
+    var actionCount = 0;
+    int nextActionStyle() => actionCount++ % 3;
+    void add(Widget widget) {
+      if (widgets.isNotEmpty) widgets.add(const SizedBox(height: 14));
+      widgets.add(widget);
+    }
+
+    for (final action in _dashboardActions) {
+      switch (action) {
+        case 'add_project' when canManage:
+          add(
+            _dashboardAction(
+              'Add Project',
+              'Create a new project',
+              AppIcons.booking,
+              isDark,
+              null,
+              navIndex: 4,
+              actionStyle: nextActionStyle(),
+            ),
+          );
+        case 'add_client' when canManage:
+          add(
+            _dashboardAction(
+              'Add Client',
+              'Add a client to your database',
+              AppIcons.userAdd,
+              isDark,
+              null,
+              navIndex: 5,
+              actionStyle: nextActionStyle(),
+            ),
+          );
+        case 'add_product' when canManage:
+          add(
+            _dashboardAction(
+              'Add Product',
+              'Add an item to inventory',
+              AppIcons.add,
+              isDark,
+              null,
+              navIndex: 6,
+              actionStyle: nextActionStyle(),
+            ),
+          );
+        case 'view_projects':
+          add(
+            _dashboardAction(
+              'View Projects',
+              'Open all projects',
+              AppIcons.booking,
+              isDark,
+              null,
+              navIndex: 2,
+              actionStyle: nextActionStyle(),
+            ),
+          );
+        case 'inventory':
+          add(
+            _dashboardAction(
+              'Inventory',
+              'Browse products and availability',
+              AppIcons.inventory,
+              isDark,
+              InventoryPage(),
+              actionStyle: nextActionStyle(),
+            ),
+          );
+        case 'clients' when canManage:
+          add(
+            _dashboardAction(
+              'Clients',
+              'Open the client directory',
+              AppIcons.client,
+              isDark,
+              ClientsPage(),
+              actionStyle: nextActionStyle(),
+            ),
+          );
+        case 'employees' when canManage:
+          add(
+            _dashboardAction(
+              'Employees',
+              'Manage your team',
+              AppIcons.userSearch,
+              isDark,
+              UsersPage(),
+              actionStyle: nextActionStyle(),
+            ),
+          );
+        case 'calendar':
+          add(
+            _dashboardAction(
+              'Calendar',
+              'View the project calendar',
+              AppIcons.calendar,
+              isDark,
+              const CalendarPage(),
+              actionStyle: nextActionStyle(),
+            ),
+          );
+        case 'messages':
+          add(
+            _dashboardAction(
+              'Messages',
+              'Open team conversations',
+              AppIcons.messages,
+              isDark,
+              null,
+              navIndex: 1,
+              actionStyle: nextActionStyle(),
+            ),
+          );
+        case 'test_notification':
+          add(
+            _buildActionButton(
+              title: 'Test Notification',
+              subtitle: 'Check that notifications are working',
+              imagePath: AppIcons.notification,
+              actionStyle: nextActionStyle(),
+              color: isDark ? AppColors.primary : AppColors.secondary,
+              isDark: isDark,
+              onTap: () => _notificationService.showNotification(
+                id: 1,
+                title: 'Site Lapse',
+                body: 'Notification triggered successfully',
+              ),
+            ),
+          );
+      }
+    }
+    if (widgets.isEmpty) {
+      widgets.add(
+        Text(
+          'No quick actions selected. Choose some in Settings.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
+        ),
+      );
+    }
+    return widgets;
+  }
+
+  Widget _dashboardAction(
+    String title,
+    String subtitle,
+    String imagePath,
+    bool isDark,
+    Widget? route, {
+    int? navIndex,
+    required int actionStyle,
+  }) => _buildActionButton(
+    title: title,
+    subtitle: subtitle,
+    imagePath: imagePath,
+    actionStyle: actionStyle,
+    color: isDark ? AppColors.primary : AppColors.secondary,
+    isDark: isDark,
+    onTap: () {
+      if (navIndex != null) {
+        Provider.of<NavbarProvider>(context, listen: false).setIndex(navIndex);
+        return;
+      }
+      if (route != null) {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => route));
+      }
+    },
+  );
 
   Widget _buildOwnerStatsView(bool isDark) {
     final loc = AppLocalizations.of(context);
@@ -278,10 +438,9 @@ extension _HomePageWidgets on _HomePageState {
                   loc.tr("To Install"),
                   "${stats['projectsToInstall']}",
                   null,
-                  AppIcons.pickUp,
+                  AppIcons.returns,
                   accent,
                   isDark,
-                  mirrorIcon: true,
                   route: const BookingsPage(showPfp: false),
                 ),
                 const SizedBox(width: 15),
@@ -289,9 +448,10 @@ extension _HomePageWidgets on _HomePageState {
                   loc.tr("To Remove"),
                   "${stats['projectsToRemove']}",
                   null,
-                  AppIcons.returns,
+                  AppIcons.pickUp,
                   accent,
                   isDark,
+                  mirrorIcon: true,
                   route: const BookingsPage(showPfp: false),
                 ),
               ],
@@ -456,24 +616,27 @@ extension _HomePageWidgets on _HomePageState {
     required String title,
     required String subtitle,
     String? imagePath,
-    bool isFilled = false,
+    IconData? icon,
+    int actionStyle = 2,
     required Color color,
     required bool isDark,
     required VoidCallback onTap,
   }) {
+    final isFilled = actionStyle < 2;
+    final fillColor = actionStyle == 0
+        ? AppColors.primary
+        : AppColors.secondary;
+    const outlineColor = AppColors.primary;
+    final contentColor = isFilled ? Colors.white : outlineColor;
     return Material(
       color: Colors.transparent,
       child: Ink(
         decoration: BoxDecoration(
-          color: isFilled
-              ? (isDark ? AppColors.primary : AppColors.secondary)
-              : (isDark ? Colors.transparent : Colors.transparent),
+          color: isFilled ? fillColor : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
           border: isFilled
               ? Border.all(color: Colors.transparent)
-              : Border.all(
-                  color: isDark ? AppColors.primary : AppColors.secondary,
-                ),
+              : Border.all(color: outlineColor),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.05),
@@ -485,13 +648,9 @@ extension _HomePageWidgets on _HomePageState {
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
           overlayColor: WidgetStateProperty.all(
-            isDark
-                ? (!isFilled
-                      ? AppColors.primary.withValues(alpha: 0.05)
-                      : Colors.white.withValues(alpha: 0.08))
-                : (!isFilled
-                      ? AppColors.secondary.withValues(alpha: 0.05)
-                      : Colors.white.withValues(alpha: 0.08)),
+            isFilled
+                ? Colors.white.withValues(alpha: 0.08)
+                : outlineColor.withValues(alpha: 0.05),
           ),
           splashColor: Colors.transparent,
           onTap: onTap,
@@ -503,15 +662,14 @@ extension _HomePageWidgets on _HomePageState {
                   width: 45,
                   height: 45,
                   decoration: BoxDecoration(
-                    color: isFilled ? Colors.transparent : Colors.transparent,
+                    color: Colors.transparent,
                     shape: BoxShape.circle,
                   ),
                   child: Center(
                     child: IconHandler.buildIcon(
                       imagePath: imagePath,
-                      color: isFilled
-                          ? (isDark ? Colors.white : Colors.white)
-                          : (isDark ? AppColors.primary : AppColors.secondary),
+                      icon: icon,
+                      color: contentColor,
                       size: 35,
                     ),
                   ),
@@ -526,22 +684,14 @@ extension _HomePageWidgets on _HomePageState {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
-                          color: isFilled
-                              ? Colors.white
-                              : (isDark
-                                    ? AppColors.primary
-                                    : AppColors.secondary),
+                          color: contentColor,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         subtitle,
                         style: TextStyle(
-                          color: isFilled
-                              ? Colors.white
-                              : (isDark
-                                    ? AppColors.primary
-                                    : AppColors.secondary),
+                          color: contentColor,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -552,9 +702,7 @@ extension _HomePageWidgets on _HomePageState {
                 Icon(
                   Icons.arrow_forward_ios_rounded,
                   size: 20,
-                  color: isFilled
-                      ? Colors.white
-                      : (isDark ? AppColors.primary : AppColors.secondary),
+                  color: contentColor,
                 ),
               ],
             ),

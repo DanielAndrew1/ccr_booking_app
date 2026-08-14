@@ -8,6 +8,9 @@ class ProjectQuoteService {
   static final _currency = NumberFormat('#,##0.00', 'en_US');
   static final _date = DateFormat('dd MMMM yyyy');
 
+  static String quoteFileName(String clientName) =>
+      '${_fileSafeName(clientName)}_${DateFormat('ddMMyyyy').format(DateTime.now())}.pdf';
+
   static Future<void> shareQuote({
     required String projectId,
     required String clientName,
@@ -34,11 +37,7 @@ class ProjectQuoteService {
       installmentAmount: installmentAmount,
       downPaymentAmount: downPaymentAmount,
     );
-    await Printing.sharePdf(
-      bytes: bytes,
-      filename:
-          '${_fileSafeName(clientName)}-quote-${DateFormat('yyyy-MM-dd').format(DateTime.now())}.pdf',
-    );
+    await Printing.sharePdf(bytes: bytes, filename: quoteFileName(clientName));
   }
 
   static Future<void> shareInvoice({
@@ -160,6 +159,15 @@ class ProjectQuoteService {
       'assets/branding/site_lapse_logo_light.png',
     );
     final logo = pw.MemoryImage(logoBytes.buffer.asUint8List());
+    final billableDays = _billableDays(startDate, endDate);
+    final paymentRows = _paymentSchedule(
+      type: paymentPlanType,
+      startDate: startDate,
+      endDate: endDate,
+      totalAmount: totalAmount,
+      monthlyFee: installmentAmount,
+      downPayment: downPaymentAmount,
+    );
     final productQuantities = <String, Map<String, dynamic>>{};
     for (final product in products) {
       final name = product['name']?.toString() ?? 'Product';
@@ -205,130 +213,181 @@ class ProjectQuoteService {
               align: pw.TextAlign.center,
             ),
             _tableCell(
-              '${_currency.format(entry.value['unit_price'])} EGP/month',
-              align: pw.TextAlign.right,
+              (entry.value['unit_price'] as double) > 0
+                  ? _currency.format(entry.value['unit_price'])
+                  : '',
+              align: pw.TextAlign.center,
+            ),
+            _tableCell(
+              (entry.value['unit_price'] as double) > 0
+                  ? _currency.format(
+                      (entry.value['unit_price'] as double) *
+                          (entry.value['quantity'] as int) *
+                          billableDays,
+                    )
+                  : '',
+              align: pw.TextAlign.center,
             ),
           ],
         );
       }),
     );
     document.addPage(
-      pw.Page(
-        margin: const pw.EdgeInsets.all(40),
-        build: (context) => pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [pw.Image(logo, width: 180)],
-            ),
-            pw.SizedBox(height: 28),
-            _detailRow('Created on', _date.format(DateTime.now())),
-            _detailRow('Client Name', clientName),
-            _detailRow(
-              'Project period',
-              '${_date.format(startDate)} - ${_date.format(endDate)}',
-            ),
-            pw.SizedBox(height: 24),
-            pw.Text(
-              'Included products',
-              style: pw.TextStyle(fontSize: 15, fontWeight: pw.FontWeight.bold),
-            ),
-            pw.SizedBox(height: 8),
-            pw.Table(
-              border: pw.TableBorder.all(color: PdfColor.fromInt(0xFFE5E1E1)),
-              columnWidths: const {
-                0: pw.FixedColumnWidth(84),
-                1: pw.FlexColumnWidth(2),
-                2: pw.FixedColumnWidth(52),
-                3: pw.FixedColumnWidth(92),
-              },
-              children: [
-                pw.TableRow(
-                  decoration: pw.BoxDecoration(color: accent),
+      pw.MultiPage(
+        margin: const pw.EdgeInsets.fromLTRB(40, 40, 40, 105),
+        footer: (context) => context.pageNumber == context.pagesCount
+            ? pw.Container(
+                width: double.infinity,
+                padding: const pw.EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 16,
+                ),
+                decoration: pw.BoxDecoration(
+                  color: accent,
+                  borderRadius: const pw.BorderRadius.all(
+                    pw.Radius.circular(26),
+                  ),
+                ),
+                child: pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
-                    _tableCell('Image', bold: true, color: PdfColors.white),
-                    _tableCell(
-                      'Product name',
-                      bold: true,
-                      color: PdfColors.white,
+                    pw.Text(
+                      'Total project price',
+                      style: pw.TextStyle(
+                        color: PdfColors.white,
+                        fontSize: 16,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
                     ),
-                    _tableCell(
-                      'Qty',
-                      bold: true,
-                      align: pw.TextAlign.center,
-                      color: PdfColors.white,
-                    ),
-                    _tableCell(
-                      'Price / month',
-                      bold: true,
-                      align: pw.TextAlign.right,
-                      color: PdfColors.white,
+                    pw.Text(
+                      '${_currency.format(totalAmount)} EGP',
+                      style: pw.TextStyle(
+                        color: PdfColors.white,
+                        fontSize: 18,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
-                ...productRows,
-              ],
-            ),
-            pw.SizedBox(height: 24),
-            pw.Container(
-              padding: const pw.EdgeInsets.all(16),
-              decoration: pw.BoxDecoration(color: PdfColor.fromInt(0xFFF8EEEE)),
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
+              )
+            : pw.SizedBox(),
+        build: (context) => [
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [pw.Image(logo, width: 180)],
+          ),
+          pw.SizedBox(height: 28),
+          _detailRow('Created on', _date.format(DateTime.now())),
+          _detailRow('Client Name', clientName),
+          _detailRow(
+            'Project period',
+            '${_date.format(startDate)} - ${_date.format(endDate)} (${_projectDuration(startDate, endDate)})',
+          ),
+          pw.SizedBox(height: 24),
+          pw.Text(
+            'Included products',
+            style: pw.TextStyle(fontSize: 15, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 8),
+          pw.Table(
+            border: pw.TableBorder.all(color: PdfColor.fromInt(0xFFE5E1E1)),
+            defaultVerticalAlignment: pw.TableCellVerticalAlignment.middle,
+            columnWidths: const {
+              0: pw.IntrinsicColumnWidth(),
+              1: pw.FlexColumnWidth(),
+              2: pw.IntrinsicColumnWidth(),
+              3: pw.IntrinsicColumnWidth(),
+              4: pw.IntrinsicColumnWidth(),
+            },
+            children: [
+              pw.TableRow(
+                decoration: pw.BoxDecoration(color: accent),
                 children: [
-                  pw.Text(
-                    'Payment terms',
-                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                  _tableCell(
+                    'Image',
+                    bold: true,
+                    align: pw.TextAlign.center,
+                    color: PdfColors.white,
                   ),
-                  pw.SizedBox(height: 6),
-                  pw.Text(
-                    _paymentTerms(
-                      paymentPlanType,
-                      paymentFrequency,
-                      paymentInterval,
-                      installmentAmount,
-                      downPaymentAmount,
-                    ),
+                  _tableCell(
+                    'Product name',
+                    bold: true,
+                    color: PdfColors.white,
+                  ),
+                  _tableCell(
+                    'Qty',
+                    bold: true,
+                    align: pw.TextAlign.center,
+                    color: PdfColors.white,
+                  ),
+                  _tableCell(
+                    'Price\n(EGP/day)',
+                    bold: true,
+                    align: pw.TextAlign.center,
+                    color: PdfColors.white,
+                  ),
+                  _tableCell(
+                    'Item total\n(EGP)',
+                    bold: true,
+                    align: pw.TextAlign.center,
+                    color: PdfColors.white,
                   ),
                 ],
               ),
-            ),
-            pw.Spacer(),
-            pw.Container(
-              width: double.infinity,
-              padding: const pw.EdgeInsets.symmetric(
-                horizontal: 18,
-                vertical: 16,
-              ),
-              decoration: pw.BoxDecoration(
-                color: accent,
-                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(10)),
-              ),
-              child: pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              ...productRows,
+            ],
+          ),
+          pw.SizedBox(height: 24),
+          pw.Text(
+            'Payment schedule',
+            style: pw.TextStyle(fontSize: 15, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 8),
+          pw.Table(
+            border: pw.TableBorder.all(color: PdfColor.fromInt(0xFFE5E1E1)),
+            defaultVerticalAlignment: pw.TableCellVerticalAlignment.middle,
+            columnWidths: const {
+              0: pw.IntrinsicColumnWidth(),
+              1: pw.FlexColumnWidth(),
+              2: pw.IntrinsicColumnWidth(),
+              3: pw.FlexColumnWidth(),
+            },
+            children: [
+              pw.TableRow(
+                decoration: pw.BoxDecoration(color: accent),
                 children: [
-                  pw.Text(
-                    'Total project price',
-                    style: pw.TextStyle(
-                      color: PdfColors.white,
-                      fontSize: 16,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
+                  _tableCell('Payment', bold: true, color: PdfColors.white),
+                  _tableCell('Due date', bold: true, color: PdfColors.white),
+                  _tableCell(
+                    'Amount (EGP)',
+                    bold: true,
+                    color: PdfColors.white,
+                    align: pw.TextAlign.center,
                   ),
-                  pw.Text(
-                    '${_currency.format(totalAmount)} EGP/month',
-                    style: pw.TextStyle(
-                      color: PdfColors.white,
-                      fontSize: 18,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
+                  _tableCell(
+                    'Signature',
+                    bold: true,
+                    color: PdfColors.white,
+                    align: pw.TextAlign.center,
                   ),
                 ],
               ),
-            ),
-          ],
-        ),
+              ...paymentRows.map(
+                (row) => pw.TableRow(
+                  children: [
+                    _tableCell(row.label),
+                    _tableCell(_date.format(row.date)),
+                    _tableCell(
+                      _currency.format(row.amount),
+                      align: pw.TextAlign.center,
+                    ),
+                    _tableCell(''),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
     return document.save();
@@ -376,28 +435,86 @@ class ProjectQuoteService {
     }
   }
 
+  static int _billableDays(DateTime start, DateTime end) {
+    if (end.isBefore(start)) return 0;
+    final first = DateTime(start.year, start.month, start.day);
+    final last = DateTime(end.year, end.month, end.day);
+    return last.difference(first).inDays + 1;
+  }
+
+  static String _projectDuration(DateTime start, DateTime end) {
+    if (end.isBefore(start)) return '0 days';
+    var months = (end.year - start.year) * 12 + end.month - start.month;
+    DateTime anniversary(int value) {
+      final monthEnd = DateTime(start.year, start.month + value + 1, 0).day;
+      return DateTime(
+        start.year,
+        start.month + value,
+        start.day.clamp(1, monthEnd),
+      );
+    }
+
+    if (anniversary(months).isAfter(end)) months--;
+    final days = end.difference(anniversary(months)).inDays;
+    final parts = <String>[];
+    if (months > 0) {
+      parts.add('$months ${months == 1 ? 'month' : 'months'}');
+    }
+    if (days > 0 || parts.isEmpty) {
+      parts.add('$days ${days == 1 ? 'day' : 'days'}');
+    }
+    return parts.join(', ');
+  }
+
   static String _fileSafeName(String value) => value
       .trim()
       .replaceAll(RegExp(r'[^A-Za-z0-9]+'), '-')
       .replaceAll(RegExp(r'^-+|-+$'), '')
       .toLowerCase();
 
-  static String _paymentTerms(
-    String type,
-    String? frequency,
-    int interval,
-    double? installment,
-    double downPayment,
-  ) {
-    switch (type) {
-      case 'one_time_start':
-        return 'One payment of ${_currency.format(installment ?? 0)} EGP at the start of the project.';
-      case 'monthly':
-        return 'Monthly payment of ${_currency.format(installment ?? 0)} EGP.';
-      case 'down_payment_installments':
-        return 'Down payment of ${_currency.format(downPayment)} EGP, then ${_currency.format(installment ?? 0)} EGP every $interval ${frequency ?? 'month'}${interval == 1 ? '' : 's'}.';
-      default:
-        return 'One payment of ${_currency.format(installment ?? 0)} EGP at the end of the project.';
+  static List<_PaymentScheduleRow> _paymentSchedule({
+    required String type,
+    required DateTime startDate,
+    required DateTime endDate,
+    required double totalAmount,
+    required double? monthlyFee,
+    required double downPayment,
+  }) {
+    if (type == 'one_time_start') {
+      return [_PaymentScheduleRow('At start', startDate, totalAmount)];
     }
+    if (type == 'one_time_end') {
+      return [_PaymentScheduleRow('At end', endDate, totalAmount)];
+    }
+    final months = _paymentMonths(startDate, endDate);
+    final rows = <_PaymentScheduleRow>[];
+    if (type == 'down_payment_installments' && downPayment > 0) {
+      rows.add(_PaymentScheduleRow('Down payment', startDate, downPayment));
+    }
+    final amount = type == 'monthly' ? totalAmount / months : (monthlyFee ?? 0);
+    for (var index = 0; index < months; index++) {
+      final dueDate = DateTime(
+        startDate.year,
+        startDate.month + index,
+        startDate.day,
+      );
+      rows.add(_PaymentScheduleRow('Month ${index + 1}', dueDate, amount));
+    }
+    return rows;
   }
+
+  static int _paymentMonths(DateTime start, DateTime end) {
+    var months = (end.year - start.year) * 12 + end.month - start.month;
+    if (DateTime(start.year, start.month + months, start.day).isBefore(end)) {
+      months++;
+    }
+    return months < 1 ? 1 : months;
+  }
+}
+
+class _PaymentScheduleRow {
+  const _PaymentScheduleRow(this.label, this.date, this.amount);
+  final String label;
+  final DateTime date;
+  final double amount;
 }

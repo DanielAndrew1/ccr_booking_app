@@ -19,6 +19,10 @@ class _HomePageState extends State<HomePage>
   late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
   RealtimeChannel? _statsChannel;
   bool _hasConnection = true;
+  List<String> _dashboardSections = List.of(
+    DashboardPreferences.defaultSections,
+  );
+  List<String> _dashboardActions = List.of(DashboardPreferences.defaultActions);
 
   @override
   bool get wantKeepAlive => true;
@@ -29,11 +33,23 @@ class _HomePageState extends State<HomePage>
     _setupNotifications();
     _initConnectivity();
     _setupRealtimeListeners();
+    _loadDashboardPreferences();
+    DashboardPreferences.changed.addListener(_loadDashboardPreferences);
 
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
       result,
     ) {
       _checkStatus(result);
+    });
+  }
+
+  Future<void> _loadDashboardPreferences() async {
+    final sections = await DashboardPreferences.sections();
+    final actions = await DashboardPreferences.actions();
+    if (!mounted) return;
+    setState(() {
+      _dashboardSections = sections;
+      _dashboardActions = actions;
     });
   }
 
@@ -80,6 +96,7 @@ class _HomePageState extends State<HomePage>
 
   @override
   void dispose() {
+    DashboardPreferences.changed.removeListener(_loadDashboardPreferences);
     _connectivitySubscription.cancel();
     if (_statsChannel != null) supabase.removeChannel(_statsChannel!);
     super.dispose();
@@ -301,13 +318,13 @@ class _HomePageState extends State<HomePage>
                         loc.tr("Pickup"),
                         _formatDateTime(data['pickup_datetime']),
                         isDark,
-                        icon: Icons.upload_rounded,
+                        icon: Icons.download_rounded,
                       ),
                       _buildPopupField(
                         loc.tr("Return"),
                         _formatDateTime(data['return_datetime']),
                         isDark,
-                        icon: Icons.download_rounded,
+                        icon: Icons.upload_rounded,
                       ),
                       const Divider(height: 30),
                       Text(
@@ -461,15 +478,21 @@ class _HomePageState extends State<HomePage>
                   String? imageUrl = item['image_url'];
 
                   Widget subtitleWidget;
-                  if (isProduct && item['price'] != null) {
+                  final rawPrice = item['price'];
+                  final productPrice = rawPrice is num
+                      ? rawPrice.toDouble()
+                      : double.tryParse('$rawPrice') ?? 0;
+                  if (isProduct && productPrice > 0) {
                     subtitleWidget = Text(
-                      "${item['price']} EGP/month",
+                      "$productPrice EGP/month",
                       style: const TextStyle(
                         color: AppColors.primary,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
                     );
+                  } else if (isProduct) {
+                    subtitleWidget = const SizedBox.shrink();
                   } else {
                     subtitleWidget = Text(
                       item['email'] ?? item['status'] ?? "Entry #$index",

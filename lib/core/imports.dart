@@ -44,6 +44,7 @@ export 'package:site_lapse/services/booking_operations_service.dart';
 export 'package:site_lapse/services/project_commercial_service.dart';
 export 'package:site_lapse/services/project_quote_service.dart';
 export 'package:site_lapse/services/project_finance_service.dart';
+export 'package:site_lapse/services/dashboard_preferences.dart';
 
 // Pages - Authentication
 export 'package:site_lapse/pages/auth/login_page.dart';
@@ -56,6 +57,8 @@ export 'package:site_lapse/pages/splash/splash_screen.dart';
 export 'package:site_lapse/pages/bookings/bookings_page.dart';
 export 'package:site_lapse/pages/bookings/edit_booking.dart';
 export 'package:site_lapse/pages/bookings/project_site_setup_page.dart';
+export 'package:site_lapse/pages/bookings/project_details_page.dart';
+export 'package:site_lapse/pages/bookings/project_drafts_page.dart';
 export 'package:site_lapse/pages/calendar/calendar_page.dart';
 export 'package:site_lapse/pages/home/home_page.dart';
 export 'package:site_lapse/pages/inventory/inventory_page.dart';
@@ -73,6 +76,7 @@ export 'package:site_lapse/pages/messages/message_thread_page.dart';
 export 'package:site_lapse/pages/profile/about_page.dart';
 export 'package:site_lapse/pages/profile/edit_info_page.dart';
 export 'package:site_lapse/pages/profile/settings_page.dart';
+export 'package:site_lapse/pages/profile/dashboard_settings_page.dart';
 
 // Pages - Icon handler
 export 'package:site_lapse/widgets/icon_handler/icon_handler.dart';

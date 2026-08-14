@@ -167,218 +167,6 @@ class BookingsPageState extends State<BookingsPage> {
     return confirm == true;
   }
 
-  void _showBookingDetails(
-    Map<String, dynamic> booking, {
-    required bool isPickup,
-  }) {
-    final currencyFormat = NumberFormat("#,##0", "en_US");
-
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (BuildContext dialogContext) {
-        final bool isDark = Provider.of<ThemeProvider>(
-          dialogContext,
-        ).isDarkMode;
-        final accentColor = isPickup ? AppColors.primary : AppColors.secondary;
-        return Center(
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 24),
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF252525) : Colors.white,
-              borderRadius: BorderRadius.circular(28),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(isDark ? 0.4 : 0.1),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        "Project Details",
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : Colors.black,
-                        ),
-                      ),
-                      if (isPickup)
-                        Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () {
-                              HapticFeedback.lightImpact();
-
-                              // 1. Set the booking data for the Add/Edit page to read
-                              Provider.of<BookingProvider>(
-                                context,
-                                listen: false,
-                              ).setEditingBooking(booking);
-
-                              // 2. Tell the Navbar to enter "Edit Mode"
-                              Provider.of<NavbarProvider>(
-                                context,
-                                listen: false,
-                              ).setEditMode(true);
-
-                              // 3. Close the dialog
-                              Navigator.pop(dialogContext);
-
-                              // 4. Switch the Navbar index to the Add/Edit page (index 4)
-                              Provider.of<NavbarProvider>(
-                                context,
-                                listen: false,
-                              ).setIndex(4);
-                            },
-                            borderRadius: BorderRadius.circular(50),
-                            child: Ink(
-                              padding: const EdgeInsets.all(10),
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: Colors.grey.withOpacity(0.2),
-                                shape: BoxShape.circle,
-                              ),
-                              child: SvgPicture.asset(
-                                AppIcons.edit,
-                                colorFilter: ColorFilter.mode(
-                                  isDark ? Colors.white : Colors.black,
-                                  BlendMode.srcIn,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  SizedBox(height: 8),
-                  _detailRow(
-                    "Client Name",
-                    booking['client_name'] ?? "N/A",
-                    AppIcons.client,
-                    isDark,
-                    accentColor: accentColor,
-                  ),
-                  _detailRow(
-                    "Products",
-                    _formatProductsList(booking['product_names'] as List?),
-                    AppIcons.inventory,
-                    isDark,
-                    accentColor: accentColor,
-                  ),
-                  _detailRow(
-                    "Pickup Date",
-                    DateFormat(
-                      'dd MMM yyyy',
-                    ).format(DateTime.parse(booking['pickup_datetime'])),
-                    AppIcons.pickUp,
-                    isDark,
-                    accentColor: accentColor,
-                  ),
-                  _detailRow(
-                    "Return Date",
-                    DateFormat(
-                      'dd MMM yyyy',
-                    ).format(DateTime.parse(booking['return_datetime'])),
-                    AppIcons.returns,
-                    isDark,
-                    accentColor: accentColor,
-                  ),
-                  _detailRow(
-                    "Total Price",
-                    "${currencyFormat.format(booking['total_price'])} EGP",
-                    AppIcons.wallet,
-                    isDark,
-                    valueColor: accentColor,
-                    accentColor: accentColor,
-                  ),
-                  const SizedBox(height: 32),
-                  SizedBox(
-                    width: double.infinity,
-                    child: CustomButton(
-                      text: "Done",
-                      onPressed: () async => Navigator.pop(dialogContext),
-                      color: WidgetStateProperty.all(accentColor),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _detailRow(
-    String label,
-    String value,
-    String imagePath,
-    bool isDark, {
-    Color? valueColor,
-    Color? accentColor,
-  }) {
-    final Color effectiveAccent =
-        accentColor ?? (isDark ? AppColors.primary : AppColors.secondary);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: effectiveAccent.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: SvgPicture.asset(
-              imagePath,
-              width: 22,
-              color: effectiveAccent,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: isDark ? Colors.white54 : Colors.black54,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color:
-                        valueColor ?? (isDark ? Colors.white : Colors.black87),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDark = context.isDarkMode;
@@ -649,7 +437,7 @@ class BookingsPageState extends State<BookingsPage> {
         child: Column(
           children: [
             SvgPicture.asset(
-              isPickup ? AppIcons.pickUp : AppIcons.returns,
+              isPickup ? AppIcons.returns : AppIcons.pickUp,
               width: 40,
               color: isDark ? Colors.white70 : Colors.black54,
             ),
@@ -678,7 +466,12 @@ class BookingsPageState extends State<BookingsPage> {
         Widget bookingTile = GestureDetector(
           onTap: () {
             HapticFeedback.selectionClick();
-            _showBookingDetails(booking, isPickup: isPickup);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ProjectDetailsPage(booking: booking),
+              ),
+            );
           },
           child: Container(
             padding: const EdgeInsets.all(16),
@@ -698,7 +491,7 @@ class BookingsPageState extends State<BookingsPage> {
                     borderRadius: BorderRadius.circular(15),
                   ),
                   child: SvgPicture.asset(
-                    isPickup ? AppIcons.pickUp : AppIcons.returns,
+                    isPickup ? AppIcons.returns : AppIcons.pickUp,
                     width: 26,
                     color: accentColor,
                   ),
@@ -795,18 +588,5 @@ class BookingsPageState extends State<BookingsPage> {
         );
       },
     );
-  }
-
-  String _formatProductsList(List? products) {
-    final items = (products ?? []).map((e) => e.toString()).toList();
-    if (items.isEmpty) return "N/A";
-    return items
-        .asMap()
-        .entries
-        .map((entry) {
-          // final index = entry.key + 1;
-          return "•  ${entry.value}";
-        })
-        .join("\n");
   }
 }

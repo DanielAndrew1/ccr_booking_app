@@ -14,15 +14,19 @@ class ProjectCommercialService {
   }) async {
     final extension = imageFile.path.split('.').last.toLowerCase();
     final path = '$projectId/contract.$extension';
+    final contentType = switch (extension) {
+      'pdf' => 'application/pdf',
+      'jpg' || 'jpeg' => 'image/jpeg',
+      'png' => 'image/png',
+      'heic' => 'image/heic',
+      _ => 'application/octet-stream',
+    };
     await _supabase.storage
         .from(_contractsBucket)
         .upload(
           path,
           imageFile,
-          fileOptions: FileOptions(
-            upsert: true,
-            contentType: 'image/${extension == 'jpg' ? 'jpeg' : extension}',
-          ),
+          fileOptions: FileOptions(upsert: true, contentType: contentType),
         );
     return path;
   }

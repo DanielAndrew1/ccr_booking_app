@@ -144,9 +144,10 @@ class _InventoryPageState extends State<InventoryPage> {
           padding: const EdgeInsets.only(bottom: 50),
           child: FloatingActionButton(
             onPressed: () {
-              Navigator.push(context, MaterialPageRoute(
-                builder: (context) => AddProduct(),
-              ));
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => AddProduct()),
+              );
             },
             backgroundColor: AppColors.primary,
             child: SvgPicture.asset(
@@ -221,7 +222,7 @@ class _InventoryPageState extends State<InventoryPage> {
                           return SliverPadding(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 16,
-                              vertical: 6,
+                              vertical: 12,
                             ),
                             sliver: SliverList(
                               delegate: SliverChildBuilderDelegate((
@@ -230,7 +231,7 @@ class _InventoryPageState extends State<InventoryPage> {
                               ) {
                                 final product = filteredProducts[index];
                                 return Padding(
-                                  padding: const EdgeInsets.only(bottom: 12.0),
+                                  padding: const EdgeInsets.only(bottom: 8),
                                   child: CustomProductTile(
                                     title: product['name'] ?? 'Unnamed',
                                     price: (product['price'] as num).toDouble(),

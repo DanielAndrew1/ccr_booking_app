@@ -25,13 +25,152 @@ class _AddBookingState extends State<AddBooking> {
   final _projectPriceController = TextEditingController();
   final _installmentController = TextEditingController();
   final _downPaymentController = TextEditingController();
+  final _contactNameController = TextEditingController();
+  final _contactRoleController = TextEditingController();
+  final _contactPhoneController = TextEditingController();
+  final _contactEmailController = TextEditingController();
+  final _projectNameController = TextEditingController();
+  final _projectAddressController = TextEditingController();
+  final _estimatedDurationController = TextEditingController();
+  final _projectTypeController = TextEditingController();
   String? _paymentPlanType;
   String _paymentFrequency = 'month';
   int _paymentInterval = 1;
   File? _contractImage;
   int _currentStep = 0;
+  final GlobalKey _confirmButtonKey = GlobalKey();
+  bool _isProjectMenuOpen = false;
+  bool _contactInfoSaved = false;
+  bool _customDuration = false;
+  bool _customProjectType = false;
+
+  static const _durationOptions = [
+    '1 month',
+    '3 months',
+    '6 months',
+    '12 months',
+    '18 months',
+    '24 months',
+    '36 months',
+    'Custom',
+  ];
+  static const _projectTypeOptions = [
+    'Construction',
+    'Renovation',
+    'Interior fit-out',
+    'Infrastructure',
+    'Maintenance',
+    'Event',
+    'Other',
+  ];
 
   final NumberFormat _currencyFormat = NumberFormat("#,##0", "en_US");
+
+  Future<void> _showContactInfoEditor() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        final isDark = Theme.of(sheetContext).brightness == Brightness.dark;
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+          ),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(26),
+              ),
+            ),
+            child: SafeArea(
+              top: false,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 38,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withValues(alpha: .45),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Contact info',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _ProjectTextField(
+                      controller: _contactNameController,
+                      label: 'Contact full name',
+                      imagePath: AppIcons.profile,
+                      isDark: isDark,
+                    ),
+                    _ProjectTextField(
+                      controller: _contactRoleController,
+                      label: 'Role',
+                      imagePath: AppIcons.client,
+                      isDark: isDark,
+                    ),
+                    _ProjectTextField(
+                      controller: _contactPhoneController,
+                      label: 'Phone number',
+                      imagePath: AppIcons.phone,
+                      keyboardType: TextInputType.phone,
+                      isDark: isDark,
+                    ),
+                    _ProjectTextField(
+                      controller: _contactEmailController,
+                      label: 'Email (optional)',
+                      imagePath: AppIcons.email,
+                      keyboardType: TextInputType.emailAddress,
+                      isDark: isDark,
+                    ),
+                    const SizedBox(height: 6),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: FilledButton(
+                        onPressed: () {
+                          if (_contactNameController.text.trim().isEmpty ||
+                              _contactRoleController.text.trim().isEmpty ||
+                              _contactPhoneController.text.trim().isEmpty) {
+                            CustomSnackBar.show(
+                              sheetContext,
+                              'Add the contact name, role, and phone number.',
+                            );
+                            return;
+                          }
+                          setState(() => _contactInfoSaved = true);
+                          Navigator.pop(sheetContext);
+                        },
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text('Save contact'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   int get totalDays {
     if (pickupDate == null || returnDate == null) return 0;
@@ -52,14 +191,207 @@ class _AddBookingState extends State<AddBooking> {
   String get projectDuration => _formatDuration(pickupDate, returnDate);
 
   double get totalPrice {
-    return selectedProducts.whereType<Map<String, dynamic>>().fold(0, (
-      sum,
-      product,
-    ) {
-      final value = product['project_price'] ?? product['price'] ?? 0;
-      return sum +
-          (value is num ? value.toDouble() : double.tryParse('$value') ?? 0);
+    final dailySubtotal = selectedProducts
+        .whereType<Map<String, dynamic>>()
+        .fold(0.0, (sum, product) {
+          final value = product['project_price'] ?? product['price'] ?? 0;
+          return sum +
+              (value is num
+                  ? value.toDouble()
+                  : double.tryParse('$value') ?? 0);
+        });
+    return dailySubtotal * _billableDays(pickupDate, returnDate);
+  }
+
+  int get _projectPaymentMonths => _paymentMonths(pickupDate, returnDate);
+  bool get _allowAtEndPayment => _isLessThanOneMonth(pickupDate, returnDate);
+  double get _downPayment =>
+      double.tryParse(_downPaymentController.text.replaceAll(',', '').trim()) ??
+      0;
+  double get _calculatedMonthlyFee =>
+      ((totalPrice - _downPayment).clamp(0, double.infinity)) /
+      _projectPaymentMonths;
+
+  void _syncCalculatedInstallment() {
+    if (_paymentPlanType == 'monthly') {
+      _installmentController.text = (totalPrice / _projectPaymentMonths)
+          .toStringAsFixed(2);
+    } else if (_paymentPlanType == 'down_payment_installments') {
+      _installmentController.text = _calculatedMonthlyFee.toStringAsFixed(2);
+    }
+  }
+
+  void _selectPaymentPlan(String value) {
+    setState(() {
+      _paymentPlanType = value;
+      if (value == 'monthly') {
+        _installmentController.text = (totalPrice / _projectPaymentMonths)
+            .toStringAsFixed(2);
+      } else if (value == 'down_payment_installments') {
+        _installmentController.text = _calculatedMonthlyFee.toStringAsFixed(2);
+      }
     });
+  }
+
+  void _refreshPaymentPlanForDates() {
+    if (_paymentPlanType == 'one_time_end' && !_allowAtEndPayment) {
+      _paymentPlanType = null;
+    }
+    if (_paymentPlanType == 'monthly') {
+      _installmentController.text = (totalPrice / _projectPaymentMonths)
+          .toStringAsFixed(2);
+    } else if (_paymentPlanType == 'down_payment_installments') {
+      _installmentController.text = _calculatedMonthlyFee.toStringAsFixed(2);
+    }
+  }
+
+  DateTime _endDateFromEstimatedDuration(DateTime start) {
+    final value = _estimatedDurationController.text.trim().toLowerCase();
+    final match = RegExp(
+      r'^(\d+)\s*(day|days|week|weeks|month|months|year|years)$',
+    ).firstMatch(value);
+    if (match == null) return start.add(const Duration(days: 1));
+
+    final amount = int.tryParse(match.group(1)!) ?? 1;
+    final unit = match.group(2)!;
+    if (unit.startsWith('day')) return start.add(Duration(days: amount));
+    if (unit.startsWith('week')) {
+      return start.add(Duration(days: amount * 7));
+    }
+    final months = unit.startsWith('year') ? amount * 12 : amount;
+    final targetMonth = DateTime(start.year, start.month + months, 1);
+    final lastDay = DateTime(targetMonth.year, targetMonth.month + 1, 0).day;
+    return DateTime(
+      targetMonth.year,
+      targetMonth.month,
+      start.day.clamp(1, lastDay),
+    );
+  }
+
+  void _refreshEndDateFromEstimate() {
+    if (pickupDate == null ||
+        _estimatedDurationController.text.trim().isEmpty) {
+      return;
+    }
+    returnDate = _endDateFromEstimatedDuration(pickupDate!);
+    _refreshPaymentPlanForDates();
+  }
+
+  String? _currentStepError() {
+    switch (_currentStep) {
+      case 0:
+        if (selectedClient == null) return 'Select a client to continue.';
+      case 1:
+        if (_projectNameController.text.trim().isEmpty ||
+            _projectAddressController.text.trim().isEmpty ||
+            _estimatedDurationController.text.trim().isEmpty ||
+            _projectTypeController.text.trim().isEmpty) {
+          return 'Fill in all project details to continue.';
+        }
+      case 2:
+        final products = selectedProducts.whereType<Map<String, dynamic>>();
+        if (products.isEmpty) return 'Select at least one product.';
+        if (products.any((product) {
+          final raw = product['project_price'] ?? product['price'] ?? 0;
+          final price = raw is num
+              ? raw.toDouble()
+              : double.tryParse('$raw') ?? 0;
+          return price <= 0;
+        })) {
+          return 'Add a daily price for every selected product.';
+        }
+        if (products.any(
+          (product) =>
+              product['tracks_serial_numbers'] == true &&
+              product['selected_serial_id'] == null,
+        )) {
+          return 'Select a serial number for every tracked product.';
+        }
+      case 3:
+        if (pickupDate == null || returnDate == null) {
+          return 'Select the project start and end dates.';
+        }
+      case 4:
+        if (_paymentPlanType == null) return 'Select a payment plan.';
+        if (_paymentPlanType == 'down_payment_installments' &&
+            double.tryParse(_downPaymentController.text.trim()) == null) {
+          return 'Enter the down payment.';
+        }
+    }
+    return null;
+  }
+
+  void _continueProject() {
+    final error = _currentStepError();
+    if (error != null) {
+      CustomSnackBar.show(context, error);
+      return;
+    }
+    setState(() => _currentStep++);
+  }
+
+  Future<void> _selectProduct(int index, Map<String, dynamic> product) async {
+    var selected = <String, dynamic>{
+      ...product,
+      'project_price': product['price'] ?? 0,
+    };
+    if (product['tracks_serial_numbers'] == true) {
+      final rows = await supabase
+          .from('product_serials')
+          .select('id, serial_number')
+          .eq('product_id', product['id'])
+          .eq('is_maintenance', false)
+          .eq('is_retired', false)
+          .order('serial_number');
+      selected = {
+        ...selected,
+        'available_serials': List<Map<String, dynamic>>.from(rows),
+      };
+    }
+    if (!mounted) return;
+    setState(() => selectedProducts[index] = selected);
+  }
+
+  Future<void> _syncSerialAssignments(
+    String bookingId,
+    List<Map<String, dynamic>> products,
+  ) async {
+    final assignments = products
+        .where((product) => product['selected_serial_id'] != null)
+        .map(
+          (product) => {
+            'booking_id': bookingId,
+            'product_id': product['id'],
+            'product_serial_id': product['selected_serial_id'],
+          },
+        )
+        .toList();
+    if (assignments.isNotEmpty) {
+      await supabase.from('booking_serial_assignments').insert(assignments);
+    }
+  }
+
+  Future<Set<String>> _reservedSerialIdsForProjectDates() async {
+    if (pickupDate == null || returnDate == null) return <String>{};
+    final overlapping = await supabase
+        .from('bookings')
+        .select('id')
+        .filter('status', 'neq', 'cancelled')
+        .lt('pickup_datetime', returnDate!.toIso8601String())
+        .gt('return_datetime', pickupDate!.toIso8601String());
+    final bookingIds = (overlapping as List)
+        .map((row) => row['id']?.toString())
+        .whereType<String>()
+        .toList();
+    if (bookingIds.isEmpty) return <String>{};
+    final assignments = await supabase
+        .from('booking_serial_assignments')
+        .select('product_serial_id')
+        .inFilter('booking_id', bookingIds);
+    return (assignments as List)
+        .map((row) => row['product_serial_id']?.toString())
+        .whereType<String>()
+        .toSet();
   }
 
   Future<void> _previewQuote() async {
@@ -90,34 +422,139 @@ class _AddBookingState extends State<AddBooking> {
           double.tryParse(_downPaymentController.text.trim()) ?? 0,
     );
     if (!mounted) return;
-    final fileName =
-        '${selectedClient!['name'].toString().trim().replaceAll(RegExp(r'[^A-Za-z0-9]+'), '-').replaceAll(RegExp(r'^-+|-+$'), '').toLowerCase()}-quote-${DateFormat('yyyy-MM-dd').format(DateTime.now())}.pdf';
+    final fileName = ProjectQuoteService.quoteFileName(
+      selectedClient!['name'].toString(),
+    );
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => Scaffold(
-          appBar: CustomAppBar(
-            text: 'Quote preview',
-            showPfp: false,
-            actions: [
-              IconButton(
-                tooltip: 'Share quote',
-                icon: Icon(Icons.adaptive.share_outlined),
-                onPressed: () =>
-                    Printing.sharePdf(bytes: bytes, filename: fileName),
-              ),
-            ],
-          ),
-          body: PdfPreview(
-            build: (_) async => bytes,
-            canChangePageFormat: false,
-            useActions: false,
-            allowPrinting: false,
-            allowSharing: false,
-          ),
-        ),
+        builder: (previewContext) {
+          final background =
+              Theme.of(previewContext).brightness == Brightness.dark
+              ? Colors.black
+              : Colors.white;
+          return Scaffold(
+            backgroundColor: background,
+            appBar: CustomAppBar(
+              text: 'Quote preview',
+              showPfp: false,
+              actions: [
+                IconButton(
+                  tooltip: 'Share quote',
+                  icon: Icon(Icons.adaptive.share_outlined),
+                  onPressed: () =>
+                      Printing.sharePdf(bytes: bytes, filename: fileName),
+                ),
+              ],
+            ),
+            body: PdfPreview(
+              build: (_) async => bytes,
+              scrollViewDecoration: BoxDecoration(color: background),
+              canChangePageFormat: false,
+              useActions: false,
+              allowPrinting: false,
+              allowSharing: false,
+            ),
+          );
+        },
       ),
     );
+  }
+
+  Future<void> _showProjectMenu() async {
+    final renderBox =
+        _confirmButtonKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+
+    final buttonPosition = renderBox.localToGlobal(Offset.zero);
+    final buttonSize = renderBox.size;
+    setState(() => _isProjectMenuOpen = true);
+
+    final action = await showGeneralDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Close project actions',
+      barrierColor: Colors.black.withValues(alpha: 0.18),
+      transitionDuration: const Duration(milliseconds: 260),
+      pageBuilder: (dialogContext, _, __) {
+        return Stack(
+          children: [
+            Positioned(
+              left: buttonPosition.dx,
+              bottom:
+                  MediaQuery.sizeOf(dialogContext).height -
+                  buttonPosition.dy +
+                  18,
+              width: buttonSize.width,
+              child: Material(
+                color: Colors.transparent,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    SizedBox(
+                      height: buttonSize.height,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Colors.black26,
+                              blurRadius: 18,
+                              offset: Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: _ProjectMenuOption(
+                          label: 'Draft',
+                          showDivider: false,
+                          onTap: () => Navigator.pop(dialogContext, 'draft'),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      right: 30,
+                      bottom: -10,
+                      child: ClipPath(
+                        clipper: _DownTriangleClipper(),
+                        child: Container(
+                          width: 20,
+                          height: 11,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+      transitionBuilder: (transitionContext, animation, __, child) {
+        final screenSize = MediaQuery.sizeOf(transitionContext);
+        final arrowOrigin = Alignment(
+          ((buttonPosition.dx + buttonSize.width - 14) / screenSize.width) * 2 -
+              1,
+          (buttonPosition.dy / screenSize.height) * 2 - 1,
+        );
+        return FadeTransition(
+          opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+          child: ScaleTransition(
+            alignment: arrowOrigin,
+            scale: CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutBack,
+              reverseCurve: Curves.easeIn,
+            ),
+            child: child,
+          ),
+        );
+      },
+    );
+
+    if (mounted) setState(() => _isProjectMenuOpen = false);
+    if (action == 'draft') await _saveBooking(asDraft: true);
   }
 
   String _friendlyProjectError(Object error) {
@@ -139,7 +576,8 @@ class _AddBookingState extends State<AddBooking> {
     return 'Could not save the project. Please try again.';
   }
 
-  Future<void> _saveBooking() async {
+  Future<void> _saveBooking({bool asDraft = false}) async {
+    _syncCalculatedInstallment();
     bool isProductsEmpty = !selectedProducts.any((p) => p != null);
 
     if (selectedClient == null ||
@@ -226,6 +664,53 @@ class _AddBookingState extends State<AddBooking> {
       final List<String> productNames = validSelection
           .map((p) => p['name'].toString())
           .toList();
+      final trackedWithoutSerial = validSelection.any(
+        (product) =>
+            product['tracks_serial_numbers'] == true &&
+            product['selected_serial_id'] == null,
+      );
+      final selectedSerialIds = validSelection
+          .map((product) => product['selected_serial_id'])
+          .whereType<String>()
+          .toList();
+      if (trackedWithoutSerial ||
+          selectedSerialIds.toSet().length != selectedSerialIds.length) {
+        Navigator.pop(context);
+        CustomSnackBar.show(
+          context,
+          trackedWithoutSerial
+              ? 'Select a serial number for every tracked item.'
+              : 'Each tracked item needs a different serial number.',
+          color: AppColors.red,
+        );
+        return;
+      }
+      if (selectedSerialIds.isNotEmpty) {
+        final maintenanceSerials = await supabase
+            .from('product_serials')
+            .select('id')
+            .inFilter('id', selectedSerialIds)
+            .or('is_maintenance.eq.true,is_retired.eq.true');
+        if ((maintenanceSerials as List).isNotEmpty) {
+          Navigator.pop(context);
+          CustomSnackBar.show(
+            context,
+            'A selected serial is down for maintenance. Choose another one.',
+            color: AppColors.red,
+          );
+          return;
+        }
+        final reservedSerialIds = await _reservedSerialIdsForProjectDates();
+        if (selectedSerialIds.any(reservedSerialIds.contains)) {
+          Navigator.pop(context);
+          CustomSnackBar.show(
+            context,
+            'A selected serial is already booked during these dates. Choose another one.',
+            color: AppColors.red,
+          );
+          return;
+        }
+      }
 
       final booking = await supabase
           .from('bookings')
@@ -236,7 +721,7 @@ class _AddBookingState extends State<AddBooking> {
             'product_names': productNames,
             'pickup_datetime': pickupDate!.toIso8601String(),
             'return_datetime': returnDate!.toIso8601String(),
-            'status': 'upcoming',
+            'status': asDraft ? 'draft' : 'upcoming',
             'total_price': totalPrice,
             'payment_plan_type': _paymentPlanType,
             'payment_frequency': _paymentPlanType == 'down_payment_installments'
@@ -248,6 +733,16 @@ class _AddBookingState extends State<AddBooking> {
                 totalPrice,
             'down_payment_amount':
                 double.tryParse(_downPaymentController.text.trim()) ?? 0,
+            'project_name': _projectNameController.text.trim(),
+            'project_address': _projectAddressController.text.trim(),
+            'estimated_duration': _estimatedDurationController.text.trim(),
+            'project_type': _projectTypeController.text.trim(),
+            'contact_full_name': _contactNameController.text.trim(),
+            'contact_role': _contactRoleController.text.trim(),
+            'contact_phone': _contactPhoneController.text.trim(),
+            'contact_email': _contactEmailController.text.trim().isEmpty
+                ? null
+                : _contactEmailController.text.trim(),
           })
           .select('id')
           .single();
@@ -264,22 +759,25 @@ class _AddBookingState extends State<AddBooking> {
             .update({'contract_path': contractPath})
             .eq('id', booking['id']);
       }
-      try {
-        await ProjectFinanceService(
-          supabase,
-        ).syncProjectFinance(booking['id'].toString());
-      } catch (error) {
-        debugPrint('Project finance setup failed: $error');
+      if (!asDraft) {
+        try {
+          await ProjectFinanceService(
+            supabase,
+          ).syncProjectFinance(booking['id'].toString());
+        } catch (error) {
+          debugPrint('Project finance setup failed: $error');
+        }
       }
       try {
         await operations.syncBookingItems(
           bookingId: booking['id'].toString(),
           products: validSelection,
         );
+        await _syncSerialAssignments(booking['id'].toString(), validSelection);
         await operations.recordStatus(
           bookingId: booking['id'].toString(),
-          status: 'upcoming',
-          note: 'Booking created',
+          status: asDraft ? 'draft' : 'upcoming',
+          note: asDraft ? 'Project saved as draft' : 'Booking created',
         );
       } catch (error) {
         debugPrint('Project detail setup failed: $error');
@@ -307,13 +805,21 @@ class _AddBookingState extends State<AddBooking> {
       _projectPriceController.clear();
       _installmentController.clear();
       _downPaymentController.clear();
+      _contactNameController.clear();
+      _contactRoleController.clear();
+      _contactPhoneController.clear();
+      _contactEmailController.clear();
+      _projectNameController.clear();
+      _projectAddressController.clear();
+      _estimatedDurationController.clear();
+      _projectTypeController.clear();
 
       // Explicitly clear the CustomSearch internal state
       _searchKey.currentState?.clear();
 
       CustomSnackBar.show(
         context,
-        "Project Created Successfully!",
+        asDraft ? 'Project saved as draft!' : 'Project Created Successfully!',
         color: AppColors.green,
         icon: Icons.check_circle_outline,
       );
@@ -347,10 +853,11 @@ class _AddBookingState extends State<AddBooking> {
           setState(() {
             if (isPickup) {
               pickupDate = selectedDate;
-              returnDate = selectedDate.add(const Duration(days: 1));
+              returnDate = _endDateFromEstimatedDuration(selectedDate);
             } else {
               returnDate = selectedDate;
             }
+            _refreshPaymentPlanForDates();
           });
         },
       ),
@@ -447,16 +954,18 @@ class _AddBookingState extends State<AddBooking> {
                             color: isDark ? Colors.white : Colors.black,
                           ),
                         ),
-                        subtitle: Text(
-                          '${_currencyFormat.format(product['price'] ?? 0)} EGP/month default',
-                        ),
+                        subtitle:
+                            (product['price'] is num
+                                    ? product['price'] as num
+                                    : num.tryParse('${product['price']}') ??
+                                          0) >
+                                0
+                            ? Text(
+                                '${_currencyFormat.format(product['price'])} EGP/day default',
+                              )
+                            : null,
                         onTap: () {
-                          setState(
-                            () => selectedProducts[index] = {
-                              ...product,
-                              'project_price': product['price'] ?? 0,
-                            },
-                          );
+                          _selectProduct(index, product);
                           Navigator.pop(context);
                         },
                       );
@@ -532,7 +1041,29 @@ class _AddBookingState extends State<AddBooking> {
             const CustomBgSvg(),
             Scaffold(
               backgroundColor: Colors.transparent,
-              appBar: CustomAppBar(text: "Add Project", showPfp: widget.isRoot),
+              appBar: CustomAppBar(
+                text: "Add Project",
+                showPfp: widget.isRoot,
+                actions: [
+                  IconButton(
+                    tooltip: 'Draft projects',
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ProjectDraftsPage(),
+                      ),
+                    ),
+                    icon: SvgPicture.asset(
+                      AppIcons.save,
+                      width: 24,
+                      colorFilter: const ColorFilter.mode(
+                        Colors.white,
+                        BlendMode.srcIn,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
               body: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
                 padding: const EdgeInsets.symmetric(
@@ -583,6 +1114,117 @@ class _AddBookingState extends State<AddBooking> {
                                 isDark: isDark,
                               ),
                             ],
+                            const SizedBox(height: 22),
+                            Row(
+                              children: [
+                                const Expanded(
+                                  child: Text(
+                                    'Contact info',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  tooltip: _contactInfoSaved
+                                      ? 'Edit contact info'
+                                      : 'Add contact info',
+                                  onPressed: _showContactInfoEditor,
+                                  icon: SvgPicture.asset(
+                                    _contactInfoSaved
+                                        ? AppIcons.edit
+                                        : AppIcons.add,
+                                    width: 26,
+                                    colorFilter: const ColorFilter.mode(
+                                      AppColors.primary,
+                                      BlendMode.srcIn,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (_contactInfoSaved) ...[
+                              const SizedBox(height: 8),
+                              _ContactInfoCard(
+                                name: _contactNameController.text.trim(),
+                                role: _contactRoleController.text.trim(),
+                                phone: _contactPhoneController.text.trim(),
+                                email: _contactEmailController.text.trim(),
+                                isDark: isDark,
+                                onTap: _showContactInfoEditor,
+                              ),
+                            ],
+                          ],
+                          if (_currentStep == 1) ...[
+                            _ProjectTextField(
+                              controller: _projectNameController,
+                              label: 'Project name',
+                              imagePath: AppIcons.booking,
+                              isDark: isDark,
+                            ),
+                            _ProjectTextField(
+                              controller: _projectAddressController,
+                              label: 'Address',
+                              imagePath: AppIcons.sendDirectional,
+                              isDark: isDark,
+                            ),
+                            _ProjectDropdownField(
+                              label: 'Estimated project duration',
+                              imagePath: AppIcons.calendar,
+                              isDark: isDark,
+                              value: _customDuration
+                                  ? 'Custom'
+                                  : (_durationOptions.contains(
+                                          _estimatedDurationController.text,
+                                        )
+                                        ? _estimatedDurationController.text
+                                        : null),
+                              options: _durationOptions,
+                              onChanged: (value) => setState(() {
+                                _customDuration = value == 'Custom';
+                                _estimatedDurationController.text =
+                                    _customDuration ? '' : value;
+                                _refreshEndDateFromEstimate();
+                              }),
+                            ),
+                            if (_customDuration)
+                              _ProjectTextField(
+                                controller: _estimatedDurationController,
+                                label: 'Enter estimated duration',
+                                imagePath: AppIcons.calendar,
+                                isDark: isDark,
+                                onChanged: (_) =>
+                                    setState(_refreshEndDateFromEstimate),
+                              ),
+                            _ProjectDropdownField(
+                              label: 'Project type',
+                              imagePath: AppIcons.inventory,
+                              isDark: isDark,
+                              value: _customProjectType
+                                  ? 'Other'
+                                  : (_projectTypeOptions.contains(
+                                          _projectTypeController.text,
+                                        )
+                                        ? _projectTypeController.text
+                                        : null),
+                              options: _projectTypeOptions,
+                              onChanged: (value) => setState(() {
+                                _customProjectType = value == 'Other';
+                                _projectTypeController.text = _customProjectType
+                                    ? ''
+                                    : value;
+                              }),
+                            ),
+                            if (_customProjectType)
+                              _ProjectTextField(
+                                controller: _projectTypeController,
+                                label: 'Enter project type',
+                                imagePath: AppIcons.inventory,
+                                isDark: isDark,
+                              ),
+                          ],
+                          if (_currentStep == 2) ...[
                             const SizedBox(height: 28),
                             _SectionHeading(
                               icon: Icons.inventory_2_outlined,
@@ -668,7 +1310,7 @@ class _AddBookingState extends State<AddBooking> {
                                                                 labelText:
                                                                     'Monthly price per item',
                                                                 suffixText:
-                                                                    'EGP/month',
+                                                                    'EGP/day',
                                                                 isDense: true,
                                                               ),
                                                           onChanged: (value) {
@@ -684,6 +1326,47 @@ class _AddBookingState extends State<AddBooking> {
                                                             setState(() {});
                                                           },
                                                         ),
+                                                      if (product?['tracks_serial_numbers'] ==
+                                                          true) ...[
+                                                        const SizedBox(
+                                                          height: 8,
+                                                        ),
+                                                        DropdownButtonFormField<
+                                                          String
+                                                        >(
+                                                          value:
+                                                              product?['selected_serial_id']
+                                                                  ?.toString(),
+                                                          decoration:
+                                                              const InputDecoration(
+                                                                labelText:
+                                                                    'Select serial',
+                                                                isDense: true,
+                                                              ),
+                                                          items:
+                                                              (product?['available_serials']
+                                                                          as List? ??
+                                                                      [])
+                                                                  .map(
+                                                                    (
+                                                                      serial,
+                                                                    ) => DropdownMenuItem<String>(
+                                                                      value: serial['id']
+                                                                          .toString(),
+                                                                      child: Text(
+                                                                        serial['serial_number']
+                                                                            .toString(),
+                                                                      ),
+                                                                    ),
+                                                                  )
+                                                                  .toList(),
+                                                          onChanged: (value) =>
+                                                              setState(() {
+                                                                product?['selected_serial_id'] =
+                                                                    value;
+                                                              }),
+                                                        ),
+                                                      ],
                                                     ],
                                                   ),
                                                 ),
@@ -748,7 +1431,7 @@ class _AddBookingState extends State<AddBooking> {
                               },
                             ),
                           ],
-                          if (_currentStep == 1) ...[
+                          if (_currentStep == 3) ...[
                             const SizedBox(height: 10),
                             _SectionHeading(
                               icon: Icons.calendar_month_outlined,
@@ -768,7 +1451,7 @@ class _AddBookingState extends State<AddBooking> {
                             ),
                             const SizedBox(height: 6),
                             _PickerTile(
-                              imagePath: AppIcons.pickUp,
+                              imagePath: AppIcons.returns,
                               label: pickupDate == null
                                   ? "Select Pickup Date"
                                   : DateFormat(
@@ -789,7 +1472,7 @@ class _AddBookingState extends State<AddBooking> {
                             ),
                             const SizedBox(height: 6),
                             _PickerTile(
-                              imagePath: AppIcons.returns,
+                              imagePath: AppIcons.pickUp,
                               label: returnDate == null
                                   ? "Select Return Date"
                                   : DateFormat(
@@ -825,9 +1508,13 @@ class _AddBookingState extends State<AddBooking> {
                                   setState(() => _paymentInterval = value),
                               onContractChanged: (value) =>
                                   setState(() => _contractImage = value),
+                              onDownPaymentChanged: (_) => setState(() {
+                                _installmentController.text =
+                                    _calculatedMonthlyFee.toStringAsFixed(2);
+                              }),
                             ),
                           ],
-                          if (_currentStep == 2) ...[
+                          if (_currentStep == 4) ...[
                             _SectionHeading(
                               icon: Icons.payments_outlined,
                               title: 'Price and payment',
@@ -847,8 +1534,8 @@ class _AddBookingState extends State<AddBooking> {
                               contractImage: _contractImage,
                               showContract: false,
                               showPrice: false,
-                              onPaymentPlanChanged: (value) =>
-                                  setState(() => _paymentPlanType = value),
+                              allowAtEnd: _allowAtEndPayment,
+                              onPaymentPlanChanged: _selectPaymentPlan,
                               onPaymentFrequencyChanged: (value) =>
                                   setState(() => _paymentFrequency = value),
                               onPaymentIntervalChanged: (value) =>
@@ -896,6 +1583,37 @@ class _AddBookingState extends State<AddBooking> {
                                       ),
                                     ],
                                   ),
+                                  if (_paymentPlanType == 'monthly' ||
+                                      _paymentPlanType ==
+                                          'down_payment_installments') ...[
+                                    SizedBox(height: 4),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          _paymentPlanType == 'monthly'
+                                              ? 'Monthly payment:'
+                                              : 'Monthly fee:',
+                                          style: TextStyle(
+                                            color: isDark
+                                                ? Colors.white70
+                                                : Colors.black54,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                        Text(
+                                          '${_currencyFormat.format(_paymentPlanType == 'monthly' ? totalPrice / _projectPaymentMonths : _calculatedMonthlyFee)} EGP',
+                                          style: TextStyle(
+                                            color: isDark
+                                                ? Colors.white
+                                                : Colors.black,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                   const Divider(height: 20),
                                   Row(
                                     mainAxisAlignment:
@@ -954,32 +1672,80 @@ class _AddBookingState extends State<AddBooking> {
                         if (_currentStep > 0) const SizedBox(width: 12),
                         Expanded(
                           child: GestureDetector(
-                            onLongPress: _currentStep == 2
+                            onLongPress: _currentStep == 4
                                 ? _previewQuote
                                 : null,
                             child: ElevatedButton(
-                              onPressed: _currentStep == 2
-                                  ? _saveBooking
-                                  : () => setState(() => _currentStep++),
+                              key: _confirmButtonKey,
+                              onPressed: _currentStep == 4
+                                  ? () => _saveBooking()
+                                  : _continueProject,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.primary,
                                 foregroundColor: Colors.white,
                                 minimumSize: const Size.fromHeight(52),
+                                padding: const EdgeInsets.only(
+                                  left: 16,
+                                  right: 6,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(14),
                                 ),
                               ),
-                              child: Text(
-                                _currentStep == 2
-                                    ? 'Confirm Project'
-                                    : 'Continue',
-                              ),
+                              child: _currentStep == 4
+                                  ? Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        const Flexible(
+                                          child: Text(
+                                            'Confirm Project',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 2),
+                                        SizedBox(
+                                          width: 28,
+                                          height: 32,
+                                          child: IconButton(
+                                            tooltip: 'Project save options',
+                                            padding: EdgeInsets.zero,
+                                            style: IconButton.styleFrom(
+                                              padding: EdgeInsets.zero,
+                                              minimumSize: const Size(28, 32),
+                                              maximumSize: const Size(28, 32),
+                                              tapTargetSize:
+                                                  MaterialTapTargetSize
+                                                      .shrinkWrap,
+                                            ),
+                                            onPressed: _showProjectMenu,
+                                            icon: AnimatedRotation(
+                                              turns: _isProjectMenuOpen
+                                                  ? 0.5
+                                                  : 0,
+                                              duration: const Duration(
+                                                milliseconds: 220,
+                                              ),
+                                              curve: Curves.easeOut,
+                                              child: const Icon(
+                                                Icons
+                                                    .keyboard_arrow_down_rounded,
+                                                size: 20,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : const Text('Continue'),
                             ),
                           ),
                         ),
                       ],
                     ),
-                    if (_currentStep == 2)
+                    if (_currentStep == 4)
                       const Padding(
                         padding: EdgeInsets.only(top: 8),
                         child: Center(
@@ -1001,6 +1767,58 @@ class _AddBookingState extends State<AddBooking> {
   }
 }
 
+class _ProjectMenuOption extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  final bool showDivider;
+
+  const _ProjectMenuOption({
+    required this.label,
+    required this.onTap,
+    this.showDivider = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(17),
+          child: SizedBox(
+            height: 52,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 22),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (showDivider)
+          const Divider(
+            height: 1,
+            indent: 22,
+            endIndent: 22,
+            color: Colors.white24,
+          ),
+      ],
+    );
+  }
+}
+
 class _ProjectStepIndicator extends StatelessWidget {
   const _ProjectStepIndicator({
     required this.currentStep,
@@ -1012,7 +1830,7 @@ class _ProjectStepIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const labels = ['Client & products', 'Dates & contract', 'Payment'];
+    const labels = ['Contact', 'Details', 'Products', 'Dates', 'Payment'];
     return Row(
       children: List.generate(labels.length, (index) {
         final active = index <= currentStep;
@@ -1084,6 +1902,219 @@ class _ProjectStepIndicator extends StatelessWidget {
   }
 }
 
+class _ProjectTextField extends StatelessWidget {
+  const _ProjectTextField({
+    required this.controller,
+    required this.label,
+    required this.imagePath,
+    required this.isDark,
+    this.keyboardType = TextInputType.text,
+    this.onChanged,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final String imagePath;
+  final bool isDark;
+  final TextInputType keyboardType;
+  final ValueChanged<String>? onChanged;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 14),
+    child: TextField(
+      controller: controller,
+      onChanged: onChanged,
+      keyboardType: keyboardType,
+      textCapitalization: keyboardType == TextInputType.emailAddress
+          ? TextCapitalization.none
+          : TextCapitalization.words,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Padding(
+          padding: const EdgeInsets.all(13),
+          child: SvgPicture.asset(
+            imagePath,
+            width: 21,
+            colorFilter: const ColorFilter.mode(
+              AppColors.primary,
+              BlendMode.srcIn,
+            ),
+          ),
+        ),
+        filled: true,
+        fillColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
+      ),
+    ),
+  );
+}
+
+class _ProjectDropdownField extends StatelessWidget {
+  const _ProjectDropdownField({
+    required this.label,
+    required this.imagePath,
+    required this.isDark,
+    required this.value,
+    required this.options,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String imagePath;
+  final bool isDark;
+  final String? value;
+  final List<String> options;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 14),
+    child: DropdownButtonFormField<String>(
+      initialValue: value,
+      isExpanded: true,
+      icon: const Icon(Icons.keyboard_arrow_down_rounded),
+      dropdownColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+      borderRadius: BorderRadius.circular(14),
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Padding(
+          padding: const EdgeInsets.all(13),
+          child: SvgPicture.asset(
+            imagePath,
+            width: 21,
+            colorFilter: const ColorFilter.mode(
+              AppColors.primary,
+              BlendMode.srcIn,
+            ),
+          ),
+        ),
+        filled: true,
+        fillColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
+      ),
+      items: options
+          .map((option) => DropdownMenuItem(value: option, child: Text(option)))
+          .toList(),
+      onChanged: (selection) {
+        if (selection != null) onChanged(selection);
+      },
+    ),
+  );
+}
+
+class _ContactInfoCard extends StatelessWidget {
+  const _ContactInfoCard({
+    required this.name,
+    required this.role,
+    required this.phone,
+    required this.email,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  final String name;
+  final String role;
+  final String phone;
+  final String email;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(16),
+    child: Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.primary.withValues(alpha: .45)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: .16),
+              shape: BoxShape.circle,
+            ),
+            child: SvgPicture.asset(
+              AppIcons.profile,
+              colorFilter: const ColorFilter.mode(
+                AppColors.primary,
+                BlendMode.srcIn,
+              ),
+            ),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  role,
+                  style: TextStyle(
+                    color: isDark ? Colors.white60 : Colors.black54,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _ContactLine(icon: AppIcons.phone, text: phone),
+                if (email.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  _ContactLine(icon: AppIcons.email, text: email),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _ContactLine extends StatelessWidget {
+  const _ContactLine({required this.icon, required this.text});
+  final String icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      SvgPicture.asset(
+        icon,
+        width: 17,
+        colorFilter: const ColorFilter.mode(AppColors.primary, BlendMode.srcIn),
+      ),
+      const SizedBox(width: 7),
+      Expanded(
+        child: Text(
+          text,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 14),
+        ),
+      ),
+    ],
+  );
+}
+
 String _formatDuration(DateTime? start, DateTime? end) {
   if (start == null || end == null || end.isBefore(start)) {
     return 'Select dates';
@@ -1110,6 +2141,27 @@ String _formatDuration(DateTime? start, DateTime? end) {
     parts.add('$remainingDays ${remainingDays == 1 ? 'day' : 'days'}');
   }
   return parts.join(', ');
+}
+
+int _billableDays(DateTime? start, DateTime? end) {
+  if (start == null || end == null || end.isBefore(start)) return 0;
+  final first = DateTime(start.year, start.month, start.day);
+  final last = DateTime(end.year, end.month, end.day);
+  return last.difference(first).inDays + 1;
+}
+
+int _paymentMonths(DateTime? start, DateTime? end) {
+  if (start == null || end == null || end.isBefore(start)) return 1;
+  var months = (end.year - start.year) * 12 + end.month - start.month;
+  final anniversary = DateTime(start.year, start.month + months, start.day);
+  if (anniversary.isBefore(end)) months++;
+  return months < 1 ? 1 : months;
+}
+
+bool _isLessThanOneMonth(DateTime? start, DateTime? end) {
+  if (start == null || end == null || end.isBefore(start)) return true;
+  final nextMonth = DateTime(start.year, start.month + 1, start.day);
+  return end.isBefore(nextMonth);
 }
 
 class _SectionHeading extends StatelessWidget {
@@ -1429,4 +2481,16 @@ class _PickerTile extends StatelessWidget {
       ),
     ),
   );
+}
+
+class _DownTriangleClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) => Path()
+    ..moveTo(0, 0)
+    ..lineTo(size.width, 0)
+    ..lineTo(size.width / 2, size.height)
+    ..close();
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }

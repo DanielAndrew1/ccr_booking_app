@@ -1,5 +1,4 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously
-import 'package:flutter/cupertino.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:site_lapse/core/imports.dart';
 
@@ -96,6 +95,18 @@ class _SettingsPageState extends State<SettingsPage> {
               child: Column(
                 children: [
                   CustomTile(
+                    title: 'Customize Dashboard',
+                    imagePath: AppIcons.home,
+                    overlayColor: false,
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const DashboardSettingsPage(),
+                      ),
+                    ),
+                  ),
+                  CustomTile(
                     title: loc.tr("Theme"),
                     imagePath: AppIcons.moon,
                     overlayColor: false,
@@ -133,9 +144,12 @@ class _SettingsPageState extends State<SettingsPage> {
                     title: loc.tr("Notifications"),
                     imagePath: AppIcons.notification,
                     overlayColor: false,
-                    trailing: CupertinoSwitch(
+                    trailing: Switch.adaptive(
                       value: _notificationsEnabled,
-                      activeTrackColor: AppColors.primary,
+                      activeThumbColor: Colors.white,
+                      activeTrackColor: AppColors.primary.withValues(
+                        alpha: 0.5,
+                      ),
                       onChanged: _handleNotificationToggle,
                     ),
                   ),
@@ -169,7 +183,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   ),
                   CustomTile(
-                    title: loc.tr("App Language"),
+                    title: loc.tr("Language"),
                     imagePath: AppIcons.globe,
                     overlayColor: false,
                     trailing: DropdownButtonHideUnderline(
